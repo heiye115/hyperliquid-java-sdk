@@ -1,5 +1,5 @@
 import com.fasterxml.jackson.databind.JsonNode;
-import com.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.info;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -1,8 +1,10 @@
 package com.hyperliquid.sdk.info;
 
-import com.hyperliquid.sdk.model.info.Candle;
+
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.model.info.Candle;
+import io.github.hyperliquid.sdk.utils.Error;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -66,13 +68,13 @@ public class CandleSnapshotBtc1hTest {
         List<Candle> candles;
         try {
             candles = info.candleSnapshotTyped(coinId, "1h", startTime, endTime);
-        } catch (com.hyperliquid.sdk.utils.Error.ClientError e) {
+        } catch ( Error.ClientError e) {
             e.printStackTrace();
             // 兼容性回退：部分环境要求 coin 为字符串（如 "BTC" 或 "@107"）
             System.out.println("candleSnapshotTyped(coinId) 失败，尝试使用 coinName：" + e.getMessage());
             try {
                 candles = info.candleSnapshotTyped("BTC", "1h", startTime, endTime);
-            } catch (com.hyperliquid.sdk.utils.Error.ClientError e2) {
+            } catch ( Error.ClientError e2) {
                 e2.printStackTrace();
                 System.out.println(
                         "candleSnapshotTyped(coinName) 仍失败，尝试使用 candlesSnapshot(intervalMs)：" + e2.getMessage());

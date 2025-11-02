@@ -13,7 +13,7 @@
 ## 安装
 
 环境要求：
-- Java 11 或更高版本
+- Java 21 或更高版本
 - Maven 3.8+
 
 方式一：从源码构建
@@ -34,7 +34,7 @@
   <dependency>
     <groupId>com.hyperliquid</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
   </dependency>
   ```
 
@@ -235,4 +235,3 @@ Apache License 2.0。详见项目根目录 `LICENSE` 文件。
 版权声明：
 - Copyright (c) 2025 Hyperliquid Java SDK contributors
 - 按 Apache 2.0 许可“现状”分发，不附带任何明示或暗示的担保或条件。
-

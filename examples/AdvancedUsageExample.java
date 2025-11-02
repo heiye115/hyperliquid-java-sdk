@@ -1,10 +1,10 @@
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.model.info.FrontendOpenOrder;
-import com.hyperliquid.sdk.model.info.OpenOrder;
-import com.hyperliquid.sdk.model.info.Fill;
-import com.hyperliquid.sdk.model.info.ClearinghouseState;
-import com.hyperliquid.sdk.model.info.SpotClearinghouseState;
-import com.hyperliquid.sdk.model.info.Candle;
+import io.github.hyperliquid.sdk.info.*;
+import io.github.hyperliquid.sdk.model.info.FrontendOpenOrder;
+import io.github.hyperliquid.sdk.model.info.OpenOrder;
+import io.github.hyperliquid.sdk.model.info.Fill;
+import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
+import io.github.hyperliquid.sdk.model.info.SpotClearinghouseState;
+import io.github.hyperliquid.sdk.model.info.Candle;
 
 import java.util.List;
 import java.util.Map;

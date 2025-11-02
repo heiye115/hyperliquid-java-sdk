@@ -1,6 +1,6 @@
 # Hyperliquid Java SDK
 
-Pure Java SDK for Hyperliquid. It provides HTTP Info queries, WebSocket subscriptions, order placement and signing for L1 actions. The project is built with Maven and uses the default package `com.hyperliquid.sdk`.
+A Software Development Kit (SDK) for the Hyperliquid decentralized exchange.
 
 ## Project Overview
 
@@ -13,7 +13,7 @@ Pure Java SDK for Hyperliquid. It provides HTTP Info queries, WebSocket subscrip
 ## Installation
 
 Prerequisites:
-- Java 11 or later
+- Java 21 or later
 - Maven 3.8+
 
 Option A: Build from source
@@ -34,7 +34,7 @@ Option B: Use as a Maven dependency (local install)
   <dependency>
     <groupId>com.hyperliquid</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
   </dependency>
   ```
 
@@ -235,4 +235,3 @@ Apache License 2.0. See `LICENSE` at the project root.
 Copyright notice:
 - Copyright (c) 2025 Hyperliquid Java SDK contributors
 - Distributed under Apache 2.0 on an "AS IS" basis without warranties or conditions of any kind
-

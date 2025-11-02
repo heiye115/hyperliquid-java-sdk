@@ -4,11 +4,53 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.hyperliquid</groupId>
+    <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.1.0</version>
-    <name>hyperliquid-java-sdk</name>
-    <description>Java implementation of the Hyperliquid SDK converted from the Python version.</description>
+    <version>0.1.1</version>
+    <name>Hyperliquid Java SDK</name>
+    <description>Pure Java SDK for Hyperliquid: Info queries, WebSocket subscriptions, order placement and signing.</description>
+    <url>https://github.com/heiye115/hyperliquid-java-sdk</url>
+
+    <!-- Maven Central required metadata -->
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>heiye</name>
+            <email>heiye115@gmail.com</email>
+            <organization>Hyperliquid</organization>
+            <organizationUrl>https://github.com/heiye115</organizationUrl>
+            <roles>
+                <role>developer</role>
+                <role>maintainer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/heiye115/hyperliquid-java-sdk.git</connection>
+        <developerConnection>scm:git:git@github.com:heiye115/hyperliquid-java-sdk.git</developerConnection>
+        <url>https://github.com/heiye115/hyperliquid-java-sdk</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/heiye115/hyperliquid-java-sdk/issues</url>
+    </issueManagement>
+
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <url>https://central.sonatype.com/api/v1/publishing</url>
+        </repository>
+    </distributionManagement>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -21,17 +63,21 @@
         <junit.version>5.11.4</junit.version>
         <mockito.version>5.20.0</mockito.version>
         <msgpack.version>0.9.10</msgpack.version>
+        <project.build.outputTimestamp>2025-01-01T00:00:00Z</project.build.outputTimestamp>
+        <!-- Central Portal 自动发布设置 -->
+        <central.autoPublish>false</central.autoPublish>
+        <!-- 控制是否跳过 javadoc：默认跳过，避免本地 install 因依赖模块名问题失败；
+             如需生成 javadoc，请在命令行显式设置 -Dmaven.javadoc.skip=false 或启用 release/central 发布流程。 -->
+        <maven.javadoc.skip>true</maven.javadoc.skip>
     </properties>
 
     <dependencies>
-        <!-- JSON -->
+        <!-- JSON Processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
-        <!-- 由于镜像仓库未同步 jackson-annotations 最新版本，暂不直接声明；
-             该依赖由 jackson-databind 传递提供，仍可正常编译与运行。 -->
 
         <!-- HTTP & WebSocket -->
         <dependency>
@@ -64,8 +110,6 @@
             <version>${msgpack.version}</version>
         </dependency>
 
-        <!-- Logging: 移除未使用的 SLF4J 依赖（项目未引用 org.slf4j.* API） -->
-
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -81,8 +125,19 @@
         </dependency>
     </dependencies>
 
+
     <build>
+        <resources>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <includes>
+                    <include>LICENSE</include>
+                </includes>
+                <targetPath>META-INF</targetPath>
+            </resource>
+        </resources>
         <plugins>
+            <!-- Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -95,17 +150,35 @@
                     </compilerArgs>
                 </configuration>
             </plugin>
+
+            <!-- JAR Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Automatic-Module-Name>com.hyperliquid.sdk</Automatic-Module-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Surefire Test Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <!-- 修复 JDK21+ 下 Surefire 绝对路径检查导致的 VM 启动失败问题；
-                         合并 Jacoco 代理参数以生成覆盖率报告 -->
-                    <argLine>${argLine} -Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+                    <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
                     <useSystemClassLoader>true</useSystemClassLoader>
+                    <!-- 允许通过 -DskipTests 控制跳过测试（若需同时跳过测试编译，使用 -Dmaven.test.skip=true） -->
+                    <skipTests>${skipTests}</skipTests>
                 </configuration>
             </plugin>
+
+            <!-- JaCoCo Code Coverage -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -125,6 +198,101 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Source Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Javadoc Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.2</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <doclint>none</doclint>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <charSet>UTF-8</charSet>
+                    <docencoding>UTF-8</docencoding>
+                    <!-- 不使用模块路径，避免依赖的自动模块名非法导致失败（如 jc-kzg-4844） -->
+                    <useModulePath>false</useModulePath>
+                    <!-- 关闭依赖位置扫描，避免 JDK 模块系统尝试为依赖推导模块名（例如 jc-kzg-4844 导致无效模块名错误） -->
+                    <dependencyLocationsEnabled>false</dependencyLocationsEnabled>
+                    <!-- 如果仍有边缘告警，确保不因告警而失败 -->
+                    <failOnError>false</failOnError>
+                    <!-- 支持通过 -Dmaven.javadoc.skip=true 在 package 时跳过 javadoc 生成 -->
+                    <skip>${maven.javadoc.skip}</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- GPG 插件 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <!-- 根据你的系统选择其中一个 -->
+                   <!-- <executable>gpg</executable>-->
+                    <!-- 如果上面不行，取消注释下面的并修改为你的GPG路径 -->
+                    <executable>D:\Applications\GnuPG\bin\gpg.exe</executable>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <!-- Central Portal Publishing Profile -->
+    <profiles>
+        <profile>
+            <id>central</id>
+            <!-- 在 Central 发布配置中显式开启 javadoc 生成，满足 Central Portal 对 javadocs 的要求 -->
+            <properties>
+                <maven.javadoc.skip>false</maven.javadoc.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Central Publishing Plugin -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.9.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>${central.autoPublish}</autoPublish>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
