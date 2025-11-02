@@ -1,3 +1,4 @@
+**Languages:** [中文](README.zh-CN.md) 
 # Hyperliquid Java SDK
 
 A Software Development Kit (SDK) for the Hyperliquid decentralized exchange.
