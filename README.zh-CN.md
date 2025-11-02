@@ -1,7 +1,7 @@
 **Languages:** [English](README.md)
 # Hyperliquid Java SDK
 
-纯 Java 的 Hyperliquid SDK，提供 HTTP Info 查询、WebSocket 订阅、下单与签名等能力。工程使用 Maven 构建，默认包名为 `com.hyperliquid.sdk`。
+Hyperliquid 去中心化交易所的软件开发工具包 (SDK)。
 
 ## 项目概述
 
