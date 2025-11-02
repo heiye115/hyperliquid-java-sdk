@@ -28,12 +28,13 @@ Option A: Build from source
 Option B: Use as a Maven dependency (local install)
 - Install into your local repository:
   ```
-  mvn  clean install -DskipTests=true
+  mvn clean install -DskipTests=true
   ```
 - Add dependency in your project’s `pom.xml`:
   ```xml
+  <!-- Coordinates from pom.xml -->
   <dependency>
-    <groupId>com.hyperliquid</groupId>
+    <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
     <version>0.1.2</version>
   </dependency>
@@ -45,7 +46,7 @@ Option B: Use as a Maven dependency (local install)
 
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
-import com.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.info.Info;
 
 // Create Info client (skipWs=true to avoid starting WebSocket in simple demos)
 String baseUrl = "https://api.hyperliquid.xyz"; // mainnet endpoint
@@ -59,8 +60,8 @@ System.out.println(mids.toPrettyString());
 ### 2) Candles: 1h snapshot for BTC (typed)
 
 ```java
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.model.info.Candle;
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.model.info.Candle;
 import java.util.List;
 
 // Create Info client
@@ -86,8 +87,8 @@ System.out.println("candles(count by coin id) = " + (candlesById == null ? 0 : c
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.websocket.WebsocketManager;
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.websocket.WebsocketManager;
 
 // Create Info client with WebSocket enabled
 String baseUrl = "https://api.hyperliquid.xyz";
@@ -128,11 +129,11 @@ info.setNetworkCheckIntervalSeconds(5);
 
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
-import com.hyperliquid.sdk.exchange.Exchange;
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.model.order.LimitOrderType;
-import com.hyperliquid.sdk.model.order.OrderRequest;
-import com.hyperliquid.sdk.model.order.OrderType;
+import io.github.hyperliquid.sdk.exchange.Exchange;
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.model.order.LimitOrderType;
+import io.github.hyperliquid.sdk.model.order.OrderRequest;
+import io.github.hyperliquid.sdk.model.order.OrderType;
 import org.web3j.crypto.Credentials;
 
 // Create Info and Exchange clients
@@ -173,7 +174,7 @@ Info client:
 - `List<Candle> candleSnapshotTyped(String coinName, String interval, long startTime, long endTime)`
 - `List<Candle> candleSnapshotTyped(int coinId, String interval, long startTime, long endTime)`
 - `List<FrontendOpenOrder> frontendOpenOrdersTyped(String address [, String dex])`
-- `List<com.hyperliquid.sdk.model.info.OpenOrder> openOrdersTyped(String address [, String dex])`
+- `List<io.github.hyperliquid.sdk.model.info.OpenOrder> openOrdersTyped(String address [, String dex])`
 - `List<Fill> userFillsTyped(String address, boolean aggregateByTime)`
 - `ClearinghouseState clearinghouseStateTyped(String address, String dex)`
 - `SpotClearinghouseState spotClearinghouseStateTyped(String address)`
@@ -185,28 +186,24 @@ Exchange client:
 
 ## Examples and Testing
 
-Examples are under the `examples` folder:
-- `examples/BasicUsageExample.java` – Info core queries (allMids, meta, dex variants)
-- `examples/AdvancedUsageExample.java` – typed helpers and advanced scenarios (open orders, fills, clearinghouse state)
+Quick examples are provided inline in this README. If you want to compile and run them as standalone files:
 
-Run examples (Windows):
-1. Build and test:
+1. Build and test the SDK:
    ```
    mvn -q -DskipTests=false clean test
+   mvn -q package
    ```
-2. Copy dependencies:
+2. Copy dependencies for running examples:
    ```
    mvn -q dependency:copy-dependencies
    ```
-3. Compile examples:
+3. Create a file `QuickStart.java` in the project root and paste the usage snippet (e.g., Info mids or candles). Then compile:
    ```
-   javac -cp target/classes;target/dependency/* examples\\BasicUsageExample.java
-   javac -cp target/classes;target/dependency/* examples\\AdvancedUsageExample.java
+   javac -cp target/classes;target/dependency/* QuickStart.java
    ```
 4. Run:
    ```
-   java -cp .;target/classes;target/dependency/* examples.BasicUsageExample
-   java -cp .;target/classes;target/dependency/* examples.AdvancedUsageExample
+   java -cp .;target/classes;target/dependency/* QuickStart
    ```
 
 Run unit tests:
@@ -216,8 +213,18 @@ Run unit tests:
   ```
 - Specific test class:
   ```
-  mvn -q -Dtest=com.hyperliquid.sdk.info.CandleSnapshotBtc1hTest test
+  mvn -q -Dtest=io.github.hyperliquid.sdk.CandleSnapshotBtc1hTest test
   ```
+
+Note: If you prefer to organize examples under an `examples` folder, simply create it and place your example classes there. Adjust the `javac/java -cp` classpath accordingly.
+
+## Security and Signing Notes
+
+- The SDK provides two mechanisms related to L1 order/action signing:
+  - `Signing.actionHash(...)`: computes a keccak256 over a MessagePack payload that includes the action JSON, nonce, optional vault address, and optional expiry.
+  - `Signing.signTypedData(...)`: signs the supplied EIP-712 typed data. If a Base64 `actionHash` is present in the message, it is signed directly; otherwise the method falls back to signing the keccak256 of the typed payload JSON (a pragmatic simplification when full EIP-712 structures are not available).
+- Ensure you understand which signing path your integration uses. For production-grade EIP-712 flows, supply domain/types/message per your backend’s specification.
+- Always safeguard your private keys and avoid logging sensitive material.
 
 ## Contribution
 

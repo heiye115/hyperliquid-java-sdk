@@ -28,12 +28,13 @@ Hyperliquid 去中心化交易所的软件开发工具包 (SDK)。
 方式二：作为 Maven 依赖（本地安装）
 - 安装到本地仓库：
   ```
-  mvn  clean install -DskipTests=true
+  mvn clean install -DskipTests=true
   ```
 - 在你的项目 `pom.xml` 中添加依赖：
   ```xml
+  <!-- 坐标以 pom.xml 为准 -->
   <dependency>
-    <groupId>com.hyperliquid</groupId>
+    <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
     <version>0.1.2</version>
   </dependency>
@@ -45,7 +46,7 @@ Hyperliquid 去中心化交易所的软件开发工具包 (SDK)。
 
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
-import com.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.info.Info;
 
 // 创建 Info 客户端（skipWs=true：示例中不启用 WebSocket）
 String baseUrl = "https://api.hyperliquid.xyz"; // 主网地址
@@ -59,8 +60,8 @@ System.out.println(mids.toPrettyString());
 ### 2）K线：查询 BTC 的 1 小时快照（类型化）
 
 ```java
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.model.info.Candle;
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.model.info.Candle;
 import java.util.List;
 
 // 创建 Info 客户端
@@ -86,8 +87,8 @@ System.out.println("candles(count by coin id) = " + (candlesById == null ? 0 : c
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.websocket.WebsocketManager;
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.websocket.WebsocketManager;
 
 // 启用 WebSocket 的 Info 客户端
 String baseUrl = "https://api.hyperliquid.xyz";
@@ -128,11 +129,11 @@ info.setNetworkCheckIntervalSeconds(5);
 
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
-import com.hyperliquid.sdk.exchange.Exchange;
-import com.hyperliquid.sdk.info.Info;
-import com.hyperliquid.sdk.model.order.LimitOrderType;
-import com.hyperliquid.sdk.model.order.OrderRequest;
-import com.hyperliquid.sdk.model.order.OrderType;
+import io.github.hyperliquid.sdk.exchange.Exchange;
+import io.github.hyperliquid.sdk.info.Info;
+import io.github.hyperliquid.sdk.model.order.LimitOrderType;
+import io.github.hyperliquid.sdk.model.order.OrderRequest;
+import io.github.hyperliquid.sdk.model.order.OrderType;
 import org.web3j.crypto.Credentials;
 
 // 创建 Info 与 Exchange 客户端
@@ -173,7 +174,7 @@ Info 客户端：
 - `List<Candle> candleSnapshotTyped(String coinName, String interval, long startTime, long endTime)`
 - `List<Candle> candleSnapshotTyped(int coinId, String interval, long startTime, long endTime)`
 - `List<FrontendOpenOrder> frontendOpenOrdersTyped(String address [, String dex])`
-- `List<com.hyperliquid.sdk.model.info.OpenOrder> openOrdersTyped(String address [, String dex])`
+- `List<io.github.hyperliquid.sdk.model.info.OpenOrder> openOrdersTyped(String address [, String dex])`
 - `List<Fill> userFillsTyped(String address, boolean aggregateByTime)`
 - `ClearinghouseState clearinghouseStateTyped(String address, String dex)`
 - `SpotClearinghouseState spotClearinghouseStateTyped(String address)`
@@ -185,28 +186,24 @@ Exchange 客户端：
 
 ## 示例与测试
 
-示例位于项目根目录的 `examples` 文件夹：
-- `examples/BasicUsageExample.java` —— Info 核心查询（allMids、meta、dex 可选参数）
-- `examples/AdvancedUsageExample.java` —— 类型化便捷方法与进阶场景（open orders、fills、清算所状态等）
+本文已提供了内嵌的快速示例代码片段。若你希望以独立文件运行：
 
-运行示例（Windows 环境）：
-1. 构建与测试：
+1. 构建与测试 SDK：
    ```
    mvn -q -DskipTests=false clean test
+   mvn -q package
    ```
 2. 拷贝依赖：
    ```
    mvn -q dependency:copy-dependencies
    ```
-3. 编译示例：
+3. 在项目根目录创建 `QuickStart.java` 文件，粘贴 README 中的使用示例（如 Info 查询 mids 或 K 线示例），然后编译：
    ```
-   javac -cp target/classes;target/dependency/* examples\\BasicUsageExample.java
-   javac -cp target/classes;target/dependency/* examples\\AdvancedUsageExample.java
+   javac -cp target/classes;target/dependency/* QuickStart.java
    ```
-4. 运行示例：
+4. 运行：
    ```
-   java -cp .;target/classes;target/dependency/* examples.BasicUsageExample
-   java -cp .;target/classes;target/dependency/* examples.AdvancedUsageExample
+   java -cp .;target/classes;target/dependency/* QuickStart
    ```
 
 运行单元测试：
@@ -216,8 +213,18 @@ Exchange 客户端：
   ```
 - 指定测试类：
   ```
-  mvn -q -Dtest=com.hyperliquid.sdk.info.CandleSnapshotBtc1hTest test
+  mvn -q -Dtest=io.github.hyperliquid.sdk.CandleSnapshotBtc1hTest test
   ```
+
+备注：如果你更喜欢将示例置于 `examples` 文件夹，可自行创建该文件夹并将示例类置于其中，按需调整 `javac/java -cp` 的类路径。
+
+## 安全与签名说明
+
+- SDK 提供两类与 L1 下单/动作相关的签名能力：
+  - `Signing.actionHash(...)`：对包含 action JSON、nonce、可选 vault 地址与可选过期时间的 MsgPack 载荷进行 keccak256。
+  - `Signing.signTypedData(...)`：对给定的 EIP-712 typed data 进行签名。若 message 中包含 Base64 的 `actionHash` 字段，则直接对其签名；否则回退为对 typed payload 的 JSON 进行 keccak 再签名（当后端未完整提供 EIP-712 结构时的务实降级）。
+- 请确认你的集成路径使用了哪种签名方式。生产环境推荐按后端规范提供完整的 domain/types/message。
+- 请妥善保管私钥，避免在日志中输出敏感信息。
 
 ## 贡献指南
 

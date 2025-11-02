@@ -1,4 +1,4 @@
-package com.hyperliquid.sdk.info;
+package io.github.hyperliquid.sdk;
 
 
 import io.github.hyperliquid.sdk.info.Info;
