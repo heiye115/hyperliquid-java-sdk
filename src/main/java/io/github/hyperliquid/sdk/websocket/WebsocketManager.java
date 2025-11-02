@@ -12,12 +12,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * WebSocket 管理器。
  * 管理连接、订阅、心跳与消息分发。
  */
 public class WebsocketManager {
+    /** 日志记录器 */
+    private static final Logger LOG = Logger.getLogger(WebsocketManager.class.getName());
     /** 原始 API 根地址（http/https），用于网络可用性检测 */
     private final String baseUrl;
     private final String wsUrl;
@@ -80,6 +85,22 @@ public class WebsocketManager {
         void onMessage(JsonNode msg);
     }
 
+    /**
+     * 回调异常监听接口。
+     * 当用户回调抛出异常时，框架会捕获并通知此监听器。
+     */
+    public interface CallbackErrorListener {
+        /**
+         * 用户回调抛出异常时触发。
+         *
+         * @param url        当前 WebSocket URL
+         * @param identifier 订阅标识符（由 subscriptionToIdentifier/wsMsgToIdentifier 生成）
+         * @param message    导致异常的消息（原始 JSON）
+         * @param error      异常对象
+         */
+        void onCallbackError(String url, String identifier, JsonNode message, Throwable error);
+    }
+
     /** 活跃订阅记录 */
     public static class ActiveSubscription {
         public final JsonNode subscription;
@@ -90,6 +111,9 @@ public class WebsocketManager {
             this.callback = c;
         }
     }
+
+    /** 回调异常监听器集合（线程安全） */
+    private final List<CallbackErrorListener> callbackErrorListeners = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * 构造 WebSocket 管理器。
@@ -148,7 +172,13 @@ public class WebsocketManager {
                     String identifier = wsMsgToIdentifier(msg);
                     if (identifier != null && subscriptions.containsKey(identifier)) {
                         for (ActiveSubscription sub : subscriptions.get(identifier)) {
-                            sub.callback.onMessage(msg);
+                            try {
+                                sub.callback.onMessage(msg);
+                            } catch (Exception cbEx) {
+                                // 记录日志并触发异常监听器，不影响其他订阅回调
+                                LOG.log(Level.WARNING, "WebSocket 回调异常，identifier=" + identifier, cbEx);
+                                notifyCallbackError(identifier, msg, cbEx);
+                            }
                         }
                     }
                 } catch (IOException e) {
@@ -318,6 +348,18 @@ public class WebsocketManager {
             connectionListeners.remove(l);
     }
 
+    /** 添加回调异常监听器 */
+    public void addCallbackErrorListener(CallbackErrorListener l) {
+        if (l != null)
+            callbackErrorListeners.add(l);
+    }
+
+    /** 移除回调异常监听器 */
+    public void removeCallbackErrorListener(CallbackErrorListener l) {
+        if (l != null)
+            callbackErrorListeners.remove(l);
+    }
+
     /** 设置最大重连次数（默认 5） */
     public void setMaxReconnectAttempts(int max) {
         this.maxReconnectAttempts = Math.max(0, max);
@@ -420,6 +462,18 @@ public class WebsocketManager {
         }
     }
 
+    /** 通知：用户回调异常（防御式，单个监听异常不影响其它监听） */
+    private void notifyCallbackError(String identifier, JsonNode msg, Throwable error) {
+        synchronized (callbackErrorListeners) {
+            for (CallbackErrorListener l : callbackErrorListeners) {
+                try {
+                    l.onCallbackError(wsUrl, identifier, msg, error);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
     /**
      * 订阅消息。
      *
@@ -428,7 +482,7 @@ public class WebsocketManager {
      */
     public void subscribe(JsonNode subscription, MessageCallback callback) {
         String identifier = subscriptionToIdentifier(subscription);
-        subscriptions.computeIfAbsent(identifier, k -> new ArrayList<>())
+        subscriptions.computeIfAbsent(identifier, k -> new CopyOnWriteArrayList<>())
                 .add(new ActiveSubscription(subscription, callback));
         sendSubscribe(subscription);
     }

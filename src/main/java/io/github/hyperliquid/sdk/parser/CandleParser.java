@@ -1,8 +1,8 @@
 package io.github.hyperliquid.sdk.parser;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hyperliquid.sdk.model.info.Candle;
+import io.github.hyperliquid.sdk.api.API;
 import io.github.hyperliquid.sdk.utils.Error;
 
 import java.util.ArrayList;
@@ -15,7 +15,6 @@ import java.util.Optional;
  * 提供 JsonNode 到 Candle 列表/最新一条的解析封装，并在出现异常数据时给出清晰错误信息。
  */
 public final class CandleParser {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private CandleParser() {}
 
@@ -41,7 +40,7 @@ public final class CandleParser {
                 continue;
             }
             try {
-                Candle c = MAPPER.treeToValue(e, Candle.class);
+                Candle c = API.getSharedMapper().treeToValue(e, Candle.class);
                 result.add(c);
             } catch (Exception ex) {
                 throw new Error("Candle 反序列化失败（索引=" + i + "): " + ex.getMessage());
@@ -63,4 +62,3 @@ public final class CandleParser {
         return Optional.of(list.get(list.size() - 1));
     }
 }
-

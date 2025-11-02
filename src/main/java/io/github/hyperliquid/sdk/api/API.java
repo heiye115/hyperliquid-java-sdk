@@ -1,7 +1,10 @@
 package io.github.hyperliquid.sdk.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import io.github.hyperliquid.sdk.utils.Error;
 import okhttp3.*;
 
@@ -18,6 +21,43 @@ public class API {
     protected final ObjectMapper mapper;
 
     /**
+     * 全局共享的 ObjectMapper 单例，统一配置序列化/反序列化策略。
+     * 所有 API 子类默认复用该实例，避免多处配置不一致与性能浪费。
+     */
+    private static final ObjectMapper SHARED_MAPPER = createSharedMapper();
+
+    /**
+     * 构建并配置共享 ObjectMapper。
+     */
+    private static ObjectMapper createSharedMapper() {
+        ObjectMapper om = new ObjectMapper();
+        // 反序列化容错：忽略未知字段，避免后端新增字段导致解析失败
+        om.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        // 序列化：日期使用 ISO-8601（不写为时间戳），便于日志可读
+        om.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        return om;
+    }
+
+    /**
+     * 获取共享的 ObjectMapper。
+     */
+    public static ObjectMapper getSharedMapper() {
+        return SHARED_MAPPER;
+    }
+
+    /**
+     * 注册自定义模块（例如 JavaTimeModule、Jdk8Module 或自定义序列化器）。
+     * 该方法线程安全，应在应用启动时统一注册。
+     *
+     * @param module Jackson 模块
+     */
+    public static synchronized void registerModule(Module module) {
+        if (module != null) {
+            SHARED_MAPPER.registerModule(module);
+        }
+    }
+
+    /**
      * 构造 API 客户端。
      *
      * @param baseUrl API 根地址（例如 https://api.hyperliquid.xyz）
@@ -25,7 +65,8 @@ public class API {
      */
     public API(String baseUrl, int timeout) {
         this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
-        this.mapper = new ObjectMapper();
+        // 统一复用共享 ObjectMapper
+        this.mapper = SHARED_MAPPER;
         this.client = new OkHttpClient.Builder()
                 .callTimeout(Duration.ofSeconds(timeout))
                 .connectTimeout(Duration.ofSeconds(timeout))

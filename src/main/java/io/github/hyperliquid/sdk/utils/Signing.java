@@ -1,6 +1,7 @@
 package io.github.hyperliquid.sdk.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hyperliquid.sdk.api.API;
 import io.github.hyperliquid.sdk.model.order.OrderRequest;
 import io.github.hyperliquid.sdk.model.order.OrderType;
 import io.github.hyperliquid.sdk.model.order.OrderWire;
@@ -17,11 +18,32 @@ import java.util.*;
 
 /**
  * 签名与转换工具（覆盖核心功能：浮点转换、订单 wire 转换、动作哈希、EIP-712 签名）。
+ *
+ * 设计目标：
+ * - 统一使用 API 层共享的 ObjectMapper，避免多处配置不一致与重复实例化；
+ * - 在 addressToBytes 方法中实现严格的地址长度校验（默认 20 字节），并可通过开关启用兼容性降级策略；
+ * - 为关键方法补充详细文档，包括 @return 与 @throws 注释，便于 IDE 友好提示与二次开发。
  */
 public final class Signing {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    /**
+     * 共享的 ObjectMapper，复用 API 层配置（忽略未知字段、ISO-8601 日期等）。
+     */
+    private static final ObjectMapper MAPPER = API.getSharedMapper();
 
-    private Signing() {}
+    /**
+     * 地址长度严格模式开关：
+     * - true（默认）：addressToBytes 会严格要求地址为 20 字节（40 个十六进制字符），否则抛出
+     * IllegalArgumentException；
+     * - false：对非 20 字节输入执行兼容性降级（>20 截取末尾 20 字节；<20 左侧补零）。
+     *
+     * 可通过系统属性 hyperliquid.address.strict 控制默认值，例如：
+     * -Dhyperliquid.address.strict=true/false
+     */
+    private static volatile boolean STRICT_ADDRESS_LENGTH = Boolean
+            .parseBoolean(System.getProperty("hyperliquid.address.strict", "true"));
+
+    private Signing() {
+    }
 
     /**
      * 将浮点数转换为字符串表示（适配后端接口要求）。
@@ -94,7 +116,8 @@ public final class Signing {
      * @return Map 结构用于序列化
      */
     public static Object orderTypeToWire(OrderType orderType) {
-        if (orderType == null) return null;
+        if (orderType == null)
+            return null;
         Map<String, Object> out = new LinkedHashMap<>();
         orderType.getLimit().ifPresent(limit -> {
             Map<String, Object> limitObj = new LinkedHashMap<>();
@@ -115,8 +138,8 @@ public final class Signing {
      * 将下单请求转换为 wire 结构（OrderWire），其中 coin 需为整数资产 ID，
      * sz/limitPx 转为字符串，orderType 转为 Map。
      *
-     * @param coinId    整数资产 ID
-     * @param req       下单请求
+     * @param coinId 整数资产 ID
+     * @param req    下单请求
      * @return OrderWire
      */
     public static OrderWire orderRequestToOrderWire(int coinId, OrderRequest req) {
@@ -128,7 +151,8 @@ public final class Signing {
 
     /**
      * 计算 L1 动作的哈希。
-     * 结构：msgpack(action) + 8字节nonce + vaultAddress标志与地址 + expiresAfter标志与值 -> keccak256。
+     * 结构：msgpack(action) + 8字节nonce + vaultAddress标志与地址 + expiresAfter标志与值 ->
+     * keccak256。
      *
      * @param action       动作对象（Map/POJO）
      * @param nonce        随机数/时间戳
@@ -176,22 +200,48 @@ public final class Signing {
     }
 
     /**
-     * 地址字符串转字节数组（去除 0x 前缀，取 20 字节）。
+     * 地址字符串转字节数组（去除 0x 前缀）。
      *
-     * @param address 0x 前缀以太坊地址
-     * @return 20 字节地址
+     * 行为说明：
+     * - 严格模式（默认启用）：仅接受 20 字节地址（40 个十六进制字符），否则抛出 IllegalArgumentException；
+     * - 兼容模式（可通过 setStrictAddressLength(false) 或 -Dhyperliquid.address.strict=false
+     * 开启）：
+     * 非 20 字节输入将执行降级处理：长度大于 20 截取末尾 20 字节；长度不足 20 则在左侧补零至 20 字节。
+     *
+     * @param address 以太坊地址，支持带或不带 0x 前缀
+     * @return 地址的 20 字节表示
+     * @throws IllegalArgumentException 当地址为空、非十六进制或在严格模式下长度不为 20 字节时抛出
      */
     public static byte[] addressToBytes(String address) {
+        if (address == null) {
+            throw new IllegalArgumentException("address must not be null");
+        }
         String clean = Numeric.cleanHexPrefix(address);
-        byte[] full = Numeric.hexStringToByteArray(clean);
-        if (full.length == 20) {
+        if (clean.isEmpty()) {
+            throw new IllegalArgumentException("address must not be empty");
+        }
+        final byte[] full;
+        try {
+            full = Numeric.hexStringToByteArray(clean);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("address contains non-hex characters: " + address, e);
+        }
+
+        if (STRICT_ADDRESS_LENGTH) {
+            if (full.length != 20) {
+                throw new IllegalArgumentException(
+                        "address must be exactly 20 bytes (40 hex chars), got " + full.length + " bytes");
+            }
             return full;
         }
-        // 若输入带校验和或不标准长度，截取末尾 20 字节
+
+        // 兼容模式：>20 截取末尾 20 字节；<20 左侧补零
         if (full.length > 20) {
             return Arrays.copyOfRange(full, full.length - 20, full.length);
         }
-        // 不足则左侧补零
+        if (full.length == 20) {
+            return full;
+        }
         byte[] out = new byte[20];
         System.arraycopy(full, 0, out, 20 - full.length, full.length);
         return out;
@@ -200,14 +250,15 @@ public final class Signing {
     /**
      * 为用户签名 L1 动作（EIP-712 Typed Data）。
      *
-     * @param credentials  用户凭证（私钥）
-     * @param domain       EIP-712 域（Map）
-     * @param types        类型定义（Map）
-     * @param message      消息对象（Map）
+     * @param credentials 用户凭证（私钥）
+     * @param domain      EIP-712 域（Map）
+     * @param types       类型定义（Map）
+     * @param message     消息对象（Map）
      * @return r/s/v 十六进制签名
+     * @throws Error 当序列化或签名过程出现异常时抛出（封装底层异常信息）
      */
     public static Map<String, String> signTypedData(Credentials credentials, Map<String, Object> domain,
-                                                    Map<String, Object> types, Map<String, Object> message) {
+            Map<String, Object> types, Map<String, Object> message) {
         try {
             // 如果 message 中包含 Base64 的 actionHash，则直接对其进行签名，避免严格的 TypedData 结构校验失败。
             byte[] payloadToSign = null;
@@ -215,7 +266,8 @@ public final class Signing {
             if (actionHashObj instanceof String) {
                 try {
                     payloadToSign = Base64.getDecoder().decode((String) actionHashObj);
-                } catch (IllegalArgumentException ignored) {}
+                } catch (IllegalArgumentException ignored) {
+                }
             }
             if (payloadToSign == null) {
                 // 回退：对 typedData 的 JSON 进行 keccak256，再进行签名（这是非标准 EIP-712 的简化处理，用于保证签名流程可用）。
@@ -251,6 +303,22 @@ public final class Signing {
      * @param orders 订单 wire 列表
      * @return Map 动作对象 {"type": "order", ...}
      */
+    /**
+     * 将多个 OrderWire 转换为 L1 动作对象，用于签名与发送。
+     *
+     * 生成的结构形如：
+     * {
+     * "type": "order",
+     * "orders": [
+     * {"coin": 1, "isBuy": true, "sz": "0.1", "limitPx": "60000", "orderType":
+     * {...}, "reduceOnly": false, "cloid": "..."},
+     * ...
+     * ]
+     * }
+     *
+     * @param orders 订单 wire 列表
+     * @return Map 动作对象 {"type": "order", "orders": [...]}
+     */
     public static Map<String, Object> orderWiresToOrderAction(List<OrderWire> orders) {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "order");
@@ -260,14 +328,34 @@ public final class Signing {
             w.put("coin", o.coin);
             w.put("isBuy", o.isBuy);
             w.put("sz", o.sz);
-            if (o.limitPx != null) w.put("limitPx", o.limitPx);
-            if (o.orderType != null) w.put("orderType", o.orderType);
+            if (o.limitPx != null)
+                w.put("limitPx", o.limitPx);
+            if (o.orderType != null)
+                w.put("orderType", o.orderType);
             w.put("reduceOnly", o.reduceOnly);
-            if (o.cloid != null) w.put("cloid", o.cloid.getRaw());
+            if (o.cloid != null)
+                w.put("cloid", o.cloid.getRaw());
             wires.add(w);
         }
         action.put("orders", wires);
         return action;
     }
-}
 
+    /**
+     * 设置地址长度校验严格模式。
+     *
+     * @param strict 是否严格要求地址为 20 字节
+     */
+    public static void setStrictAddressLength(boolean strict) {
+        STRICT_ADDRESS_LENGTH = strict;
+    }
+
+    /**
+     * 获取当前地址长度校验模式。
+     *
+     * @return true 表示严格模式；false 表示兼容模式
+     */
+    public static boolean isStrictAddressLength() {
+        return STRICT_ADDRESS_LENGTH;
+    }
+}

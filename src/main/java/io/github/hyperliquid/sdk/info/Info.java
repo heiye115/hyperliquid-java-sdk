@@ -1,7 +1,6 @@
 package io.github.hyperliquid.sdk.info;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.github.hyperliquid.sdk.api.API;
 import io.github.hyperliquid.sdk.model.info.*;
@@ -15,14 +14,22 @@ import java.util.*;
  * Info 客户端，提供行情、订单簿、用户状态等查询。
  */
 public class Info extends API {
-    private final ObjectMapper mapper = new ObjectMapper();
     private final boolean skipWs;
     private WebsocketManager wsManager;
 
     // 元数据缓存与映射
-    private final Map<String, Integer> nameToCoin = new HashMap<>();
-    private final Map<Integer, Integer> coinToAsset = new HashMap<>();
-    private final Map<Integer, Integer> assetToSzDecimals = new HashMap<>();
+    private final Map<String, Integer> nameToCoin = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Integer, Integer> coinToAsset = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Integer, Integer> assetToSzDecimals = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // 缓存 TTL 与命中率统计
+    private volatile long cacheTtlMs = 10 * 60 * 1000L; // 默认 10 分钟
+    private volatile long metaLastRefreshMs = 0L;
+    private volatile long spotMetaLastRefreshMs = 0L;
+    private volatile long nameToCoinHits = 0L;
+    private volatile long nameToCoinMisses = 0L;
+    private volatile long coinToAssetHits = 0L;
+    private volatile long coinToAssetMisses = 0L;
 
     /**
      * 构造 Info 客户端。
@@ -37,75 +44,122 @@ public class Info extends API {
         if (!skipWs) {
             this.wsManager = new WebsocketManager(baseUrl, mapper);
         }
-        // 初始化一次 spot/meta 以建立名称与资产映射（对返回结构做健壮处理，避免 NPE）
+        // 初始化：尝试刷新 perp 与 spot 元数据，填充映射
         try {
-            // 1) Spot 映射：基于返回结构构建映射
-            // spotMeta.universe 项结构：{ tokens: [int,int], name: str, index: int,
-            // isCanonical: bool }
-            // Spot 资产 ID 约定为 index + 10000；size 小数位取 base token 的 szDecimals
-            JsonNode spot = spotMeta();
-            if (spot != null && spot.has("universe") && spot.get("universe").isArray()) {
-                JsonNode universe = spot.get("universe");
-                for (int i = 0; i < universe.size(); i++) {
-                    JsonNode asset = universe.get(i);
-                    String name = asset.has("name") ? asset.get("name").asText() : ("SPOT_" + i);
-                    int index = asset.has("index") ? asset.get("index").asInt() : i;
-                    int assetId = index + 10000; // Spot 资产偏移量
-
-                    // name -> coin 的映射：优先使用返回中的 coin 字段（兼容旧/自定义返回），否则使用 index 作为占位
-                    if (asset.has("coin")) {
-                        nameToCoin.putIfAbsent(name, asset.get("coin").asInt());
-                    } else {
-                        nameToCoin.putIfAbsent(name, index);
-                    }
-
-                    // coin -> asset 映射（Spot 使用 index + 10000）
-                    coinToAsset.putIfAbsent(index, assetId);
-
-                    // 计算 szDecimals（取 base token 的 szDecimals）
-                    if (spot.has("tokens") && asset.has("tokens") && asset.get("tokens").isArray()
-                            && asset.get("tokens").size() >= 1) {
-                        int baseTokenIndex = asset.get("tokens").get(0).asInt();
-                        JsonNode tokens = spot.get("tokens");
-                        if (tokens.isArray() && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()) {
-                            JsonNode baseInfo = tokens.get(baseTokenIndex);
-                            int szDec = baseInfo.has("szDecimals") ? baseInfo.get("szDecimals").asInt() : 2;
-                            assetToSzDecimals.putIfAbsent(assetId, szDec);
-                        }
-                    }
-                }
-            }
-
-            // 2) Perp 映射：meta.universe 项结构：{ name: str, szDecimals: int, ... }
-            // 这里将枚举下标作为 coin 与 asset 的占位 ID
-            JsonNode meta = meta();
-            if (meta != null && meta.has("universe") && meta.get("universe").isArray()) {
-                JsonNode universe = meta.get("universe");
-                for (int i = 0; i < universe.size(); i++) {
-                    JsonNode a = universe.get(i);
-                    String nm = a.has("name") ? a.get("name").asText() : ("ASSET_" + i);
-                    int assetId = i; // perp 资产使用枚举下标
-
-                    nameToCoin.putIfAbsent(nm, i);
-                    coinToAsset.putIfAbsent(i, assetId);
-                    int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
-                    assetToSzDecimals.putIfAbsent(assetId, szDec);
-                }
-            }
-            // 兼容旧结构：meta.assets（包含 id 与 coin）
-            if (meta != null && meta.has("assets") && meta.get("assets").isArray()) {
-                JsonNode assets = meta.get("assets");
-                for (int i = 0; i < assets.size(); i++) {
-                    JsonNode a = assets.get(i);
-                    int assetId = a.has("id") ? a.get("id").asInt() : i;
-                    int coinId = a.has("coin") ? a.get("coin").asInt() : i;
-                    coinToAsset.putIfAbsent(coinId, assetId);
-                    int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
-                    assetToSzDecimals.putIfAbsent(assetId, szDec);
-                }
-            }
+            refreshPerpMeta();
+            refreshSpotMeta();
         } catch (Error e) {
             // 初始化失败不影响基本功能，可延迟到调用时再请求
+        }
+    }
+
+    /** 设置缓存 TTL（毫秒） */
+    public void setCacheTtlMs(long ttlMs) {
+        this.cacheTtlMs = Math.max(1_000L, ttlMs);
+    }
+
+    /** 获取缓存命中率统计与刷新时间信息 */
+    public Map<String, Long> getCacheStats() {
+        Map<String, Long> m = new LinkedHashMap<>();
+        m.put("nameToCoinHits", nameToCoinHits);
+        m.put("nameToCoinMisses", nameToCoinMisses);
+        m.put("coinToAssetHits", coinToAssetHits);
+        m.put("coinToAssetMisses", coinToAssetMisses);
+        m.put("metaLastRefreshMs", metaLastRefreshMs);
+        m.put("spotMetaLastRefreshMs", spotMetaLastRefreshMs);
+        m.put("cacheTtlMs", cacheTtlMs);
+        return m;
+    }
+
+    /** 显式刷新全部元数据缓存（线程安全） */
+    public synchronized void refreshMetadata() throws Error {
+        nameToCoin.clear();
+        coinToAsset.clear();
+        assetToSzDecimals.clear();
+        refreshPerpMeta();
+        refreshSpotMeta();
+    }
+
+    /** 刷新 perp 元数据，并更新映射与刷新时间 */
+    private void refreshPerpMeta() throws Error {
+        JsonNode meta = meta();
+        if (meta != null && meta.has("universe") && meta.get("universe").isArray()) {
+            JsonNode universe = meta.get("universe");
+            for (int i = 0; i < universe.size(); i++) {
+                JsonNode a = universe.get(i);
+                String nm = a.has("name") ? a.get("name").asText() : ("ASSET_" + i);
+                int assetId = i; // perp 资产使用枚举下标
+                nameToCoin.putIfAbsent(nm, i);
+                coinToAsset.putIfAbsent(i, assetId);
+                int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
+                assetToSzDecimals.putIfAbsent(assetId, szDec);
+            }
+        }
+        if (meta != null && meta.has("assets") && meta.get("assets").isArray()) {
+            JsonNode assets = meta.get("assets");
+            for (int i = 0; i < assets.size(); i++) {
+                JsonNode a = assets.get(i);
+                int assetId = a.has("id") ? a.get("id").asInt() : i;
+                int coinId = a.has("coin") ? a.get("coin").asInt() : i;
+                coinToAsset.putIfAbsent(coinId, assetId);
+                int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
+                assetToSzDecimals.putIfAbsent(assetId, szDec);
+            }
+        }
+        metaLastRefreshMs = System.currentTimeMillis();
+    }
+
+    /** 刷新 spot 元数据，并更新映射与刷新时间 */
+    private void refreshSpotMeta() throws Error {
+        JsonNode spot = spotMeta();
+        if (spot != null && spot.has("universe") && spot.get("universe").isArray()) {
+            JsonNode universe = spot.get("universe");
+            for (int i = 0; i < universe.size(); i++) {
+                JsonNode asset = universe.get(i);
+                String name = asset.has("name") ? asset.get("name").asText() : ("SPOT_" + i);
+                int index = asset.has("index") ? asset.get("index").asInt() : i;
+                int assetId = index + 10000; // Spot 资产偏移量
+
+                // name -> coin 的映射：优先使用返回中的 coin 字段，否则使用 index 作为占位
+                if (asset.has("coin")) {
+                    nameToCoin.putIfAbsent(name, asset.get("coin").asInt());
+                } else {
+                    nameToCoin.putIfAbsent(name, index);
+                }
+
+                // coin -> asset 映射（Spot 使用 index + 10000）
+                coinToAsset.putIfAbsent(index, assetId);
+
+                // 计算 szDecimals（取 base token 的 szDecimals）
+                if (spot.has("tokens") && asset.has("tokens") && asset.get("tokens").isArray()
+                        && asset.get("tokens").size() >= 1) {
+                    int baseTokenIndex = asset.get("tokens").get(0).asInt();
+                    JsonNode tokens = spot.get("tokens");
+                    if (tokens.isArray() && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()) {
+                        JsonNode baseInfo = tokens.get(baseTokenIndex);
+                        int szDec = baseInfo.has("szDecimals") ? baseInfo.get("szDecimals").asInt() : 2;
+                        assetToSzDecimals.putIfAbsent(assetId, szDec);
+                    }
+                }
+            }
+        }
+        spotMetaLastRefreshMs = System.currentTimeMillis();
+    }
+
+    /** TTL 自动刷新检查（必要时调用 refresh） */
+    private void ensureFreshCaches() {
+        long now = System.currentTimeMillis();
+        if (now - metaLastRefreshMs > cacheTtlMs) {
+            try {
+                refreshPerpMeta();
+            } catch (Error ignored) {
+            }
+        }
+        if (now - spotMetaLastRefreshMs > cacheTtlMs) {
+            try {
+                refreshSpotMeta();
+            } catch (Error ignored) {
+            }
         }
     }
 
@@ -911,71 +965,40 @@ public class Info extends API {
      * @return 资产 ID（可能抛出异常）
      */
     public int nameToAsset(String name) {
+        // TTL 检查，必要时刷新缓存
+        ensureFreshCaches();
         // 尝试直接从缓存读取
         Integer coin = nameToCoin.get(name);
+        if (coin != null) {
+            nameToCoinHits++;
+        } else {
+            nameToCoinMisses++;
+        }
         if (coin == null) {
-            // 1) 先刷新 perp 元数据（meta.universe）
-            JsonNode m = meta();
-            if (m != null && m.has("universe") && m.get("universe").isArray()) {
-                JsonNode universe = m.get("universe");
-                for (int i = 0; i < universe.size(); i++) {
-                    JsonNode a = universe.get(i);
-                    String nm = a.has("name") ? a.get("name").asText() : ("ASSET_" + i);
-                    int assetId = i;
-                    nameToCoin.putIfAbsent(nm, i);
-                    coinToAsset.putIfAbsent(i, assetId);
-                    int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
-                    assetToSzDecimals.putIfAbsent(assetId, szDec);
-                }
-            }
+            // 刷新 perp 元数据
+            refreshPerpMeta();
             coin = nameToCoin.get(name);
         }
 
         // 若仍未命中，尝试刷新 spot 元数据（spotMeta.universe）
         if (coin == null) {
-            JsonNode spot = spotMeta();
-            if (spot != null && spot.has("universe") && spot.get("universe").isArray()) {
-                JsonNode universe = spot.get("universe");
-                for (int i = 0; i < universe.size(); i++) {
-                    JsonNode asset = universe.get(i);
-                    String nm = asset.has("name") ? asset.get("name").asText() : ("SPOT_" + i);
-                    int index = asset.has("index") ? asset.get("index").asInt() : i;
-                    int assetId = index + 10000;
-                    nameToCoin.putIfAbsent(nm, index);
-                    coinToAsset.putIfAbsent(index, assetId);
-                    if (spot.has("tokens") && asset.has("tokens") && asset.get("tokens").isArray()
-                            && asset.get("tokens").size() >= 1) {
-                        int baseTokenIndex = asset.get("tokens").get(0).asInt();
-                        JsonNode tokens = spot.get("tokens");
-                        if (tokens.isArray() && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()) {
-                            JsonNode baseInfo = tokens.get(baseTokenIndex);
-                            int szDec = baseInfo.has("szDecimals") ? baseInfo.get("szDecimals").asInt() : 2;
-                            assetToSzDecimals.putIfAbsent(assetId, szDec);
-                        }
-                    }
-                }
-            }
+            refreshSpotMeta();
             coin = nameToCoin.get(name);
         }
 
         if (coin == null)
             throw new Error("Unknown coin name: " + name);
         Integer asset = coinToAsset.get(coin);
+        if (asset != null) {
+            coinToAssetHits++;
+        } else {
+            coinToAssetMisses++;
+        }
         if (asset == null) {
             // 兼容旧结构：尝试从 meta.assets 刷新
-            JsonNode m2 = meta();
-            if (m2 != null && m2.has("assets") && m2.get("assets").isArray()) {
-                JsonNode assets = m2.get("assets");
-                for (int i = 0; i < assets.size(); i++) {
-                    JsonNode a = assets.get(i);
-                    int assetId = a.has("id") ? a.get("id").asInt() : i;
-                    int coinId = a.has("coin") ? a.get("coin").asInt() : i;
-                    coinToAsset.putIfAbsent(coinId, assetId);
-                    int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
-                    assetToSzDecimals.putIfAbsent(assetId, szDec);
-                }
-                asset = coinToAsset.get(coin);
-            }
+            // 使用 perp meta.assets 进行补充刷新
+            refreshPerpMeta();
+            asset = coinToAsset.get(coin);
         }
         if (asset == null)
             throw new Error("Unknown asset for coin: " + name);
@@ -1076,5 +1099,25 @@ public class Info extends API {
             return;
         if (wsManager != null)
             wsManager.setReconnectBackoffMs(initialMs, maxMs);
+    }
+
+    // ============================
+    // WebSocket 回调异常监听配置代理
+    // ============================
+
+    /** 添加回调异常监听器 */
+    public void addCallbackErrorListener(WebsocketManager.CallbackErrorListener listener) {
+        if (skipWs)
+            return;
+        if (wsManager != null)
+            wsManager.addCallbackErrorListener(listener);
+    }
+
+    /** 移除回调异常监听器 */
+    public void removeCallbackErrorListener(WebsocketManager.CallbackErrorListener listener) {
+        if (skipWs)
+            return;
+        if (wsManager != null)
+            wsManager.removeCallbackErrorListener(listener);
     }
 }
