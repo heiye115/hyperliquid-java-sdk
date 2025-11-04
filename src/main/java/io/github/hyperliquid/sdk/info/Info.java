@@ -281,7 +281,7 @@ public class Info extends API {
      * @return JSON 结果
      */
     public JsonNode l2Snapshot(String coin) {
-        Map<String, Object> payload = Map.of("type", "l2Snapshot", "coin", coin);
+        Map<String, Object> payload = Map.of("type", "l2Book", "coin", coin);
         return post("/info", payload);
     }
 
