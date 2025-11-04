@@ -85,12 +85,12 @@ public class Info extends API {
         JsonNode meta = meta();
         if (meta != null && meta.has("universe") && meta.get("universe").isArray()) {
             JsonNode universe = meta.get("universe");
-            for (int i = 0; i < universe.size(); i++) {
-                JsonNode a = universe.get(i);
-                String nm = a.has("name") ? a.get("name").asText() : ("ASSET_" + i);
-                int assetId = i; // perp 资产使用枚举下标
-                nameToCoin.putIfAbsent(nm, i);
-                coinToAsset.putIfAbsent(i, assetId);
+            for (int assetId = 0; assetId < universe.size(); assetId++) {
+                JsonNode a = universe.get(assetId);
+                String nm = a.has("name") ? a.get("name").asText() : ("ASSET_" + assetId);
+                // perp 资产使用枚举下标
+                nameToCoin.putIfAbsent(nm, assetId);
+                coinToAsset.putIfAbsent(assetId, assetId);
                 int szDec = a.has("szDecimals") ? a.get("szDecimals").asInt() : 2;
                 assetToSzDecimals.putIfAbsent(assetId, szDec);
             }
@@ -271,7 +271,7 @@ public class Info extends API {
      * @return JSON 结果
      */
     public JsonNode l2Snapshot(int coin) {
-        Map<String, Object> payload = Map.of("type", "l2Snapshot", "coin", coin);
+        Map<String, Object> payload = Map.of("type", "l2Snapshot", "coin", this.coinIdToInfoCoinString(coin));
         return post("/info", payload);
     }
 
@@ -287,7 +287,7 @@ public class Info extends API {
     public JsonNode candlesSnapshot(int coin, long intervalMs, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "candlesSnapshot");
-        payload.put("coin", coin);
+        payload.put("coin", this.coinIdToInfoCoinString(coin));
         payload.put("intervalMs", intervalMs);
         payload.put("startMs", startMs);
         payload.put("endMs", endMs);
@@ -387,7 +387,7 @@ public class Info extends API {
 
     /**
      * 将整数 coinId 转换为 /info 接口需要的字符串 coin 表达。
-     *
+     * <p>
      * 规则：
      * - 若能在 meta.universe 中以下标找到名称，则返回该名称（用于 perp，例如 "BTC"、"ETH"）。
      * - 否则回退为 "@" + coinId（用于 spot，例如 "@107"）。
@@ -448,38 +448,23 @@ public class Info extends API {
     private long intervalToMs(String interval) {
         if (interval == null)
             throw new Error("间隔字符串不能为空");
-        switch (interval) {
-            case "1m":
-                return 60_000L;
-            case "3m":
-                return 180_000L;
-            case "5m":
-                return 300_000L;
-            case "15m":
-                return 900_000L;
-            case "30m":
-                return 1_800_000L;
-            case "1h":
-                return 3_600_000L;
-            case "2h":
-                return 7_200_000L;
-            case "4h":
-                return 14_400_000L;
-            case "8h":
-                return 28_800_000L;
-            case "12h":
-                return 43_200_000L;
-            case "1d":
-                return 86_400_000L;
-            case "3d":
-                return 259_200_000L;
-            case "1w":
-                return 604_800_000L;
-            case "1M":
-                return 2_592_000_000L; // 30 天近似
-            default:
-                throw new Error("不支持的间隔字符串：" + interval);
-        }
+        return switch (interval) {
+            case "1m" -> 60_000L;
+            case "3m" -> 180_000L;
+            case "5m" -> 300_000L;
+            case "15m" -> 900_000L;
+            case "30m" -> 1_800_000L;
+            case "1h" -> 3_600_000L;
+            case "2h" -> 7_200_000L;
+            case "4h" -> 14_400_000L;
+            case "8h" -> 28_800_000L;
+            case "12h" -> 43_200_000L;
+            case "1d" -> 86_400_000L;
+            case "3d" -> 259_200_000L;
+            case "1w" -> 604_800_000L;
+            case "1M" -> 2_592_000_000L; // 30 天近似
+            default -> throw new Error("不支持的间隔字符串：" + interval);
+        };
     }
 
     /**
@@ -622,7 +607,7 @@ public class Info extends API {
     public JsonNode fundingHistory(int coin, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "fundingHistory");
-        payload.put("coin", coin);
+        payload.put("coin", this.coinIdToInfoCoinString(coin));
         // 文档此处未明确 startMs/endMs 命名，保留历史命名；如需对齐可改为 startTime/endTime
         payload.put("startMs", startMs);
         payload.put("endMs", endMs);
@@ -636,7 +621,7 @@ public class Info extends API {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "userFundingHistory");
         payload.put("user", address);
-        payload.put("coin", coin);
+        payload.put("coin", this.coinIdToInfoCoinString(coin));
         // 文档此处未明确 startMs/endMs 命名，保留历史命名；如需对齐可改为 startTime/endTime
         payload.put("startMs", startMs);
         payload.put("endMs", endMs);
