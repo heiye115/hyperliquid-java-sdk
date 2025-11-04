@@ -8,11 +8,7 @@ import okio.ByteString;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,9 +17,15 @@ import java.util.logging.Logger;
  * 管理连接、订阅、心跳与消息分发。
  */
 public class WebsocketManager {
-    /** 日志记录器 */
+
+    /**
+     * 日志记录器
+     */
     private static final Logger LOG = Logger.getLogger(WebsocketManager.class.getName());
-    /** 原始 API 根地址（http/https），用于网络可用性检测 */
+    
+    /**
+     * 原始 API 根地址（http/https），用于网络可用性检测
+     */
     private final String baseUrl;
     private final String wsUrl;
     private final OkHttpClient client;
@@ -55,32 +57,50 @@ public class WebsocketManager {
      * 连接状态监听器：用于通知连接、断开、重连与网络状态变化。
      */
     public interface ConnectionListener {
-        /** 正在建立连接（包含重连过程） */
+        /**
+         * 正在建立连接（包含重连过程）
+         */
         void onConnecting(String url);
 
-        /** 连接已建立 */
+        /**
+         * 连接已建立
+         */
         void onConnected(String url);
 
-        /** 连接断开（code/reason/cause 可能为空） */
+        /**
+         * 连接断开（code/reason/cause 可能为空）
+         */
         void onDisconnected(String url, int code, String reason, Throwable cause);
 
-        /** 进入重连：attempt 为本次尝试序号（从 1 开始），nextDelayMs 为下一次尝试的延迟毫秒数 */
+        /**
+         * 进入重连：attempt 为本次尝试序号（从 1 开始），nextDelayMs 为下一次尝试的延迟毫秒数
+         */
         void onReconnecting(String url, int attempt, long nextDelayMs);
 
-        /** 重连失败：超过最大次数 */
+        /**
+         * 重连失败：超过最大次数
+         */
         void onReconnectFailed(String url, int attempted, Throwable lastError);
 
-        /** 网络不可用 */
+        /**
+         * 网络不可用
+         */
         void onNetworkUnavailable(String url);
 
-        /** 网络恢复可用 */
+        /**
+         * 网络恢复可用
+         */
         void onNetworkAvailable(String url);
     }
 
-    /** 连接监听器集合（线程安全） */
+    /**
+     * 连接监听器集合（线程安全）
+     */
     private final List<ConnectionListener> connectionListeners = Collections.synchronizedList(new ArrayList<>());
 
-    /** 回调接口 */
+    /**
+     * 回调接口
+     */
     public interface MessageCallback {
         void onMessage(JsonNode msg);
     }
@@ -101,7 +121,9 @@ public class WebsocketManager {
         void onCallbackError(String url, String identifier, JsonNode message, Throwable error);
     }
 
-    /** 活跃订阅记录 */
+    /**
+     * 活跃订阅记录
+     */
     public static class ActiveSubscription {
         public final JsonNode subscription;
         public final MessageCallback callback;
@@ -112,7 +134,9 @@ public class WebsocketManager {
         }
     }
 
-    /** 回调异常监听器集合（线程安全） */
+    /**
+     * 回调异常监听器集合（线程安全）
+     */
     private final List<CallbackErrorListener> callbackErrorListeners = Collections.synchronizedList(new ArrayList<>());
 
     /**
@@ -220,7 +244,9 @@ public class WebsocketManager {
         scheduler.scheduleAtFixedRate(this::sendPing, 20, 20, TimeUnit.SECONDS);
     }
 
-    /** 发送 ping 消息 */
+    /**
+     * 发送 ping 消息
+     */
     public void sendPing() {
         if (webSocket != null && connected) {
             Map<String, Object> payload = Map.of("method", "ping");
@@ -231,7 +257,9 @@ public class WebsocketManager {
         }
     }
 
-    /** 停止并关闭连接 */
+    /**
+     * 停止并关闭连接
+     */
     public void stop() {
         stopped = true;
         scheduler.shutdownNow();
@@ -286,7 +314,9 @@ public class WebsocketManager {
         startNetworkMonitor();
     }
 
-    /** 启动网络状态监控（仅在断线时运行） */
+    /**
+     * 启动网络状态监控（仅在断线时运行）
+     */
     private synchronized void startNetworkMonitor() {
         if (networkMonitorFuture != null && !networkMonitorFuture.isCancelled())
             return;
@@ -315,7 +345,9 @@ public class WebsocketManager {
         }, 0, networkCheckIntervalSeconds, TimeUnit.SECONDS);
     }
 
-    /** 停止网络状态监控 */
+    /**
+     * 停止网络状态监控
+     */
     private synchronized void stopNetworkMonitor() {
         if (networkMonitorFuture != null) {
             networkMonitorFuture.cancel(false);
@@ -324,7 +356,9 @@ public class WebsocketManager {
         networkAvailable = true; // 停止监控时默认视为可用
     }
 
-    /** 简单的网络可用性探测：HEAD 请求 baseUrl，允许 2xx/3xx */
+    /**
+     * 简单的网络可用性探测：HEAD 请求 baseUrl，允许 2xx/3xx
+     */
     private boolean isNetworkAvailable() {
         try {
             Request req = new Request.Builder().url(baseUrl).head().build();
@@ -336,36 +370,48 @@ public class WebsocketManager {
         }
     }
 
-    /** 添加连接状态监听器 */
+    /**
+     * 添加连接状态监听器
+     */
     public void addConnectionListener(ConnectionListener l) {
         if (l != null)
             connectionListeners.add(l);
     }
 
-    /** 移除连接状态监听器 */
+    /**
+     * 移除连接状态监听器
+     */
     public void removeConnectionListener(ConnectionListener l) {
         if (l != null)
             connectionListeners.remove(l);
     }
 
-    /** 添加回调异常监听器 */
+    /**
+     * 添加回调异常监听器
+     */
     public void addCallbackErrorListener(CallbackErrorListener l) {
         if (l != null)
             callbackErrorListeners.add(l);
     }
 
-    /** 移除回调异常监听器 */
+    /**
+     * 移除回调异常监听器
+     */
     public void removeCallbackErrorListener(CallbackErrorListener l) {
         if (l != null)
             callbackErrorListeners.remove(l);
     }
 
-    /** 设置最大重连次数（默认 5） */
+    /**
+     * 设置最大重连次数（默认 5）
+     */
     public void setMaxReconnectAttempts(int max) {
         this.maxReconnectAttempts = Math.max(0, max);
     }
 
-    /** 设置网络监控检查间隔秒数（默认 5） */
+    /**
+     * 设置网络监控检查间隔秒数（默认 5）
+     */
     public void setNetworkCheckIntervalSeconds(int seconds) {
         this.networkCheckIntervalSeconds = Math.max(1, seconds);
     }
@@ -462,7 +508,9 @@ public class WebsocketManager {
         }
     }
 
-    /** 通知：用户回调异常（防御式，单个监听异常不影响其它监听） */
+    /**
+     * 通知：用户回调异常（防御式，单个监听异常不影响其它监听）
+     */
     private void notifyCallbackError(String identifier, JsonNode msg, Throwable error) {
         synchronized (callbackErrorListeners) {
             for (CallbackErrorListener l : callbackErrorListeners) {
@@ -542,7 +590,7 @@ public class WebsocketManager {
                 JsonNode coinNode = subscription.get("coin");
                 String coinKey = coinNode == null ? null
                         : (coinNode.isNumber() ? String.valueOf(coinNode.asInt())
-                                : coinNode.asText().toLowerCase(Locale.ROOT));
+                        : coinNode.asText().toLowerCase(Locale.ROOT));
                 return coinKey == null ? type : type + ":" + coinKey;
             }
             case "trades":
@@ -551,7 +599,7 @@ public class WebsocketManager {
                 JsonNode coinNode = subscription.get("coin");
                 String coinKey = coinNode == null ? null
                         : (coinNode.isNumber() ? String.valueOf(coinNode.asInt())
-                                : coinNode.asText().toLowerCase(Locale.ROOT));
+                        : coinNode.asText().toLowerCase(Locale.ROOT));
                 return coinKey == null ? type : type + ":" + coinKey;
             }
             case "candle": {
@@ -559,7 +607,7 @@ public class WebsocketManager {
                 JsonNode iNode = subscription.get("interval");
                 String coinKey = coinNode == null ? null
                         : (coinNode.isNumber() ? String.valueOf(coinNode.asInt())
-                                : coinNode.asText().toLowerCase(Locale.ROOT));
+                        : coinNode.asText().toLowerCase(Locale.ROOT));
                 String interval = iNode == null ? null : iNode.asText();
                 if (coinKey != null && interval != null)
                     return type + ":" + coinKey + "," + interval;
@@ -578,7 +626,7 @@ public class WebsocketManager {
                 JsonNode userNode = subscription.get("user");
                 String coinKey = coinNode == null ? null
                         : (coinNode.isNumber() ? String.valueOf(coinNode.asInt())
-                                : coinNode.asText().toLowerCase(Locale.ROOT));
+                        : coinNode.asText().toLowerCase(Locale.ROOT));
                 String user = userNode == null ? null : userNode.asText().toLowerCase(Locale.ROOT);
                 if (coinKey != null && user != null)
                     return type + ":" + coinKey + "," + user;
@@ -620,7 +668,7 @@ public class WebsocketManager {
             case "trades": {
                 JsonNode trades = msg.get("data");
                 String coinKey = null;
-                if (trades != null && trades.isArray() && trades.size() > 0) {
+                if (trades != null && trades.isArray() && !trades.isEmpty()) {
                     JsonNode first = trades.get(0);
                     JsonNode coinNode = first.get("coin");
                     if (coinNode != null) {
@@ -670,7 +718,7 @@ public class WebsocketManager {
                     JsonNode userNode = data.get("user");
                     String coinKey = coinNode != null
                             ? (coinNode.isTextual() ? coinNode.asText().toLowerCase(Locale.ROOT)
-                                    : (coinNode.isNumber() ? String.valueOf(coinNode.asInt()) : null))
+                            : (coinNode.isNumber() ? String.valueOf(coinNode.asInt()) : null))
                             : null;
                     String user = (userNode != null && userNode.isTextual())
                             ? userNode.asText().toLowerCase(Locale.ROOT)

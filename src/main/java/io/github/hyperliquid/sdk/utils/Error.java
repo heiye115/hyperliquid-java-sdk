@@ -4,6 +4,7 @@ package io.github.hyperliquid.sdk.utils;
  * SDK 自定义异常类型定义。
  */
 public class Error extends RuntimeException {
+
     /**
      * 构造基础错误。
      *
@@ -13,7 +14,9 @@ public class Error extends RuntimeException {
         super(message);
     }
 
-    /** 客户端错误（4xx） */
+    /**
+     * 客户端错误（4xx）
+     */
     public static class ClientError extends Error {
         private final int statusCode;
 
@@ -38,7 +41,9 @@ public class Error extends RuntimeException {
         }
     }
 
-    /** 服务器错误（5xx） */
+    /**
+     * 服务器错误（5xx）
+     */
     public static class ServerError extends Error {
         private final int statusCode;
 

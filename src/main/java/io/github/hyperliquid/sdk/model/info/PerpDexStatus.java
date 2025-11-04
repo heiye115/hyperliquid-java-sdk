@@ -19,29 +19,42 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PerpDexStatus {
-    /** 总净充值/提现（字符串） */
+
+    /**
+     * 总净充值/提现（字符串）
+     */
     private String totalNetDeposit;
 
-    /** 其他未知/扩展字段 */
+    /**
+     * 其他未知/扩展字段
+     */
     private Map<String, Object> extensions = new LinkedHashMap<>();
 
-    /** 获取总净充值/提现 */
+    /**
+     * 获取总净充值/提现
+     */
     public String getTotalNetDeposit() {
         return totalNetDeposit;
     }
 
-    /** 设置总净充值/提现 */
+    /**
+     * 设置总净充值/提现
+     */
     public void setTotalNetDeposit(String totalNetDeposit) {
         this.totalNetDeposit = totalNetDeposit;
     }
 
-    /** 获取扩展字段 */
+    /**
+     * 获取扩展字段
+     */
     @JsonAnyGetter
     public Map<String, Object> getExtensions() {
         return extensions;
     }
 
-    /** 设置扩展字段 */
+    /**
+     * 设置扩展字段
+     */
     @JsonAnySetter
     public void setExtensions(String key, Object value) {
         if (this.extensions == null) {

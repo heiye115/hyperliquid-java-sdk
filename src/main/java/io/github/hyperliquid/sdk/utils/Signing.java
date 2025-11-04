@@ -18,13 +18,14 @@ import java.util.*;
 
 /**
  * 签名与转换工具（覆盖核心功能：浮点转换、订单 wire 转换、动作哈希、EIP-712 签名）。
- *
+ * <p>
  * 设计目标：
  * - 统一使用 API 层共享的 ObjectMapper，避免多处配置不一致与重复实例化；
  * - 在 addressToBytes 方法中实现严格的地址长度校验（默认 20 字节），并可通过开关启用兼容性降级策略；
  * - 为关键方法补充详细文档，包括 @return 与 @throws 注释，便于 IDE 友好提示与二次开发。
  */
 public final class Signing {
+
     /**
      * 共享的 ObjectMapper，复用 API 层配置（忽略未知字段、ISO-8601 日期等）。
      */
@@ -35,7 +36,7 @@ public final class Signing {
      * - true（默认）：addressToBytes 会严格要求地址为 20 字节（40 个十六进制字符），否则抛出
      * IllegalArgumentException；
      * - false：对非 20 字节输入执行兼容性降级（>20 截取末尾 20 字节；<20 左侧补零）。
-     *
+     * <p>
      * 可通过系统属性 hyperliquid.address.strict 控制默认值，例如：
      * -Dhyperliquid.address.strict=true/false
      */
@@ -201,7 +202,7 @@ public final class Signing {
 
     /**
      * 地址字符串转字节数组（去除 0x 前缀）。
-     *
+     * <p>
      * 行为说明：
      * - 严格模式（默认启用）：仅接受 20 字节地址（40 个十六进制字符），否则抛出 IllegalArgumentException；
      * - 兼容模式（可通过 setStrictAddressLength(false) 或 -Dhyperliquid.address.strict=false
@@ -258,7 +259,7 @@ public final class Signing {
      * @throws Error 当序列化或签名过程出现异常时抛出（封装底层异常信息）
      */
     public static Map<String, String> signTypedData(Credentials credentials, Map<String, Object> domain,
-            Map<String, Object> types, Map<String, Object> message) {
+                                                    Map<String, Object> types, Map<String, Object> message) {
         try {
             // 如果 message 中包含 Base64 的 actionHash，则直接对其进行签名，避免严格的 TypedData 结构校验失败。
             byte[] payloadToSign = null;
@@ -298,14 +299,8 @@ public final class Signing {
     }
 
     /**
-     * 构造订单动作（单/批）用于 L1 签名。
-     *
-     * @param orders 订单 wire 列表
-     * @return Map 动作对象 {"type": "order", ...}
-     */
-    /**
      * 将多个 OrderWire 转换为 L1 动作对象，用于签名与发送。
-     *
+     * <p>
      * 生成的结构形如：
      * {
      * "type": "order",

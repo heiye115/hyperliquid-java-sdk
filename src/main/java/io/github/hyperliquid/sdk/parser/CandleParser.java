@@ -1,8 +1,8 @@
 package io.github.hyperliquid.sdk.parser;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.github.hyperliquid.sdk.model.info.Candle;
 import io.github.hyperliquid.sdk.api.API;
+import io.github.hyperliquid.sdk.model.info.Candle;
 import io.github.hyperliquid.sdk.utils.Error;
 
 import java.util.ArrayList;
@@ -11,12 +11,13 @@ import java.util.Optional;
 
 /**
  * Candle 解析工具类。
- *
  * 提供 JsonNode 到 Candle 列表/最新一条的解析封装，并在出现异常数据时给出清晰错误信息。
  */
 public final class CandleParser {
 
-    private CandleParser() {}
+
+    private CandleParser() {
+    }
 
     /**
      * 将返回的 JsonNode 解析为 Candle 列表。
@@ -59,6 +60,6 @@ public final class CandleParser {
     public static Optional<Candle> parseLatest(JsonNode node) throws Error {
         List<Candle> list = parseList(node);
         if (list.isEmpty()) return Optional.empty();
-        return Optional.of(list.get(list.size() - 1));
+        return Optional.of(list.getLast());
     }
 }

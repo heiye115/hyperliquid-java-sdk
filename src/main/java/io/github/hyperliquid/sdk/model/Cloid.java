@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * 客户端订单 ID（Cloid）表示，支持字符串形式。
  */
 public class Cloid {
+    
     private final String raw;
 
     /**

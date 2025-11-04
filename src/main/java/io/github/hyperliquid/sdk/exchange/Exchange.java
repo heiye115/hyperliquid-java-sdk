@@ -15,6 +15,7 @@ import java.util.*;
  * 当前版本实现核心下单与批量下单，其他 L1 操作将在后续补充。
  */
 public class Exchange extends API {
+    
     private final Credentials wallet;
     private final Info info;
 

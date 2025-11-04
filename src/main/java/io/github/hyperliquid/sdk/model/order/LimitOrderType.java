@@ -4,6 +4,7 @@ package io.github.hyperliquid.sdk.model.order;
  * 限价单类型，支持 TIF 策略（Gtc/Alo/Ioc）。
  */
 public class LimitOrderType {
+    
     private final String tif; // "Gtc" | "Alo" | "Ioc"
 
     /**

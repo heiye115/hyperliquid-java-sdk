@@ -6,6 +6,7 @@ import java.util.Optional;
  * 订单类型封装（可选限价单与可选触发单组合）。
  */
 public class OrderType {
+    
     private final LimitOrderType limit;
     private final TriggerOrderType trigger;
 

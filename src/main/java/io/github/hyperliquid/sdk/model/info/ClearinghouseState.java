@@ -15,26 +15,52 @@ import java.util.Map;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ClearinghouseState {
-    /** 额外字段容器（完整返回结构保留于此） */
+
+    /**
+     * 额外字段容器（完整返回结构保留于此）
+     */
     private Map<String, Object> extensions = new HashMap<>();
 
-    public ClearinghouseState() {}
+    public ClearinghouseState() {
+    }
 
-    /** Builder 构建器 */
+    /**
+     * Builder 构建器
+     */
     public static class Builder {
         private final ClearinghouseState s = new ClearinghouseState();
-        public Builder putExtra(String k, Object v) { s.extensions.put(k, v); return this; }
-        public ClearinghouseState build() { return s; }
+
+        public Builder putExtra(String k, Object v) {
+            s.extensions.put(k, v);
+            return this;
+        }
+
+        public ClearinghouseState build() {
+            return s;
+        }
     }
 
     @JsonAnySetter
-    public void put(String key, Object value) { extensions.put(key, value); }
+    public void put(String key, Object value) {
+        extensions.put(key, value);
+    }
 
     @JsonAnyGetter
-    public Map<String, Object> any() { return extensions; }
+    public Map<String, Object> any() {
+        return extensions;
+    }
 
-    /** 获取完整扩展映射 */
-    public Map<String, Object> getExtensions() { return extensions; }
-    /** 设置完整扩展映射 */
-    public void setExtensions(Map<String, Object> extensions) { this.extensions = extensions; }
+    /**
+     * 获取完整扩展映射
+     */
+    public Map<String, Object> getExtensions() {
+        return extensions;
+    }
+
+    /**
+     * 设置完整扩展映射
+     */
+    public void setExtensions(Map<String, Object> extensions) {
+        this.extensions = extensions;
+    }
 }

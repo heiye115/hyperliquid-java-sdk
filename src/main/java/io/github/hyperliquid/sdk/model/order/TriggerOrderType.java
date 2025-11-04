@@ -4,6 +4,7 @@ package io.github.hyperliquid.sdk.model.order;
  * 触发单类型（止盈/止损/触发价与是否市价）。
  */
 public class TriggerOrderType {
+    
     private final double triggerPx;
     private final boolean isMarket;
     private final String tpsl; // "tp" | "sl"

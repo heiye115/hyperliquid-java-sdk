@@ -6,6 +6,7 @@ import io.github.hyperliquid.sdk.model.Cloid;
  * 下单请求结构。
  */
 public class OrderRequest {
+
     private final String coin;
     private final boolean isBuy;
     private final double sz;
@@ -26,7 +27,7 @@ public class OrderRequest {
      * @param cloid      客户端订单 ID（可为 null）
      */
     public OrderRequest(String coin, boolean isBuy, double sz, Double limitPx, OrderType orderType,
-            boolean reduceOnly, Cloid cloid) {
+                        boolean reduceOnly, Cloid cloid) {
         this.coin = coin;
         this.isBuy = isBuy;
         this.sz = sz;

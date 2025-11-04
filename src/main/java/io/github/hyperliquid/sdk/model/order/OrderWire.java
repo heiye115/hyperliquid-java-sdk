@@ -19,31 +19,46 @@ import io.github.hyperliquid.sdk.model.Cloid;
  * </p>
  */
 public class OrderWire {
-    /** 币种整数 ID */
+
+    /**
+     * 币种整数 ID
+     */
     public final int coin;
-    /** 是否买入 */
+    /**
+     * 是否买入
+     */
     public final boolean isBuy;
-    /** 订单数量（字符串形式） */
+    /**
+     * 订单数量（字符串形式）
+     */
     public final String sz; // 转换为字符串表示
-    /** 限价（字符串或 null） */
+    /**
+     * 限价（字符串或 null）
+     */
     public final String limitPx; // 字符串（或 null）
-    /** 原始订单类型结构 */
+    /**
+     * 原始订单类型结构
+     */
     public final Object orderType; // Map/POJO 结构，符合交易接口的 wire 格式
-    /** 仅减仓标记 */
+    /**
+     * 仅减仓标记
+     */
     public final boolean reduceOnly;
-    /** 客户端订单 ID */
+    /**
+     * 客户端订单 ID
+     */
     public final Cloid cloid; // 可为 null
 
     /**
      * Jackson 反序列化构造方法。
      *
-     * @param coin 币种整数 ID
-     * @param isBuy 是否买入
-     * @param sz 数量（字符串）
-     * @param limitPx 限价（字符串或 null）
-     * @param orderType 订单类型结构（对象/映射）
+     * @param coin       币种整数 ID
+     * @param isBuy      是否买入
+     * @param sz         数量（字符串）
+     * @param limitPx    限价（字符串或 null）
+     * @param orderType  订单类型结构（对象/映射）
      * @param reduceOnly 是否仅减仓
-     * @param cloid 客户端订单 ID（可为 null）
+     * @param cloid      客户端订单 ID（可为 null）
      */
     @JsonCreator
     public OrderWire(@JsonProperty("coin") int coin,
