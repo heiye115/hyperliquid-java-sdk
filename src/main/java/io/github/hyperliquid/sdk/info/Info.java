@@ -642,7 +642,7 @@ public class Info extends API {
      */
     public JsonNode userFundingHistory(String address, String coin, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userFundingHistory");
+        payload.put("type", "userFunding");
         payload.put("user", address);
         payload.put("coin", coin);
         payload.put("startTime", startMs);
