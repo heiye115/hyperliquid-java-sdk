@@ -55,7 +55,7 @@ public class SigningAddressToBytesTest {
         Signing.setStrictAddressLength(true);
         String addr = "0xGHIJKL"; // 非十六进制
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> Signing.addressToBytes(addr));
-        assertTrue(ex.getMessage().toLowerCase().contains("non-hex"));
+        assertTrue(ex.getMessage().toLowerCase().contains("address must be exactly"));
     }
 
     @Test
