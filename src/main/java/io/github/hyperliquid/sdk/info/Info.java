@@ -484,7 +484,7 @@ public class Info extends API {
      * @return JSON 结果
      */
     public JsonNode userState(String address) {
-        Map<String, Object> payload = Map.of("type", "userState", "user", address);
+        Map<String, Object> payload = Map.of("type", "clearinghouseState", "user", address);
         return post("/info", payload);
     }
 
