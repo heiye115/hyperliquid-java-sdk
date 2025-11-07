@@ -6,7 +6,7 @@
 
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.1.4</version>
+    <version>0.1.5</version>
     <name>Hyperliquid Java SDK</name>
     <description>Pure Java SDK for Hyperliquid: Info queries, WebSocket subscriptions, order placement and signing.</description>
     <url>https://github.com/heiye115/hyperliquid-java-sdk</url>
@@ -228,12 +228,7 @@
                     <source>${maven.compiler.source}</source>
                     <doclint>none</doclint>
                     <encoding>${project.build.sourceEncoding}</encoding>
-<!--                    <charSet>UTF-8</charSet>-->
                     <docencoding>UTF-8</docencoding>
-                    <!-- 不使用模块路径，避免依赖的自动模块名非法导致失败（如 jc-kzg-4844） -->
-<!--                    <useModulePath>false</useModulePath>-->
-                    <!-- 关闭依赖位置扫描，避免 JDK 模块系统尝试为依赖推导模块名（例如 jc-kzg-4844 导致无效模块名错误） -->
-<!--                    <dependencyLocationsEnabled>false</dependencyLocationsEnabled>-->
                     <!-- 如果仍有边缘告警，确保不因告警而失败 -->
                     <failOnError>false</failOnError>
                     <!-- 支持通过 -Dmaven.javadoc.skip=true 在 package 时跳过 javadoc 生成 -->
@@ -245,28 +240,6 @@
                         <phase>verify</phase>
                         <goals>
                             <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!-- GPG 插件 -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <version>3.1.0</version>
-                <configuration>
-                    <!-- 根据你的系统选择其中一个 -->
-                   <!-- <executable>gpg</executable>-->
-                    <!-- 如果上面不行，取消注释下面的并修改为你的GPG路径 -->
-                    <executable>D:\Applications\GnuPG\bin\gpg.exe</executable>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>sign-artifacts</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>sign</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -284,6 +257,28 @@
             </properties>
             <build>
                 <plugins>
+                    <!-- GPG 插件 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <configuration>
+                            <!-- 根据你的系统选择其中一个 -->
+                            <!-- <executable>gpg</executable>-->
+                            <!-- 如果上面不行，取消注释下面的并修改为你的GPG路径 -->
+                            <executable>D:\Applications\GnuPG\bin\gpg.exe</executable>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
                     <!-- Central Publishing Plugin -->
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
