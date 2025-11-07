@@ -79,6 +79,12 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.msgpack</groupId>
+            <artifactId>jackson-dataformat-msgpack</artifactId>
+            <version>0.9.9</version>
+        </dependency>
+
         <!-- HTTP & WebSocket -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>

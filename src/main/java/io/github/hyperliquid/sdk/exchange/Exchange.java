@@ -64,6 +64,26 @@ public class Exchange extends API {
     }
 
     /**
+     * 更改杠杆
+     * @param coinName 币种名
+     * @param crossed 是否全仓
+     * @param leverage 杠杆倍数
+     * @return 响应 JSON
+     * */
+    public JsonNode updateLeverage(String coinName, boolean crossed, int leverage) {
+        int assetId = info.nameToAsset(coinName);
+
+        Map<String, Object> actions = new LinkedHashMap<>() {{
+            this.put("type", "updateLeverage");
+            this.put("asset", assetId);
+            this.put("isCross", crossed);
+            this.put("leverage", leverage);
+        }};
+
+        return this.postAction(actions, null, null);
+    }
+
+    /**
      * 根据 OID 撤单。
      *
      * @param coinName 币种名
@@ -73,8 +93,8 @@ public class Exchange extends API {
     public JsonNode cancel(String coinName, int oid) {
         int assetId = info.nameToAsset(coinName);
         Map<String, Object> cancel = new LinkedHashMap<>();
-        cancel.put("coin", assetId);
-        cancel.put("oid", oid);
+        cancel.put("a", assetId);
+        cancel.put("o", oid);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "cancel");
         action.put("cancels", List.of(cancel));
@@ -91,7 +111,7 @@ public class Exchange extends API {
     public JsonNode cancelByCloid(String coinName, String cloid) {
         int assetId = info.nameToAsset(coinName);
         Map<String, Object> cancel = new LinkedHashMap<>();
-        cancel.put("coin", assetId);
+        cancel.put("asset", assetId);
         cancel.put("cloid", cloid);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "cancelByCloid");
