@@ -1,5 +1,6 @@
 package io.github.hyperliquid.sdk;
 
+import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,11 @@ public class SimpleTest {
          Response: {"status":"ok","response":{"type":"default"}}
          UpdateLeverage{status='ok', response=Response{type='default'}}
         * */
+    }
 
+    @Test
+    public void clearinghouseState() {
+        ClearinghouseState clearinghouseState = manager.getInfoClient().clearinghouseState(manager.getSingleAddress());
+        System.out.println(clearinghouseState);
     }
 }

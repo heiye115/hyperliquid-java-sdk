@@ -211,17 +211,6 @@ public class InfoClient {
 
 
     /**
-     * 用户状态查询。
-     *
-     * @param address 用户地址
-     * @return JSON 结果
-     */
-    public JsonNode userState(String address) {
-        Map<String, Object> payload = Map.of("type", "clearinghouseState", "user", address);
-        return postInfo(payload);
-    }
-
-    /**
      * 查询用户未成交订单。
      */
     public List<OpenOrder> openOrders(String address) {
@@ -436,22 +425,18 @@ public class InfoClient {
      * @param dex     可选 dex 名称（传 null 则不包含该字段）
      * @return JSON 对象
      */
-    public JsonNode clearinghouseState(String address, String dex) {
+    public ClearinghouseState clearinghouseState(String address, String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "clearinghouseState");
         payload.put("user", address);
         if (dex != null && !dex.isEmpty()) {
             payload.put("dex", dex);
         }
-        return postInfo(payload);
+        return JSONUtil.convertValue(postInfo(payload), ClearinghouseState.class);
     }
 
-    /**
-     * 永续清算所状态（类型化返回）。
-     */
-    public ClearinghouseState clearinghouseStateTyped(String address, String dex) {
-        JsonNode node = clearinghouseState(address, dex);
-        return JSONUtil.convertValue(node, ClearinghouseState.class);
+    public ClearinghouseState clearinghouseState(String address) {
+        return clearinghouseState(address, null);
     }
 
 
