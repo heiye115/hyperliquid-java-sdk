@@ -114,7 +114,7 @@ public final class Signing {
         Map<String, Object> out = new LinkedHashMap<>();
         orderType.getLimit().ifPresent(limit -> {
             Map<String, Object> limitObj = new LinkedHashMap<>();
-            limitObj.put("tif", limit.getTif());
+            limitObj.put("tif", limit.getTif().getValue());
             out.put("limit", limitObj);
         });
         orderType.getTrigger().ifPresent(trigger -> {
@@ -139,7 +139,7 @@ public final class Signing {
         String szStr = floatToWire(req.getSz());
         String pxStr = req.getLimitPx() == null ? null : floatToWire(req.getLimitPx());
         Object orderTypeWire = orderTypeToWire(req.getOrderType());
-        return new OrderWire(coinId, req.isBuy(), szStr, pxStr, orderTypeWire, req.isReduceOnly(), req.getCloid());
+        return new OrderWire(coinId, req.getBuy(), szStr, pxStr, orderTypeWire, req.getReduceOnly(), req.getCloid());
     }
 
     /**
@@ -260,16 +260,17 @@ public final class Signing {
             // 其它类型（如自定义 POJO）统一转 Map 或 String
             case OrderWire ow -> {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("coin", ow.coin);
-                m.put("isBuy", ow.isBuy);
-                m.put("sz", ow.sz);
+                // 键顺序严格对齐 Python：a, b, p, s, r, t, (c 最后)
+                m.put("a", ow.coin);
+                m.put("b", ow.isBuy);
                 if (ow.limitPx != null)
-                    m.put("limitPx", ow.limitPx);
+                    m.put("p", ow.limitPx);
+                m.put("s", ow.sz);
+                m.put("r", ow.reduceOnly);
                 if (ow.orderType != null)
-                    m.put("orderType", ow.orderType);
-                m.put("reduceOnly", ow.reduceOnly);
+                    m.put("t", ow.orderType);
                 if (ow.cloid != null)
-                    m.put("cloid", ow.cloid.getRaw());
+                    m.put("c", ow.cloid.getRaw());
                 writeMsgpack(packer, m);
                 return;
             }
@@ -416,6 +417,156 @@ public final class Signing {
     }
 
     /**
+     * 构造用户签名动作的 EIP-712 TypedData JSON（与 Python user_signed_payload 一致）。
+     * 说明：
+     * - primaryType 为具体事务类型，例如 "HyperliquidTransaction:UsdSend"。
+     * - payloadTypes 为该事务类型的字段类型列表，例如 USD_SEND_SIGN_TYPES。
+     * - action 为消息体，其中必须包含 "signatureChainId"（16 进制字符串，如 0x66eee）与
+     * "hyperliquidChain"（"Mainnet" 或 "Testnet"）。
+     *
+     * @param primaryType  主类型名称
+     * @param payloadTypes 字段类型定义列表
+     * @param action       动作消息（必须包含 signatureChainId 与 hyperliquidChain）
+     * @return EIP-712 TypedData 的 JSON 字符串
+     */
+    public static String userSignedPayloadJson(String primaryType, List<Map<String, Object>> payloadTypes,
+                                               Map<String, Object> action) {
+        // 将 signatureChainId 的 16 进制字符串解析为整型链 ID
+        Object sigChainIdObj = action.get("signatureChainId");
+        if (sigChainIdObj == null) {
+            throw new HypeError("signatureChainId missing in user-signed action");
+        }
+        String sigChainIdHex = String.valueOf(sigChainIdObj);
+        int chainId;
+        try {
+            chainId = new java.math.BigInteger(sigChainIdHex.replace("0x", ""), 16).intValue();
+        } catch (Exception e) {
+            throw new HypeError("Invalid signatureChainId: " + sigChainIdHex);
+        }
+
+        Map<String, Object> domain = new LinkedHashMap<>();
+        domain.put("name", "HyperliquidSignTransaction");
+        domain.put("version", "1");
+        domain.put("chainId", chainId);
+        domain.put("verifyingContract", "0x0000000000000000000000000000000000000000");
+
+        List<Map<String, Object>> eipTypes = new ArrayList<>();
+        eipTypes.add(Map.of("name", "name", "type", "string"));
+        eipTypes.add(Map.of("name", "version", "type", "string"));
+        eipTypes.add(Map.of("name", "chainId", "type", "uint256"));
+        eipTypes.add(Map.of("name", "verifyingContract", "type", "address"));
+
+        Map<String, Object> types = new LinkedHashMap<>();
+        types.put(primaryType, payloadTypes);
+        types.put("EIP712Domain", eipTypes);
+
+        Map<String, Object> full = new LinkedHashMap<>();
+        full.put("domain", domain);
+        full.put("types", types);
+        full.put("primaryType", primaryType);
+        full.put("message", action);
+
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            return om.writeValueAsString(full);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new HypeError("Failed to build user-signed typed data json: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 对用户签名动作进行签名（与 Python sign_user_signed_action 一致）。
+     * 规则：
+     * - 自动设置 signatureChainId（0x66eee）与 hyperliquidChain（根据 isMainnet）。
+     * - 使用 userSignedPayloadJson 构造 EIP-712 TypedData 并进行签名。
+     *
+     * @param credentials  用户凭证
+     * @param action       动作消息（会补全签名相关字段）
+     * @param payloadTypes 字段类型定义列表
+     * @param primaryType  主类型名称
+     * @param isMainnet    是否主网
+     * @return r/s/v 签名
+     */
+    public static Map<String, Object> signUserSignedAction(Credentials credentials,
+                                                           Map<String, Object> action,
+                                                           List<Map<String, Object>> payloadTypes,
+                                                           String primaryType,
+                                                           boolean isMainnet) {
+        action.put("signatureChainId", "0x66eee");
+        action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
+        String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
+        return signTypedData(credentials, typedJson);
+    }
+
+    /**
+     * 通用：从 EIP-712 TypedData JSON 与 r/s/v 签名恢复地址。
+     *
+     * @param typedDataJson EIP-712 TypedData JSON 字符串
+     * @param signature     r/s/v 签名
+     * @return 0x 地址（小写）
+     */
+    public static String recoverFromTypedData(String typedDataJson, Map<String, Object> signature) {
+        try {
+            org.web3j.crypto.StructuredDataEncoder encoder = new org.web3j.crypto.StructuredDataEncoder(typedDataJson);
+            byte[] digest = encoder.hashStructuredData();
+            String rHex = String.valueOf(signature.get("r"));
+            String sHex = String.valueOf(signature.get("s"));
+            int vInt = Integer.parseInt(String.valueOf(signature.get("v")));
+            byte[] r = Numeric.hexStringToByteArray(rHex);
+            byte[] s = Numeric.hexStringToByteArray(sHex);
+            byte vByte = (byte) vInt;
+            Sign.SignatureData sig = new Sign.SignatureData(vByte, r, s);
+            java.math.BigInteger pubKey = Sign.signedMessageToKey(digest, sig);
+            String addr = org.web3j.crypto.Keys.getAddress(pubKey);
+            return "0x" + addr.toLowerCase();
+        } catch (Exception e) {
+            throw new HypeError("Failed to recover address: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 从 L1 动作签名中恢复签名者地址（与 Python recover_agent_or_user_from_l1_action 一致）。
+     *
+     * @param action       L1 动作（Map 或 List）
+     * @param vaultAddress 有效的 vault 地址（可为空）
+     * @param nonce        毫秒时间戳
+     * @param expiresAfter 过期毫秒偏移（可空）
+     * @param isMainnet    是否主网
+     * @param signature    r/s/v 签名
+     * @return 恢复得到的 0x 地址（小写）
+     */
+    public static String recoverAgentOrUserFromL1Action(Object action, String vaultAddress,
+                                                        long nonce, Long expiresAfter,
+                                                        boolean isMainnet,
+                                                        Map<String, Object> signature) {
+        byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
+        Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
+        String typedJson = l1PayloadJson(agent);
+        return recoverFromTypedData(typedJson, signature);
+    }
+
+    /**
+     * 从用户签名动作中恢复用户地址（与 Python recover_user_from_user_signed_action 一致）。
+     * 注意：不会改动 action 的 signatureChainId，仅会根据 isMainnet 设置 hyperliquidChain。
+     *
+     * @param action       动作消息（须包含 signatureChainId）
+     * @param signature    r/s/v 签名
+     * @param payloadTypes 字段类型定义列表
+     * @param primaryType  主类型名称
+     * @param isMainnet    是否主网
+     * @return 恢复得到的 0x 地址（小写）
+     */
+    public static String recoverUserFromUserSignedAction(Map<String, Object> action,
+                                                         Map<String, Object> signature,
+                                                         List<Map<String, Object>> payloadTypes,
+                                                         String primaryType,
+                                                         boolean isMainnet) {
+        action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
+        String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
+        return recoverFromTypedData(typedJson, signature);
+    }
+
+    /**
      * 将多个 OrderWire 转换为 L1 动作对象，用于签名与发送。
      * <p>
      * 生成的结构形如：
@@ -437,16 +588,20 @@ public final class Signing {
         List<Map<String, Object>> wires = new ArrayList<>();
         for (OrderWire o : orders) {
             Map<String, Object> w = new LinkedHashMap<>();
-            w.put("coin", o.coin);
-            w.put("isBuy", o.isBuy);
-            w.put("sz", o.sz);
-            if (o.limitPx != null)
-                w.put("limitPx", o.limitPx);
-            if (o.orderType != null)
-                w.put("orderType", o.orderType);
-            w.put("reduceOnly", o.reduceOnly);
-            if (o.cloid != null)
-                w.put("cloid", o.cloid.getRaw());
+            // 键顺序严格对齐 Python：a, b, p, s, r, t, (c 最后)
+            w.put("a", o.coin);
+            w.put("b", o.isBuy);
+            if (o.limitPx != null) {
+                w.put("p", o.limitPx);
+            }
+            w.put("s", o.sz);
+            w.put("r", o.reduceOnly);
+            if (o.orderType != null) {
+                w.put("t", o.orderType);
+            }
+            if (o.cloid != null) {
+                w.put("c", o.cloid.getRaw());
+            }
             wires.add(w);
         }
         action.put("orders", wires);

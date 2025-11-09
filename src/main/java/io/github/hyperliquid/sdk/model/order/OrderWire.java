@@ -2,12 +2,9 @@ package io.github.hyperliquid.sdk.model.order;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.github.hyperliquid.sdk.model.Cloid;
 
 /**
  * 订单线缆（wire）格式，用于实际签名与发送。
- *
- * <p>本类为不可变对象，提供 {@link JsonCreator} 注解的构造方法以支持 Jackson 反序列化。
  * 字段设计遵循官方 wire 格式：
  * - coin：币种整数 ID；
  * - isBuy：买入/卖出；
@@ -23,11 +20,11 @@ public class OrderWire {
     /**
      * 币种整数 ID
      */
-    public final int coin;
+    public final Integer coin;
     /**
      * 是否买入
      */
-    public final boolean isBuy;
+    public final Boolean isBuy;
     /**
      * 订单数量（字符串形式）
      */
@@ -43,7 +40,7 @@ public class OrderWire {
     /**
      * 仅减仓标记
      */
-    public final boolean reduceOnly;
+    public final Boolean reduceOnly;
     /**
      * 客户端订单 ID
      */
@@ -61,12 +58,12 @@ public class OrderWire {
      * @param cloid      客户端订单 ID（可为 null）
      */
     @JsonCreator
-    public OrderWire(@JsonProperty("coin") int coin,
-                     @JsonProperty("isBuy") boolean isBuy,
+    public OrderWire(@JsonProperty("coin") Integer coin,
+                     @JsonProperty("isBuy") Boolean isBuy,
                      @JsonProperty("sz") String sz,
                      @JsonProperty("limitPx") String limitPx,
                      @JsonProperty("orderType") Object orderType,
-                     @JsonProperty("reduceOnly") boolean reduceOnly,
+                     @JsonProperty("reduceOnly") Boolean reduceOnly,
                      @JsonProperty("cloid") Cloid cloid) {
         this.coin = coin;
         this.isBuy = isBuy;

@@ -1,18 +1,20 @@
 package io.github.hyperliquid.sdk.model.order;
 
-import io.github.hyperliquid.sdk.model.Cloid;
-
 /**
  * 下单请求结构。
  */
 public class OrderRequest {
 
+    /**
+     * 交易品种类型
+     **/
+    private final InstrumentType instrumentType;
     private final String coin;
-    private final boolean isBuy;
-    private final double sz;
+    private final Boolean isBuy;
+    private final Double sz;
     private final Double limitPx; // 可为 null（市价）或与触发单组合
     private final OrderType orderType; // 可为 null（普通限价/市价）
-    private final boolean reduceOnly;
+    private final Boolean reduceOnly;
     private final Cloid cloid; // 可为 null
 
     /**
@@ -26,8 +28,8 @@ public class OrderRequest {
      * @param reduceOnly 是否只减仓
      * @param cloid      客户端订单 ID（可为 null）
      */
-    public OrderRequest(String coin, boolean isBuy, double sz, Double limitPx, OrderType orderType,
-                        boolean reduceOnly, Cloid cloid) {
+    public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, Double sz, Double limitPx, OrderType orderType, Boolean reduceOnly, Cloid cloid) {
+        this.instrumentType = instrumentType;
         this.coin = coin;
         this.isBuy = isBuy;
         this.sz = sz;
@@ -41,11 +43,11 @@ public class OrderRequest {
         return coin;
     }
 
-    public boolean isBuy() {
+    public Boolean getBuy() {
         return isBuy;
     }
 
-    public double getSz() {
+    public Double getSz() {
         return sz;
     }
 
@@ -57,11 +59,15 @@ public class OrderRequest {
         return orderType;
     }
 
-    public boolean isReduceOnly() {
+    public Boolean getReduceOnly() {
         return reduceOnly;
     }
 
     public Cloid getCloid() {
         return cloid;
+    }
+
+    public InstrumentType getInstrumentType() {
+        return instrumentType;
     }
 }

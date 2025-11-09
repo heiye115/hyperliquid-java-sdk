@@ -1,7 +1,7 @@
 package io.github.hyperliquid.sdk;
 
-import io.github.hyperliquid.sdk.model.CandleInterval;
 import io.github.hyperliquid.sdk.model.info.Candle;
+import io.github.hyperliquid.sdk.model.info.CandleInterval;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

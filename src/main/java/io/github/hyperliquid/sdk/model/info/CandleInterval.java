@@ -1,4 +1,4 @@
-package io.github.hyperliquid.sdk.model;
+package io.github.hyperliquid.sdk.model.info;
 
 import io.github.hyperliquid.sdk.utils.HypeError;
 

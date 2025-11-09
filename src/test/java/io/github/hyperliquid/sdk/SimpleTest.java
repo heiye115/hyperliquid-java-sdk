@@ -4,6 +4,7 @@ import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import org.junit.jupiter.api.Test;
 
+ 
 public class SimpleTest {
 
     String privateKey = "your_private_key_here";
