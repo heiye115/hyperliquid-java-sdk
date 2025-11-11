@@ -89,7 +89,8 @@ public class Exchange {
      * 单笔下单（支持 builder）。
      * <p>
      * - 普通下单场景 ：当用户不指定 builder 参数时，订单会默认使用 Hyperliquid 平台的核心撮合引擎进行交易处理。
-     * - Builder 参数的专用用途 ：仅在用户希望将订单路由到特定的 Builder-deployed perp dex（由第三方开发者部署的永续合约去中心化交易所）时才需要传递该参数。
+     * - Builder 参数的专用用途 ：仅在用户希望将订单路由到特定的 Builder-deployed perp
+     * dex（由第三方开发者部署的永续合约去中心化交易所）时才需要传递该参数。
      * - 例如：当用户想利用某个 Builder 提供的定制化流动性、特定交易策略或支付 Builder 费用时，才需要设置 builder 参数。
      *
      * @param req     下单请求
@@ -97,12 +98,26 @@ public class Exchange {
      * @return 交易接口响应 JSON
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
-        //市价下单转换
+        // 方法注释：单笔下单（支持 builder）。
+        // 修复说明：避免重复调用 postAction(action) 导致二次签名与不同 nonce，从而引发
+        // "本地签名恢复地址与钱包地址不一致" 等问题。改为仅调用一次 postAction 并复用返回节点。
+        // 市价下单转换
         marketOpenTransition(req);
         int assetId = ensureAssetId(req.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, req);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
-        return JSONUtil.convertValue(postAction(action), Order.class);
+        // 先拿原始响应，若为错误字符串结构（status=err 且 response 为字符串），直接抛出 HypeError
+        com.fasterxml.jackson.databind.JsonNode node = postAction(action);
+        if (node != null && node.has("status") && "err".equals(node.get("status").asText())) {
+            com.fasterxml.jackson.databind.JsonNode resp = node.get("response");
+            if (resp != null && resp.isTextual()) {
+                // 与服务端保持一致：错误字符串直接向上抛出，避免 Jackson 反序列化失败
+                throw new HypeError(resp.asText());
+            }
+        }
+
+        // 导致重新生成 nonce 并且进行第二次签名与提交，从而与 Python SDK 的一次性提交行为不一致。
+        return JSONUtil.convertValue(node, Order.class);
     }
 
 

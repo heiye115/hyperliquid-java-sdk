@@ -39,75 +39,34 @@ public final class Signing {
     }
 
     /**
-     * 计算 EIP-712 Typed Data 的 keccak256 摘要（digest）。
-     *
-     * <p>
-     * 输入为完整的 TypedData JSON 字符串，输出为 0x 前缀的 32 字节十六进制字符串。
-     * 该摘要应与 Python eth_account.encode_typed_data(full_message=...) 输出的 message_hash
-     * 一致。
-     *
-     * @param typedDataJson EIP-712 TypedData JSON 字符串
-     * @return 0x 开头的 digest（小写十六进制）
-     */
-    public static String typedDataDigest(String typedDataJson) {
-        try {
-            org.web3j.crypto.StructuredDataEncoder encoder = new org.web3j.crypto.StructuredDataEncoder(typedDataJson);
-            byte[] digest = encoder.hashStructuredData();
-            return Numeric.toHexString(digest);
-        } catch (Exception e) {
-            throw new HypeError("Failed to compute typed data digest: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 将浮点数转换为字符串表示（与 Python float_to_wire 一致）。
-     * 规则：
-     * - 先按 8 位小数进行舍入（四舍六入五留双，HALF_EVEN，与 Python 格式化一致：f"{x:.8f}"）；
-     * - 若舍入导致与原值差异大于等于 1e-12，则抛出异常（Python 会抛 ValueError）；
-     * - 输出去除科学计数法与多余的尾随 0，-0 归一化为 0。
+     * 将浮点数转换为字符串表示（适配后端接口要求）。
+     * 规则：去除科学计数法，尽量保留原精度，不添加多余的尾随 0。
      *
      * @param value 浮点数值
-     * @return 规范化后的字符串表示
-     * @throws HypeError 当 8 位小数舍入引入可感知误差时抛出
+     * @return 字符串表示
      */
     public static String floatToWire(double value) {
-        // 先按 8 位小数四舍五入（与 Python 的字符串格式化一致）
-        BigDecimal rounded = BigDecimal.valueOf(value).setScale(8, java.math.RoundingMode.HALF_EVEN);
-        // 与原始值的差异检查（阈值 1e-12，与 Python 保持一致）
-        double diff = Math.abs(rounded.doubleValue() - value);
-        if (diff >= 1e-12) {
-            throw new HypeError("float_to_wire causes rounding: " + value);
+        BigDecimal bd = BigDecimal.valueOf(value);
+        // 统一为普通字符串格式，避免科学计数法
+        String s = bd.stripTrailingZeros().toPlainString();
+        // 去除可能的 "+0" 情况
+        if (s.equals("-0")) {
+            s = "0";
         }
-        String s = rounded.toPlainString();
-        // 规范化 -0
-        if (s.equals("-0") || s.equals("-0.00000000")) {
-            s = "0.00000000";
-        }
-        // 去除多余的尾随 0 并使用普通字符串
-        String out = new BigDecimal(s).stripTrailingZeros().toPlainString();
-        if (out.equals("-0")) {
-            out = "0";
-        }
-        return out;
+        return s;
     }
 
     /**
      * 将浮点数转换为用于哈希的整数。
-     * 规则：按 1e6 放大并取整（与Python SDK保持一致）。
+     * 规则：按 1e9 放大并取整。
      *
      * @param value 浮点
      * @return 放大后的整数
      */
-    /**
-     * 将浮点数转换为用于哈希的整数（与 Python float_to_int_for_hashing 一致，放大 1e8）。
-     * Python 实现参考：float_to_int_for_hashing(x) = float_to_int(x, 8)
-     * 其中 float_to_int(x, power) 以 10^power 放大并进行四舍五入检查。
-     *
-     * @param value 浮点
-     * @return 放大后的整数（10^8）
-     */
     public static long floatToIntForHashing(double value) {
-        return floatToIntPower(value, 8);
+        BigDecimal bd = BigDecimal.valueOf(value);
+        BigDecimal scaled = bd.multiply(BigDecimal.valueOf(1_000_000_000L));
+        return scaled.longValue();
     }
 
     /**
@@ -117,7 +76,9 @@ public final class Signing {
      * @return 放大后的整数
      */
     public static long floatToUsdInt(double value) {
-        return floatToIntPower(value, 6);
+        BigDecimal bd = BigDecimal.valueOf(value);
+        BigDecimal scaled = bd.multiply(BigDecimal.valueOf(1_000_000L));
+        return scaled.longValue();
     }
 
     /**
@@ -127,33 +88,9 @@ public final class Signing {
      * @return 放大后的整数
      */
     public static long floatToInt(double value) {
-        return floatToIntPower(value, 8);
-    }
-
-    /**
-     * 通用的浮点转整数方法（与 Python float_to_int 对齐）。
-     * 计算：x * 10^power，并采用“舍入到最接近的整数（HALF_EVEN）”。
-     * 误差检查：若 |round(with_decimals) - with_decimals| >= 1e-3，则抛出异常。
-     * <p>
-     * 注意：Python 的 int 是任意精度，Java long 有上限；若结果超过 long 范围，可能溢出。
-     * 生产环境建议仅在可控范围内使用，或改为 BigInteger。
-     *
-     * @param value 浮点值
-     * @param power 小数位扩展幂次（6 或 8）
-     * @return 最近整数（long）
-     * @throws HypeError 当舍入误差超过阈值时抛出
-     */
-    private static long floatToIntPower(double value, int power) {
-        // 使用 double 进行误差阈值判定（与 Python 行为一致）
-        double withDecimals = value * Math.pow(10, power);
-        double nearest = Math.rint(withDecimals); // ties-to-even，与 Python round 一致
-        if (Math.abs(nearest - withDecimals) >= 1e-3) {
-            throw new HypeError("float_to_int causes rounding: " + value);
-        }
-        // 使用 BigDecimal 进行最终四舍五入到整数，避免双精度边界情况
-        BigDecimal scaled = BigDecimal.valueOf(value).multiply(BigDecimal.TEN.pow(power));
-        BigDecimal rounded = scaled.setScale(0, java.math.RoundingMode.HALF_EVEN);
-        return rounded.longValue();
+        BigDecimal bd = BigDecimal.valueOf(value);
+        BigDecimal scaled = bd.multiply(BigDecimal.valueOf(100_000_000L));
+        return scaled.longValue();
     }
 
     /**
@@ -179,13 +116,16 @@ public final class Signing {
             Map<String, Object> limitObj = new LinkedHashMap<>();
             limitObj.put("tif", orderType.getLimit().getTif().getValue());
             out.put("limit", limitObj);
-        } else if (orderType.getTrigger() != null) {
+        }
+
+        if (orderType.getTrigger() != null) {
             Map<String, Object> trigObj = new LinkedHashMap<>();
             trigObj.put("triggerPx", floatToWire(orderType.getTrigger().getTriggerPx()));
             trigObj.put("isMarket", orderType.getTrigger().isMarket());
             trigObj.put("tpsl", orderType.getTrigger().getTpsl());
             out.put("trigger", trigObj);
         }
+
         return out.isEmpty() ? null : out;
     }
 
@@ -205,17 +145,17 @@ public final class Signing {
     }
 
     /**
-     * 计算 L1 动作的哈希（与 Python action_hash 一致）。
-     * 结构：msgpack(action) + vaultAddress标志与地址 + 8字节nonce + expiresAfter标志与值 ->
+     * 计算 L1 动作的哈希。
+     * 结构：msgpack(action) + 8字节nonce + vaultAddress标志与地址 + expiresAfter标志与值 ->
      * keccak256。
      *
      * @param action       动作对象（Map/POJO）
-     * @param vaultAddress 可选 vault 地址（0x 前缀地址 或 null）
      * @param nonce        随机数/时间戳
+     * @param vaultAddress 可选 vault 地址（0x 前缀地址 或 null）
      * @param expiresAfter 可选过期时间（毫秒）
      * @return 32字节哈希
      */
-    public static byte[] actionHash(Object action, String vaultAddress, long nonce, Long expiresAfter) {
+    public static byte[] actionHash(Object action, long nonce, String vaultAddress, Long expiresAfter) {
         // 完全对齐 Python 的 action_hash 序列化与拼接规则：
         // 1) 对 action 进行 MessagePack Map 编码（保持插入顺序）；
         // 2) 直接追加 nonce 的 8 字节大端原始字节；
@@ -232,7 +172,7 @@ public final class Signing {
             byte[] nonceBytes = java.nio.ByteBuffer.allocate(8).putLong(nonce).array();
             baos.write(nonceBytes);
 
-            // 追加 vaultAddress 标记及地址（与 Python 一致）
+            // 追加 vaultAddress 标记及地址
             if (vaultAddress == null) {
                 baos.write(new byte[]{0x00});
             } else {
@@ -403,9 +343,7 @@ public final class Signing {
         try {
             org.web3j.crypto.StructuredDataEncoder encoder = new org.web3j.crypto.StructuredDataEncoder(typedDataJson);
             byte[] digest = encoder.hashStructuredData();
-            // 注意：digest 为已编码的 EIP-712 摘要，需以“消息已是哈希”的方式签名（第三个参数为 true），
-            // 与 Python wallet.sign_message(structured_data) 的行为一致，不再添加前缀或重复哈希。
-            Sign.SignatureData sig = Sign.signMessage(digest, credentials.getEcKeyPair(), true);
+            Sign.SignatureData sig = Sign.signMessage(digest, credentials.getEcKeyPair(), false);
             String r = Numeric.toHexString(sig.getR());
             String s = Numeric.toHexString(sig.getS());
             int vInt = new java.math.BigInteger(1, sig.getV()).intValue();
@@ -425,8 +363,7 @@ public final class Signing {
     public static Map<String, Object> constructPhantomAgent(byte[] hash, boolean isMainnet) {
         Map<String, Object> agent = new LinkedHashMap<>();
         agent.put("source", isMainnet ? "a" : "b");
-        // bytes32 按 EIP-712 以 0x 前缀十六进制表达。为严格对齐 Python 的 encode_typed_data 行为，
-        // 这里保留 0x 前缀的 32 字节十六进制字符串。
+        // bytes32 以 0x 前缀十六进制字符串表达，兼容 web3j StructuredDataEncoder
         agent.put("connectionId", Numeric.toHexString(hash));
         return agent;
     }
@@ -475,7 +412,7 @@ public final class Signing {
      */
     public static Map<String, Object> signL1Action(Credentials credentials, Object action, String vaultAddress,
                                                    long nonce, Long expiresAfter, boolean isMainnet) {
-        byte[] hash = actionHash(action, vaultAddress, nonce, expiresAfter);
+        byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
         Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
         String typedJson = l1PayloadJson(agent);
         return signTypedData(credentials, typedJson);
@@ -604,7 +541,7 @@ public final class Signing {
                                                         long nonce, Long expiresAfter,
                                                         boolean isMainnet,
                                                         Map<String, Object> signature) {
-        byte[] hash = actionHash(action, vaultAddress, nonce, expiresAfter);
+        byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
         Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
         String typedJson = l1PayloadJson(agent);
         return recoverFromTypedData(typedJson, signature);
@@ -669,9 +606,7 @@ public final class Signing {
             }
             wires.add(w);
         }
-        // 顶层键顺序严格对齐 Python：type, orders, grouping
         action.put("orders", wires);
-        action.put("grouping", "na"); // 对齐Python：固定为"na"
         return action;
     }
 
