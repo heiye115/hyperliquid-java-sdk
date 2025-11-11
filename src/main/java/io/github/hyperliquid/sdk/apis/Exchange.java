@@ -165,7 +165,7 @@ public class Exchange {
      * @param oid      订单 OID
      * @return 响应 JSON
      */
-    public JsonNode cancel(String coinName, int oid) {
+    public JsonNode cancel(String coinName, long oid) {
         int assetId = ensureAssetId(coinName);
         Map<String, Object> cancel = new LinkedHashMap<>();
         cancel.put("coin", assetId);
@@ -202,7 +202,7 @@ public class Exchange {
      * @param newReq   新订单请求（价格/数量/类型等）
      * @return 响应 JSON
      */
-    public JsonNode modifyOrder(String coinName, int oid, OrderRequest newReq) {
+    public JsonNode modifyOrder(String coinName, long oid, OrderRequest newReq) {
         int assetId = ensureAssetId(coinName);
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, newReq);
         Map<String, Object> modify = new LinkedHashMap<>();
