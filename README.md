@@ -57,14 +57,12 @@ classDiagram
       +setMaxReconnectAttempts(int)
       +setReconnectBackoffMs(initial, max)
     }
-    class HypeHttpClient {
-        HyperliquidClient --> Info
-        HyperliquidClient --> Exchange
-        Info --> WebsocketManager
-        Info --> HypeHttpClient
-        Exchange --> HypeHttpClient
-        +post(String path, Object payload)
-    }
+    class HypeHttpClient
+    HyperliquidClient --> Info
+    HyperliquidClient --> Exchange
+    Info --> WebsocketManager
+    Info --> HypeHttpClient
+    Exchange --> HypeHttpClient
 ```
 
 ## Features
