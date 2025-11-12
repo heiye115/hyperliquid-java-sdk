@@ -37,7 +37,7 @@ public class OrderRequest {
      * @param cloid      客户端订单 ID（可为 null）
      */
     public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, Double sz, Double limitPx,
-            OrderType orderType, Boolean reduceOnly, Cloid cloid) {
+                        OrderType orderType, Boolean reduceOnly, Cloid cloid) {
         this.instrumentType = instrumentType;
         this.coin = coin;
         this.isBuy = isBuy;
@@ -62,7 +62,7 @@ public class OrderRequest {
      * @return 限价单请求对象
      */
     public static OrderRequest createLimitOrder(InstrumentType instrumentType, Tif tif, String coin, Boolean isBuy,
-            Double sz, Double limitPx, Boolean reduceOnly, Cloid cloid) {
+                                                Double sz, Double limitPx, Boolean reduceOnly, Cloid cloid) {
         return new OrderRequest(instrumentType, coin, isBuy, sz, limitPx, new OrderType(new LimitOrderType(tif)),
                 reduceOnly, cloid);
     }
@@ -78,7 +78,7 @@ public class OrderRequest {
      * @return 永续合约限价单请求对象
      */
     public static OrderRequest createDefaultPerpLimitOrder(Tif tif, String coin, Boolean isBuy, Double sz,
-            Double limitPx) {
+                                                           Double limitPx) {
         return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx, new OrderType(new LimitOrderType(tif)),
                 false, null);
     }
@@ -96,7 +96,7 @@ public class OrderRequest {
      * @return 永续合约限价单请求对象
      */
     public static OrderRequest createPerpLimitOrder(Tif tif, String coin, Boolean isBuy, Double sz, Double limitPx,
-            Boolean reduceOnly, Cloid cloid) {
+                                                    Boolean reduceOnly, Cloid cloid) {
         return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx, new OrderType(new LimitOrderType(tif)),
                 reduceOnly, cloid);
     }
@@ -113,7 +113,7 @@ public class OrderRequest {
      * @return 永续合约限价单请求对象
      */
     public static OrderRequest createPerpLimitOrder(Tif tif, String coin, Boolean isBuy, Double sz, Double limitPx,
-            Long cloid) {
+                                                    Long cloid) {
         return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx, new OrderType(new LimitOrderType(tif)),
                 false, Cloid.fromLong(cloid));
     }
@@ -141,29 +141,29 @@ public class OrderRequest {
      * @param cloid      客户端订单 ID（可为 null）
      * @return 永续合约市价单请求对象
      */
-    public static OrderRequest createPerpMarketOrder(String coin, Boolean isBuy, Double sz, Boolean reduceOnly,
-            Cloid cloid) {
-        return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)),
-                reduceOnly, cloid);
+    public static OrderRequest createPerpMarketOrder(String coin, Boolean isBuy, Double sz, Boolean reduceOnly, Cloid cloid) {
+        return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)), reduceOnly, cloid);
     }
 
     /**
      * 创建永续合约市价单请求（非仅减仓）。
      *
-     * @param coin  币种名称（如 "ETH"）
-     * @param isBuy 是否买入
-     * @param sz    数量
-     * @param cloid 客户端订单 ID
+     * @param coin     币种名称（如 "ETH"）
+     * @param isBuy    是否买入
+     * @param sz       数量
+     * @param slippage 滑点比例
+     * @param cloid    客户端订单 ID
      * @return 永续合约市价单请求对象
      */
-    public static OrderRequest createPerpMarketOrder(String coin, Boolean isBuy, Double sz, Long cloid) {
-        return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)),
+    public static OrderRequest createPerpMarketOrder(String coin, Boolean isBuy, Double sz, Double slippage, Long cloid) {
+        OrderRequest orderRequest = new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)),
                 false, Cloid.fromLong(cloid));
+        orderRequest.setSlippage(slippage);
+        return orderRequest;
     }
 
     /**
      * 市价平仓（IOC + reduceOnly=true）。
-     *
      * 说明：此方法的第二参数表示“要平掉的数量”（正数，非签名大小）。
      * 方向将由 Exchange.order 在提交前根据用户当前仓位自动推断，
      * 并严格按该数量进行减仓，不会自动改为“全部平仓”。
@@ -218,7 +218,7 @@ public class OrderRequest {
 
     /**
      * 市价平仓（IOC + reduceOnly=true）。
-     *
+     * <p>
      * 说明：不提供方向与数量，提交前由 {@code Exchange.prepareRequest} 根据当前仓位推断并补全。
      *
      * @param coin 币种名称（如 "ETH"）
@@ -231,7 +231,7 @@ public class OrderRequest {
 
     /**
      * 市价平仓（IOC + reduceOnly=true），携带 long 类型客户端订单 ID。
-     *
+     * <p>
      * 说明：不提供方向与数量，提交前由 {@code Exchange.prepareRequest} 根据当前仓位推断并补全。
      *
      * @param coin  币种名称（如 "ETH"）
@@ -245,7 +245,7 @@ public class OrderRequest {
 
     /**
      * 市价平仓（IOC + reduceOnly=true），携带 {@link Cloid} 客户端订单 ID。
-     *
+     * <p>
      * 说明：不提供方向与数量，提交前由 {@code Exchange.prepareRequest} 根据当前仓位推断并补全。
      *
      * @param coin  币种名称（如 "ETH"）
@@ -272,7 +272,7 @@ public class OrderRequest {
      * @return 永续合约触发单请求对象
      */
     public static OrderRequest createPerpTriggerOrder(String coin, Boolean isBuy, Double sz, Double limitPx,
-            Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Boolean reduceOnly, Cloid cloid) {
+                                                      Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Boolean reduceOnly, Cloid cloid) {
         return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx,
                 new OrderType(new TriggerOrderType(triggerPx, isMarket, tpsl)), reduceOnly, cloid);
     }
