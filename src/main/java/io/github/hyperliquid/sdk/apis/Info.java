@@ -26,18 +26,11 @@ public class Info {
 
     private final HypeHttpClient hypeHttpClient;
 
-//    private final Cache<String, Integer> nameToAssetCache = Caffeine.newBuilder()
-//            .maximumSize(1000)
-//            .expireAfterWrite(10, TimeUnit.MINUTES)
-//            .recordStats()
-//            .build();
-
     private final Cache<String, Meta> metaCache = Caffeine.newBuilder()
             .maximumSize(1000)
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .recordStats()
             .build();
-
 
     /**
      * 构造 InfoClient 客户端。
@@ -66,7 +59,6 @@ public class Info {
         throw new HypeError("Unknown currency name:" + normalizedName);
     }
 
-
     public JsonNode postInfo(Object payload) {
         return hypeHttpClient.post("/info", payload);
     }
@@ -84,13 +76,13 @@ public class Info {
             payload.put("dex", dex);
         }
         JsonNode node = postInfo(payload);
-        return JSONUtil.convertValue(node, TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
+        return JSONUtil.convertValue(node,
+                TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
     }
 
     public Map<String, String> allMids() {
         return allMids(null);
     }
-
 
     /**
      * 查询 perp 元数据（meta）。
@@ -102,7 +94,6 @@ public class Info {
     public Meta loadMetaCache() {
         return metaCache.get("meta", key -> meta());
     }
-
 
     public Meta.Universe getMetaUniverse(String coinName) {
         Meta meta = loadMetaCache();
@@ -124,13 +115,17 @@ public class Info {
         return JSONUtil.convertValue(postInfo(payload), Meta.class);
     }
 
-
     /**
      * 获取永续资产相关信息（包括标价、当前资金、未平仓合约等）
      */
     public JsonNode metaAndAssetCtxs() {
         Map<String, Object> payload = Map.of("type", "metaAndAssetCtxs");
         return postInfo(payload);
+    }
+
+    public MetaAndAssetCtxs metaAndAssetCtxsTyped() {
+        JsonNode node = metaAndAssetCtxs();
+        return JSONUtil.convertValue(node, MetaAndAssetCtxs.class);
     }
 
     /**
@@ -149,14 +144,16 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * L2 book snapshot
      * L2 订单簿快照。
      *
      * @param coin     币种
-     * @param nSigFigs Optional field to aggregate levels to nSigFigs significant figures. Valid values are 2, 3, 4, 5, and null, which means full precision
-     * @param mantissa Optional field to aggregate levels. This field is only allowed if nSigFigs is 5. Accepts values of 1, 2 or 5.
+     * @param nSigFigs Optional field to aggregate levels to nSigFigs significant
+     *                 figures. Valid values are 2, 3, 4, 5, and null, which means
+     *                 full precision
+     * @param mantissa Optional field to aggregate levels. This field is only
+     *                 allowed if nSigFigs is 5. Accepts values of 1, 2 or 5.
      */
     public L2Book l2Book(String coin, Integer nSigFigs, Integer mantissa) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -175,12 +172,12 @@ public class Info {
         return l2Book(coin, null, null);
     }
 
-
     /**
      * Candle snapshot
      * Only the most recent 5000 candles are available
      * <p>
-     * Supported intervals: "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "3d", "1w", "1M"
+     * Supported intervals: "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h",
+     * "12h", "1d", "3d", "1w", "1M"
      * K 线快照（类型化返回，支持以币种名称传参）。
      *
      * <p>
@@ -230,7 +227,6 @@ public class Info {
         return candles.size() > count ? candles.subList(candles.size() - count, candles.size()) : candles;
     }
 
-
     /**
      * 查询用户未成交订单。
      */
@@ -253,7 +249,8 @@ public class Info {
 
     /**
      * Retrieve a user's fills by time
-     * Returns at most 2000 fills per response and only the 10000 most recent fills are available
+     * Returns at most 2000 fills per response and only the 10000 most recent fills
+     * are available
      * 查询用户成交（按时间范围）。
      */
     public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime, Boolean aggregateByTime) {
@@ -282,7 +279,6 @@ public class Info {
         return userFillsByTime(address, startTime, null, aggregateByTime);
     }
 
-
     /**
      * 查询用户费用（返现/手续费）。
      */
@@ -295,7 +291,7 @@ public class Info {
      * 查询资金费率历史（指定币种与时间范围）。
      */
     public JsonNode fundingHistory(int coin, long startMs, long endMs) {
-        return null;//this.fundingHistory(this.coinIdToInfoCoinString(coin), startMs, endMs);
+        return this.fundingHistory(this.coinIdToInfoCoinString(coin), startMs, endMs);
     }
 
     /**
@@ -314,7 +310,16 @@ public class Info {
      * 查询用户资金费率历史（按用户与币种）。
      */
     public JsonNode userFundingHistory(String address, int coin, long startMs, long endMs) {
-        return null;//this.userFundingHistory(address, this.coinIdToInfoCoinString(coin), startMs, endMs);
+        return this.userFundingHistory(address, this.coinIdToInfoCoinString(coin), startMs, endMs);
+    }
+
+    private String coinIdToInfoCoinString(int coinId) {
+        Meta meta = loadMetaCache();
+        List<Meta.Universe> universe = meta.getUniverse();
+        if (coinId < 0 || coinId >= universe.size()) {
+            throw new HypeError("Unknown asset id:" + coinId);
+        }
+        return "@" + coinId;
     }
 
     /**
@@ -366,7 +371,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * Retrieve a user's open orders with additional frontend info
      * 前端附加信息的未成交订单（frontendOpenOrders），可指定 perp dex 名称。
@@ -389,7 +393,6 @@ public class Info {
         return frontendOpenOrders(address, null);
     }
 
-
     /**
      * Retrieve a user's fills
      * 用户最近成交（最多 2000 条）。
@@ -411,7 +414,6 @@ public class Info {
     public List<UserFill> userFills(String address) {
         return userFills(address, null);
     }
-
 
     /**
      * 查询所有 perpetual dexs（perpDexs）。
@@ -460,6 +462,9 @@ public class Info {
         return clearinghouseState(address, null);
     }
 
+    public ClearinghouseState userState(String address) {
+        return clearinghouseState(address, null);
+    }
 
     /**
      * 获取用户的代币余额
@@ -619,7 +624,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "extraAgents", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 订阅 WebSocket。

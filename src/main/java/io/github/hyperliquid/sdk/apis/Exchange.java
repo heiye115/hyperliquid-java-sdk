@@ -1,6 +1,8 @@
 package io.github.hyperliquid.sdk.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.hyperliquid.sdk.model.info.Meta;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import io.github.hyperliquid.sdk.model.order.*;
@@ -15,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * ExchangeClient 客户端，负责下单、撤单、转账等 L1/L2 操作。
@@ -32,12 +35,10 @@ public class Exchange {
      */
     private final HypeHttpClient hypeHttpClient;
 
-
     /**
      * Info 客户端实例
      */
     private final Info info;
-
 
     /**
      * 以太坊地址（0x 前缀）
@@ -50,6 +51,12 @@ public class Exchange {
      */
     @Setter
     private Long expiresAfter;
+
+    private final Cache<String, Boolean> dexEnabledCache = Caffeine.newBuilder()
+            .maximumSize(1000)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .recordStats()
+            .build();
 
     /**
      * 构造 Exchange 客户端。
@@ -65,6 +72,15 @@ public class Exchange {
 
     }
 
+    public JsonNode scheduleCancel(Long timeMs) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "scheduleCancel");
+        if (timeMs != null) {
+            action.put("time", timeMs);
+        }
+        return postAction(action);
+    }
+
     /**
      * 更改杠杆
      *
@@ -76,12 +92,14 @@ public class Exchange {
      */
     public UpdateLeverage updateLeverage(String coinName, boolean crossed, int leverage) {
         int assetId = ensureAssetId(coinName);
-        Map<String, Object> actions = new LinkedHashMap<>() {{
-            this.put("type", "updateLeverage");
-            this.put("asset", assetId);
-            this.put("isCross", crossed);
-            this.put("leverage", leverage);
-        }};
+        Map<String, Object> actions = new LinkedHashMap<>() {
+            {
+                this.put("type", "updateLeverage");
+                this.put("asset", assetId);
+                this.put("isCross", crossed);
+                this.put("leverage", leverage);
+            }
+        };
         return JSONUtil.convertValue(postAction(actions), UpdateLeverage.class);
     }
 
@@ -97,29 +115,82 @@ public class Exchange {
      * @param builder 可选 builder 信息（可包含键 "b"）
      * @return 交易接口响应 JSON
      */
+    private final Object orderLock = new Object();
+
     public Order order(OrderRequest req, Map<String, Object> builder) {
-        // 方法注释：单笔下单（支持 builder）。
-        // 修复说明：避免重复调用 postAction(action) 导致二次签名与不同 nonce，从而引发
-        // "本地签名恢复地址与钱包地址不一致" 等问题。改为仅调用一次 postAction 并复用返回节点。
-        // 市价下单转换
-        marketOpenTransition(req);
-        int assetId = ensureAssetId(req.getCoin());
-        OrderWire wire = Signing.orderRequestToOrderWire(assetId, req);
+        synchronized (orderLock) {
+            Long prevExpires = this.expiresAfter;
+            if (prevExpires == null) {
+                this.expiresAfter = 120_000L;
+            }
+            try {
+                return innerOrder(req, builder);
+            } finally {
+                this.expiresAfter = prevExpires;
+            }
+        }
+    }
+
+    private Order innerOrder(OrderRequest req, Map<String, Object> builder) {
+        ensureDexAbstractionEnabled();
+        OrderRequest effective = prepareRequest(req);
+        marketOpenTransition(effective);
+        int assetId = ensureAssetId(effective.getCoin());
+        OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
-        // 先拿原始响应，若为错误字符串结构（status=err 且 response 为字符串），直接抛出 HypeError
         com.fasterxml.jackson.databind.JsonNode node = postAction(action);
         if (node != null && node.has("status") && "err".equals(node.get("status").asText())) {
             com.fasterxml.jackson.databind.JsonNode resp = node.get("response");
             if (resp != null && resp.isTextual()) {
-                // 与服务端保持一致：错误字符串直接向上抛出，避免 Jackson 反序列化失败
                 throw new HypeError(resp.asText());
             }
         }
-
-        // 导致重新生成 nonce 并且进行第二次签名与提交，从而与 Python SDK 的一次性提交行为不一致。
         return JSONUtil.convertValue(node, Order.class);
     }
 
+    private OrderRequest prepareRequest(OrderRequest req) {
+        if (isClosePositionMarket(req)) {
+            if (req.getIsBuy() != null && req.getSz() != null) {
+                return req;
+            }
+            double szi = inferSignedPosition(req.getCoin());
+            if (szi == 0.0) {
+                throw new HypeError("No position to close for coin " + req.getCoin());
+            }
+            boolean isBuy = szi < 0.0;
+            double sz = (req.getSz() != null && req.getSz() > 0.0) ? req.getSz() : Math.abs(szi);
+            return OrderRequest.createPerpMarketOrder(req.getCoin(), isBuy, sz, true, req.getCloid());
+        }
+        return req;
+    }
+
+    private boolean isClosePositionMarket(OrderRequest req) {
+        return req != null
+                && req.getInstrumentType() == InstrumentType.PERP
+                && req.getOrderType() != null
+                && req.getOrderType().getLimit() != null
+                && req.getOrderType().getLimit().getTif() == Tif.IOC
+                && Boolean.TRUE.equals(req.getReduceOnly())
+                && req.getLimitPx() == null;
+    }
+
+    private double inferSignedPosition(String coin) {
+        io.github.hyperliquid.sdk.model.info.ClearinghouseState state = info
+                .userState(wallet.getAddress().toLowerCase());
+        if (state == null || state.getAssetPositions() == null)
+            return 0.0;
+        for (io.github.hyperliquid.sdk.model.info.ClearinghouseState.AssetPositions ap : state.getAssetPositions()) {
+            io.github.hyperliquid.sdk.model.info.ClearinghouseState.Position pos = ap.getPosition();
+            if (pos != null && coin.equalsIgnoreCase(pos.getCoin())) {
+                try {
+                    return Double.parseDouble(pos.getSzi());
+                } catch (Exception ignored) {
+                    return 0.0;
+                }
+            }
+        }
+        return 0.0;
+    }
 
     /**
      * 单笔下单（普通下单场景）
@@ -129,6 +200,24 @@ public class Exchange {
      */
     public Order order(OrderRequest req) {
         return order(req, null);
+    }
+
+    /**
+     * 更新隔离保证金
+     *
+     * @param amount   金额（USD，浮点，内部按微单位转换）
+     * @param coinName 币种名
+     * @return JSON 响应
+     */
+    public JsonNode updateIsolatedMargin(double amount, String coinName) {
+        int assetId = ensureAssetId(coinName);
+        long ntli = Signing.floatToUsdInt(amount);
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "updateIsolatedMargin");
+        action.put("asset", assetId);
+        action.put("isBuy", true);
+        action.put("ntli", ntli);
+        return postAction(action);
     }
 
     /**
@@ -166,6 +255,7 @@ public class Exchange {
      * @return 响应 JSON
      */
     public JsonNode cancel(String coinName, long oid) {
+        ensureDexAbstractionEnabled();
         int assetId = ensureAssetId(coinName);
         Map<String, Object> cancel = new LinkedHashMap<>();
         cancel.put("coin", assetId);
@@ -203,6 +293,7 @@ public class Exchange {
      * @return 响应 JSON
      */
     public JsonNode modifyOrder(String coinName, long oid, OrderRequest newReq) {
+        ensureDexAbstractionEnabled();
         int assetId = ensureAssetId(coinName);
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, newReq);
         Map<String, Object> modify = new LinkedHashMap<>();
@@ -224,8 +315,21 @@ public class Exchange {
      */
     private Map<String, Object> buildOrderAction(List<OrderWire> wires, Map<String, Object> builder) {
         Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
-        // 插入 Python 对齐字段：grouping = "na"
-        action.put("grouping", "na");
+        // 根据是否为触发单选择 grouping（与文档一致）
+        String grouping = "na";
+        Object ordersObj = action.get("orders");
+        if (ordersObj instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> m) {
+                    Object t = m.get("t");
+                    if (t instanceof Map<?, ?> tm && tm.containsKey("trigger")) {
+                        grouping = "normalTpsl";
+                        break;
+                    }
+                }
+            }
+        }
+        action.put("grouping", grouping);
 
         if (builder != null && !builder.isEmpty()) {
             // 仅保留官方文档允许的字段：b（地址）与 f（费用）；其余键将被忽略，避免 422 反序列化失败
@@ -264,6 +368,530 @@ public class Exchange {
     }
 
     /**
+     * 启用 Agent 侧 Dex Abstraction（与 Python exchange.agent_enable_dex_abstraction
+     * 一致）。
+     * 说明：
+     * - 服务端会基于该动作创建/启用 API Wallet（Agent），以用于 L1 下单等操作。
+     * - 此为 L1 动作，直接使用 signL1Action 进行签名与提交。
+     *
+     * @return JSON 响应
+     */
+    public JsonNode agentEnableDexAbstraction() {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "agentEnableDexAbstraction");
+        // 直接复用 L1 发送逻辑
+        return postAction(action);
+    }
+
+    /**
+     * 用户侧 Dex Abstraction 开关（与 Python exchange.user_dex_abstraction 一致）。
+     * 说明：
+     * - 此为用户签名动作（EIP-712 UserSigned），不是 L1 动作，需使用 signUserSignedAction。
+     * - payload 类型需与 Python 完全一致：
+     * HyperliquidTransaction:UserDexAbstraction = [
+     * {name: "hyperliquidChain", type: "string"},
+     * {name: "user", type: "address"},
+     * {name: "enabled", type: "bool"},
+     * {name: "nonce", type: "uint64"}
+     * ]
+     *
+     * @param user    用户地址（0x 前缀）
+     * @param enabled 是否启用
+     * @return JSON 响应
+     */
+    public JsonNode userDexAbstraction(String user, boolean enabled) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "userDexAbstraction");
+        action.put("user", user == null ? null : user.toLowerCase());
+        action.put("enabled", enabled);
+        action.put("nonce", nonce);
+
+        // 构造与 Python 完全一致的 payloadTypes
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "user", "type", "address"));
+        payloadTypes.add(Map.of("name", "enabled", "type", "bool"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:UserDexAbstraction",
+                isMainnet());
+
+        // 与 _post_action 一致进行发送（不重新进行 L1 签名）
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    public JsonNode createSubAccount(String name) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "createSubAccount");
+        action.put("name", name);
+        return postAction(action);
+    }
+
+    public JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "subAccountTransfer");
+        action.put("subAccountUser", subAccountUser == null ? null : subAccountUser.toLowerCase());
+        action.put("isDeposit", isDeposit);
+        action.put("usd", usd);
+        return postAction(action);
+    }
+
+    public JsonNode usdTransfer(double amount, String destination) {
+        long time = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "usdSend");
+        action.put("destination", destination);
+        action.put("amount", String.valueOf(Signing.floatToUsdInt(amount)));
+        action.put("time", time);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "destination", "type", "string"));
+        payloadTypes.add(Map.of("name", "amount", "type", "string"));
+        payloadTypes.add(Map.of("name", "time", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:UsdSend",
+                isMainnet());
+        return postActionWithSignature(action, signature, time);
+    }
+
+    public JsonNode spotTransfer(double amount, String destination, String token) {
+        long time = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotSend");
+        action.put("destination", destination);
+        action.put("token", token);
+        action.put("amount", String.valueOf(amount));
+        action.put("time", time);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "destination", "type", "string"));
+        payloadTypes.add(Map.of("name", "token", "type", "string"));
+        payloadTypes.add(Map.of("name", "amount", "type", "string"));
+        payloadTypes.add(Map.of("name", "time", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:SpotSend",
+                isMainnet());
+        return postActionWithSignature(action, signature, time);
+    }
+
+    public JsonNode withdrawFromBridge(double amount, String destination) {
+        long time = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "withdraw3");
+        action.put("destination", destination);
+        action.put("amount", String.valueOf(amount));
+        action.put("time", time);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "destination", "type", "string"));
+        payloadTypes.add(Map.of("name", "amount", "type", "string"));
+        payloadTypes.add(Map.of("name", "time", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:Withdraw",
+                isMainnet());
+        return postActionWithSignature(action, signature, time);
+    }
+
+    public JsonNode usdClassTransfer(boolean toPerp, double amount) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "usdClassTransfer");
+        action.put("amount", String.valueOf(Signing.floatToUsdInt(amount)));
+        action.put("toPerp", toPerp);
+        action.put("nonce", nonce);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "amount", "type", "string"));
+        payloadTypes.add(Map.of("name", "toPerp", "type", "bool"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:UsdClassTransfer",
+                isMainnet());
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
+            String fromSubAccount) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "sendAsset");
+        action.put("destination", destination);
+        action.put("sourceDex", sourceDex);
+        action.put("destinationDex", destinationDex);
+        action.put("token", token);
+        action.put("amount", amount);
+        action.put("fromSubAccount", fromSubAccount);
+        action.put("nonce", nonce);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "destination", "type", "string"));
+        payloadTypes.add(Map.of("name", "sourceDex", "type", "string"));
+        payloadTypes.add(Map.of("name", "destinationDex", "type", "string"));
+        payloadTypes.add(Map.of("name", "token", "type", "string"));
+        payloadTypes.add(Map.of("name", "amount", "type", "string"));
+        payloadTypes.add(Map.of("name", "fromSubAccount", "type", "string"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:SendAsset",
+                isMainnet());
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    public JsonNode approveBuilderFee(String builder, String maxFeeRate) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "approveBuilderFee");
+        action.put("builder", builder == null ? null : builder.toLowerCase());
+        action.put("maxFeeRate", maxFeeRate);
+        action.put("nonce", nonce);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "maxFeeRate", "type", "string"));
+        payloadTypes.add(Map.of("name", "builder", "type", "address"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:ApproveBuilderFee",
+                isMainnet());
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    public JsonNode setReferrer(String code) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "setReferrer");
+        action.put("code", code);
+        action.put("nonce", nonce);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "code", "type", "string"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:SetReferrer",
+                isMainnet());
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    public JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "tokenDelegate");
+        action.put("validator", validator == null ? null : validator.toLowerCase());
+        action.put("wei", wei);
+        action.put("isUndelegate", isUndelegate);
+        action.put("nonce", nonce);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "validator", "type", "address"));
+        payloadTypes.add(Map.of("name", "wei", "type", "uint64"));
+        payloadTypes.add(Map.of("name", "isUndelegate", "type", "bool"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:TokenDelegate",
+                isMainnet());
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    public JsonNode convertToMultiSigUser(String signersJson) {
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "convertToMultiSigUser");
+        action.put("signers", signersJson);
+        action.put("nonce", nonce);
+
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "signers", "type", "string"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:ConvertToMultiSigUser",
+                isMainnet());
+        return postActionWithSignature(action, signature, nonce);
+    }
+
+    /**
+     * Vault 资金转移（存入/取出）
+     *
+     * @param vaultAddress Vault 地址
+     * @param isDeposit    是否存入
+     * @param usd          金额（微 USDC 单位）
+     * @return JSON 响应
+     */
+    public JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "vaultTransfer");
+        action.put("vaultAddress", vaultAddress == null ? null : vaultAddress.toLowerCase());
+        action.put("isDeposit", isDeposit);
+        action.put("usd", usd);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 注册 Token（registerToken2）
+     */
+    public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
+            String fullName) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        Map<String, Object> spec = new LinkedHashMap<>();
+        spec.put("name", tokenName);
+        spec.put("szDecimals", szDecimals);
+        spec.put("weiDecimals", weiDecimals);
+        Map<String, Object> registerToken2 = new LinkedHashMap<>();
+        registerToken2.put("spec", spec);
+        registerToken2.put("maxGas", maxGas);
+        registerToken2.put("fullName", fullName);
+        action.put("type", "spotDeploy");
+        action.put("registerToken2", registerToken2);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 用户创世分配（userGenesis）
+     * userAndWei: [ [user,addressLower], [wei,string] ] 形式的二元列表
+     * existingTokenAndWei: [ [tokenId,int], [wei,string] ] 形式的二元列表
+     */
+    public JsonNode spotDeployUserGenesis(int token, List<String[]> userAndWei, List<Object[]> existingTokenAndWei) {
+        List<List<Object>> userAndWeiWire = new ArrayList<>();
+        if (userAndWei != null) {
+            for (String[] pair : userAndWei) {
+                String user = pair[0] == null ? null : pair[0].toLowerCase();
+                String wei = pair[1];
+                List<Object> entry = new ArrayList<>();
+                entry.add(user);
+                entry.add(wei);
+                userAndWeiWire.add(entry);
+            }
+        }
+        List<List<Object>> existingWire = new ArrayList<>();
+        if (existingTokenAndWei != null) {
+            for (Object[] pair : existingTokenAndWei) {
+                Integer t = (Integer) pair[0];
+                String wei = (String) pair[1];
+                List<Object> entry = new ArrayList<>();
+                entry.add(t);
+                entry.add(wei);
+                existingWire.add(entry);
+            }
+        }
+
+        Map<String, Object> userGenesis = new LinkedHashMap<>();
+        userGenesis.put("token", token);
+        userGenesis.put("userAndWei", userAndWeiWire);
+        userGenesis.put("existingTokenAndWei", existingWire);
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotDeploy");
+        action.put("userGenesis", userGenesis);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 启用冻结权限
+     */
+    public JsonNode spotDeployEnableFreezePrivilege(int token) {
+        return spotDeployTokenActionInner("enableFreezePrivilege", token);
+    }
+
+    /**
+     * SpotDeploy: 撤销冻结权限
+     */
+    public JsonNode spotDeployRevokeFreezePrivilege(int token) {
+        return spotDeployTokenActionInner("revokeFreezePrivilege", token);
+    }
+
+    /**
+     * SpotDeploy: 冻结/解冻用户
+     */
+    public JsonNode spotDeployFreezeUser(int token, String user, boolean freeze) {
+        Map<String, Object> freezeUser = new LinkedHashMap<>();
+        freezeUser.put("token", token);
+        freezeUser.put("user", user == null ? null : user.toLowerCase());
+        freezeUser.put("freeze", freeze);
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotDeploy");
+        action.put("freezeUser", freezeUser);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 启用报价 Token
+     */
+    public JsonNode spotDeployEnableQuoteToken(int token) {
+        return spotDeployTokenActionInner("enableQuoteToken", token);
+    }
+
+    /**
+     * SpotDeploy: 通用 Token 操作内部封装
+     */
+    private JsonNode spotDeployTokenActionInner(String variant, int token) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        Map<String, Object> variantObj = new LinkedHashMap<>();
+        variantObj.put("token", token);
+        action.put("type", "spotDeploy");
+        action.put(variant, variantObj);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 创世（genesis）
+     */
+    public JsonNode spotDeployGenesis(int token, String maxSupply, boolean noHyperliquidity) {
+        Map<String, Object> genesis = new LinkedHashMap<>();
+        genesis.put("token", token);
+        genesis.put("maxSupply", maxSupply);
+        if (noHyperliquidity) {
+            genesis.put("noHyperliquidity", true);
+        }
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotDeploy");
+        action.put("genesis", genesis);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 注册现货交易对（registerSpot）
+     */
+    public JsonNode spotDeployRegisterSpot(int baseToken, int quoteToken) {
+        Map<String, Object> register = new LinkedHashMap<>();
+        List<Integer> tokens = new ArrayList<>();
+        tokens.add(baseToken);
+        tokens.add(quoteToken);
+        register.put("tokens", tokens);
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotDeploy");
+        action.put("registerSpot", register);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 注册 Hyperliquidity 做市
+     */
+    public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
+            Integer nSeededLevels) {
+        Map<String, Object> register = new LinkedHashMap<>();
+        register.put("spot", spot);
+        register.put("startPx", String.valueOf(startPx));
+        register.put("orderSz", String.valueOf(orderSz));
+        register.put("nOrders", nOrders);
+        if (nSeededLevels != null) {
+            register.put("nSeededLevels", nSeededLevels);
+        }
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotDeploy");
+        action.put("registerHyperliquidity", register);
+        return postAction(action);
+    }
+
+    /**
+     * SpotDeploy: 设置部署者交易费分成
+     */
+    public JsonNode spotDeploySetDeployerTradingFeeShare(int token, String share) {
+        Map<String, Object> setShare = new LinkedHashMap<>();
+        setShare.put("token", token);
+        setShare.put("share", share);
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "spotDeploy");
+        action.put("setDeployerTradingFeeShare", setShare);
+        return postAction(action);
+    }
+
+    /**
+     * 用户授权并创建新的 Agent（API Wallet）。
+     * 与 Python Exchange.approve_agent 一致：
+     * - 随机生成 32 字节私钥，得到 agentAddress；
+     * - 构造 {type:"approveAgent", agentAddress, agentName?, nonce} 用户签名动作；
+     * - 使用 signUserSignedAction(primaryType="HyperliquidTransaction:ApproveAgent")
+     * 签名；
+     * - 发送到 /exchange 并返回服务端响应与新私钥。
+     *
+     * 注意：当 name 为 null 时，不在 action 中包含 agentName 字段（与 Python 对齐）。
+     *
+     * @param name 可选的 Agent 名称（显示用途），可为 null
+     * @return 服务端响应与生成的 Agent 私钥/地址
+     */
+    public io.github.hyperliquid.sdk.model.approve.ApproveAgentResult approveAgent(String name) {
+        // 生成 32 字节随机私钥（0x 前缀）
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        String agentPrivateKey = "0x" + org.web3j.utils.Numeric.toHexStringNoPrefix(bytes);
+        org.web3j.crypto.Credentials agentCred = org.web3j.crypto.Credentials.create(agentPrivateKey);
+        String agentAddress = agentCred.getAddress();
+
+        long nonce = Signing.getTimestampMs();
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "approveAgent");
+        action.put("agentAddress", agentAddress);
+        action.put("nonce", nonce);
+        if (name != null) {
+            action.put("agentName", name);
+        }
+
+        // ApproveAgent payload types
+        List<Map<String, Object>> payloadTypes = new ArrayList<>();
+        payloadTypes.add(Map.of("name", "hyperliquidChain", "type", "string"));
+        payloadTypes.add(Map.of("name", "agentAddress", "type", "address"));
+        payloadTypes.add(Map.of("name", "agentName", "type", "string"));
+        payloadTypes.add(Map.of("name", "nonce", "type", "uint64"));
+
+        Map<String, Object> signature = Signing.signUserSignedAction(
+                wallet,
+                action,
+                payloadTypes,
+                "HyperliquidTransaction:ApproveAgent",
+                isMainnet());
+
+        com.fasterxml.jackson.databind.JsonNode resp = postActionWithSignature(action, signature, nonce);
+        return new io.github.hyperliquid.sdk.model.approve.ApproveAgentResult(resp, agentPrivateKey, agentAddress);
+    }
+
+    /**
      * 统一 L1 动作发送封装（签名并 POST 到 /exchange）。
      *
      * <p>
@@ -280,23 +908,94 @@ public class Exchange {
         long nonce = Signing.getTimestampMs();
 
         String type = String.valueOf(action.getOrDefault("type", ""));
-        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type)) ? null : vaultAddress;
+        boolean tradingAction = "order".equals(type) || "cancel".equals(type) || "cancelByCloid".equals(type)
+                || "modifyOrder".equals(type) || "scheduleCancel".equals(type) || "updateLeverage".equals(type);
+        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type) || tradingAction) ? null
+                : vaultAddress;
+        if (effectiveVault != null) {
+            effectiveVault = effectiveVault.toLowerCase();
+            String signerAddr = wallet.getAddress().toLowerCase();
+            if (effectiveVault.equals(signerAddr)) {
+                effectiveVault = null;
+            }
+        }
+
+        Long effectiveExpiresAfter = expiresAfter;
+        if (effectiveExpiresAfter != null && effectiveExpiresAfter < 1_000_000_000_000L) {
+            effectiveExpiresAfter = nonce + effectiveExpiresAfter;
+        }
 
         Map<String, Object> signature = Signing.signL1Action(
                 wallet,
                 action,
                 effectiveVault,
                 nonce,
-                expiresAfter,
+                effectiveExpiresAfter,
                 isMainnet());
+
+        // 调试：打印 EIP-712 TypedData 预览与恢复地址（仅用于诊断）
+        try {
+            byte[] digest = Signing.actionHash(action, nonce, effectiveVault, effectiveExpiresAfter);
+            Map<String, Object> phantom = Signing.constructPhantomAgent(digest, isMainnet());
+            String typedJson = Signing.l1PayloadJson(phantom);
+            System.out.println("[调试] (实际发送前) L1 typedData: " + typedJson);
+            System.out.println("[调试] (实际发送前) nonce/vault/expiresAfter: nonce=" + nonce + ", vaultAddress="
+                    + effectiveVault + ", expiresAfter="
+                    + (effectiveExpiresAfter == null ? "null" : String.valueOf(effectiveExpiresAfter)));
+            String recovered = Signing.recoverAgentOrUserFromL1Action(action, effectiveVault, nonce,
+                    effectiveExpiresAfter,
+                    isMainnet(), signature);
+            System.out.println("[调试] (实际发送前) 恢复地址: " + recovered + " (签名者应为当前钱包/Agent)");
+        } catch (Exception ignore) {
+            // 非关键：若调试打印失败，不影响实际发送
+        }
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("action", action);
         payload.put("nonce", nonce);
         payload.put("signature", signature);
         payload.put("vaultAddress", effectiveVault);
-        payload.put("expiresAfter", expiresAfter);
+        // L1 普通动作（本方法内签名）支持 expiresAfter，直接传递；用户签名动作的特殊处理在 postActionWithSignature 中完成
+        payload.put("expiresAfter", effectiveExpiresAfter);
 
+        return hypeHttpClient.post("/exchange", payload);
+    }
+
+    /**
+     * 统一封装：使用现成签名（用户签名或其他签名）发送到 /exchange。
+     * 与 postAction 的区别在于：不在此方法内生成签名，而是接受外部传入的签名。
+     *
+     * @param action    动作 Map
+     * @param signature 现成的 r/s/v 签名（与 EIP-712 TypedData 对应）
+     * @param nonce     时间戳/随机数
+     * @return JSON 响应
+     */
+    private JsonNode postActionWithSignature(Map<String, Object> action, Map<String, Object> signature, long nonce) {
+        String type = String.valueOf(action.getOrDefault("type", ""));
+        boolean userSigned = "approveAgent".equals(type)
+                || "userDexAbstraction".equals(type)
+                || "usdSend".equals(type)
+                || "withdraw3".equals(type)
+                || "spotSend".equals(type)
+                || "usdClassTransfer".equals(type)
+                || "sendAsset".equals(type)
+                || "approveBuilderFee".equals(type)
+                || "setReferrer".equals(type)
+                || "tokenDelegate".equals(type)
+                || "convertToMultiSigUser".equals(type);
+        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type) || userSigned) ? null
+                : vaultAddress;
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        // 保持用户签名动作的 action 原样发送（包含 signatureChainId 与 hyperliquidChain），与 Python SDK
+        // 行为一致。
+        payload.put("action", action);
+        payload.put("nonce", nonce);
+        payload.put("signature", signature);
+        if (!userSigned) {
+            payload.put("vaultAddress", effectiveVault);
+            payload.put("expiresAfter", expiresAfter);
+        }
         return hypeHttpClient.post("/exchange", payload);
     }
 
@@ -313,6 +1012,65 @@ public class Exchange {
             throw new HypeError("Unknown coin name: " + coinName);
         }
         return assetId;
+    }
+
+    private void ensureDexAbstractionEnabled() {
+        String address = wallet.getAddress().toLowerCase();
+        Boolean cached = dexEnabledCache.getIfPresent(address);
+        if (cached != null && cached)
+            return;
+        try {
+            JsonNode state = info.queryUserDexAbstractionState(address);
+            boolean enabled = isDexEnabled(state);
+            if (!enabled) {
+                // 先尝试用户签名方式开启开关
+                try {
+                    JsonNode userToggle = userDexAbstraction(address, true);
+                    enabled = isOk(userToggle) || isAlreadySet(userToggle);
+                } catch (Exception ignored) {
+                }
+            }
+            if (!enabled) {
+                JsonNode resp = agentEnableDexAbstraction();
+                enabled = isOk(resp) || isAlreadySet(resp);
+            }
+            if (enabled)
+                dexEnabledCache.put(address, Boolean.TRUE);
+        } catch (Exception ignore) {
+            try {
+                try {
+                    JsonNode userToggle = userDexAbstraction(wallet.getAddress().toLowerCase(), true);
+                    if (isOk(userToggle) || isAlreadySet(userToggle))
+                        dexEnabledCache.put(wallet.getAddress().toLowerCase(), Boolean.TRUE);
+                } catch (Exception ignored) {
+                }
+                JsonNode resp = agentEnableDexAbstraction();
+                if (isOk(resp) || isAlreadySet(resp))
+                    dexEnabledCache.put(address, Boolean.TRUE);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private boolean isDexEnabled(JsonNode node) {
+        if (node == null)
+            return false;
+        if (node.has("enabled"))
+            return node.get("enabled").asBoolean(false);
+        if (node.has("data") && node.get("data").has("enabled"))
+            return node.get("data").get("enabled").asBoolean(false);
+        String s = node.toString().toLowerCase();
+        return s.contains("\"enabled\":true");
+    }
+
+    private boolean isOk(JsonNode node) {
+        return node != null && node.has("status") && "ok".equalsIgnoreCase(node.get("status").asText());
+    }
+
+    private boolean isAlreadySet(JsonNode node) {
+        return node != null && node.has("status") && "err".equalsIgnoreCase(node.get("status").asText())
+                && node.has("response") && node.get("response").isTextual()
+                && node.get("response").asText().toLowerCase().contains("already set");
     }
 
     private void marketOpenTransition(OrderRequest req) {
@@ -342,7 +1100,8 @@ public class Exchange {
         Map<String, String> mids = info.allMids();
         String midStr = mids.get(coin);
         if (midStr == null) {
-            throw new HypeError("Failed to get mid price for coin " + coin + " (allMids returned empty or does not contain the coin)");
+            throw new HypeError("Failed to get mid price for coin " + coin
+                    + " (allMids returned empty or does not contain the coin)");
         }
         try {
             basePx = Double.parseDouble(midStr);

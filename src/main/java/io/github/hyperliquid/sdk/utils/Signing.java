@@ -39,34 +39,47 @@ public final class Signing {
     }
 
     /**
-     * 将浮点数转换为字符串表示（适配后端接口要求）。
-     * 规则：去除科学计数法，尽量保留原精度，不添加多余的尾随 0。
+     * 将浮点数转换为字符串表示（与 Python float_to_wire 一致）。
+     * 规则：
+     * - 先将值格式化为 8 位小数（四舍五入规则与 Python 格式化一致）；
+     * - 若格式化后与原值差异 >= 1e-12，则抛出异常（避免不可接受的舍入）；
+     * - 规范化去除尾随 0 与科学计数法；
+     * - "-0" 正规化为 "0"。
      *
      * @param value 浮点数值
      * @return 字符串表示
+     * @throws IllegalArgumentException 当舍入误差超过阈值时抛出
      */
     public static String floatToWire(double value) {
-        BigDecimal bd = BigDecimal.valueOf(value);
-        // 统一为普通字符串格式，避免科学计数法
-        String s = bd.stripTrailingZeros().toPlainString();
-        // 去除可能的 "+0" 情况
-        if (s.equals("-0")) {
+        // 使用字符串格式化为 8 位小数，模拟 Python 的 f"{x:.8f}"
+        String rounded = String.format(java.util.Locale.US, "%.8f", value);
+        double roundedDouble = Double.parseDouble(rounded);
+        if (Math.abs(roundedDouble - value) >= 1e-12) {
+            throw new IllegalArgumentException("floatToWire causes rounding: " + value);
+        }
+        // 使用 BigDecimal 规范化，去除尾随 0 与科学计数法
+        BigDecimal normalized = new BigDecimal(rounded).stripTrailingZeros();
+        String s = normalized.toPlainString();
+        if ("-0".equals(s)) {
             s = "0";
         }
         return s;
     }
 
     /**
-     * 将浮点数转换为用于哈希的整数。
-     * 规则：按 1e9 放大并取整。
+     * 将浮点数转换为用于哈希的整数（与 Python float_to_int_for_hashing 一致，放大 1e8）。
+     *
+     * 规则：
+     * - with_decimals = x * 10^8；
+     * - 若 |round(with_decimals) - with_decimals| >= 1e-3，抛出异常（避免不可接受的舍入）；
+     * - 返回四舍五入后的整数值。
      *
      * @param value 浮点
-     * @return 放大后的整数
+     * @return 放大后的整数（long）
+     * @throws IllegalArgumentException 当舍入误差超过阈值时抛出
      */
     public static long floatToIntForHashing(double value) {
-        BigDecimal bd = BigDecimal.valueOf(value);
-        BigDecimal scaled = bd.multiply(BigDecimal.valueOf(1_000_000_000L));
-        return scaled.longValue();
+        return floatToInt(value, 8);
     }
 
     /**
@@ -82,15 +95,25 @@ public final class Signing {
     }
 
     /**
-     * 通用整数转换：按 1e8 放大并取整。
+     * 通用整数转换：按 10^power 放大并取整（与 Python float_to_int 一致）。
+     *
+     * 规则：
+     * - with_decimals = x * 10^power；
+     * - 若 |round(with_decimals) - with_decimals| >= 1e-3，抛出异常；
+     * - 返回四舍五入后的整数值。
      *
      * @param value 浮点
+     * @param power 放大倍数的指数（例如 8 表示 1e8）
      * @return 放大后的整数
+     * @throws IllegalArgumentException 当舍入误差超过阈值时抛出
      */
-    public static long floatToInt(double value) {
-        BigDecimal bd = BigDecimal.valueOf(value);
-        BigDecimal scaled = bd.multiply(BigDecimal.valueOf(100_000_000L));
-        return scaled.longValue();
+    public static long floatToInt(double value, int power) {
+        double withDecimals = value * Math.pow(10, power);
+        double rounded = Math.rint(withDecimals); // 最接近偶数的舍入，与 Python round 行为接近
+        if (Math.abs(rounded - withDecimals) >= 1e-3) {
+            throw new IllegalArgumentException("floatToInt causes rounding: " + value);
+        }
+        return (long) Math.round(withDecimals);
     }
 
     /**
@@ -174,9 +197,9 @@ public final class Signing {
 
             // 追加 vaultAddress 标记及地址
             if (vaultAddress == null) {
-                baos.write(new byte[]{0x00});
+                baos.write(new byte[] { 0x00 });
             } else {
-                baos.write(new byte[]{0x01});
+                baos.write(new byte[] { 0x01 });
                 byte[] addrBytes = addressToBytes(vaultAddress);
                 if (addrBytes.length != 20) {
                     throw new IllegalArgumentException("vaultAddress must be 20 bytes");
@@ -184,9 +207,8 @@ public final class Signing {
                 baos.write(addrBytes);
             }
 
-            // 追加 expiresAfter（仅当非 null）
             if (expiresAfter != null) {
-                baos.write(new byte[]{0x00});
+                baos.write(new byte[] { 0x00 });
                 byte[] expBytes = java.nio.ByteBuffer.allocate(8).putLong(expiresAfter).array();
                 baos.write(expBytes);
             }
@@ -343,6 +365,8 @@ public final class Signing {
         try {
             org.web3j.crypto.StructuredDataEncoder encoder = new org.web3j.crypto.StructuredDataEncoder(typedDataJson);
             byte[] digest = encoder.hashStructuredData();
+            // 纯 EIP-712 非前缀实现：直接对 EIP-712 结构化数据的 digest 进行签名，不再做任何额外哈希或前缀。
+            // 说明：Sign.signMessage(byte[], ECKeyPair, false) 会跳过内置哈希步骤，直接对输入进行 ECDSA 签名。
             Sign.SignatureData sig = Sign.signMessage(digest, credentials.getEcKeyPair(), false);
             String r = Numeric.toHexString(sig.getR());
             String s = Numeric.toHexString(sig.getS());
@@ -411,7 +435,7 @@ public final class Signing {
      * -> 签名。
      */
     public static Map<String, Object> signL1Action(Credentials credentials, Object action, String vaultAddress,
-                                                   long nonce, Long expiresAfter, boolean isMainnet) {
+            long nonce, Long expiresAfter, boolean isMainnet) {
         byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
         Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
         String typedJson = l1PayloadJson(agent);
@@ -432,7 +456,7 @@ public final class Signing {
      * @return EIP-712 TypedData 的 JSON 字符串
      */
     public static String userSignedPayloadJson(String primaryType, List<Map<String, Object>> payloadTypes,
-                                               Map<String, Object> action) {
+            Map<String, Object> action) {
         // 将 signatureChainId 的 16 进制字符串解析为整型链 ID
         Object sigChainIdObj = action.get("signatureChainId");
         if (sigChainIdObj == null) {
@@ -490,10 +514,10 @@ public final class Signing {
      * @return r/s/v 签名
      */
     public static Map<String, Object> signUserSignedAction(Credentials credentials,
-                                                           Map<String, Object> action,
-                                                           List<Map<String, Object>> payloadTypes,
-                                                           String primaryType,
-                                                           boolean isMainnet) {
+            Map<String, Object> action,
+            List<Map<String, Object>> payloadTypes,
+            String primaryType,
+            boolean isMainnet) {
         action.put("signatureChainId", "0x66eee");
         action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
         String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
@@ -517,13 +541,115 @@ public final class Signing {
             byte[] r = Numeric.hexStringToByteArray(rHex);
             byte[] s = Numeric.hexStringToByteArray(sHex);
             byte vByte = (byte) vInt;
-            Sign.SignatureData sig = new Sign.SignatureData(vByte, r, s);
-            java.math.BigInteger pubKey = Sign.signedMessageToKey(digest, sig);
+            // 纯 EIP-712 非前缀恢复：直接基于 digest 与 r/s/v 进行 ecrecover，避免任何额外哈希或前缀。
+            // 注意：web3j 的 signedMessageToKey 可能会对输入进行哈希或与前缀约定耦合，这里使用更底层的
+            // recoverFromSignature。
+            int recId;
+            if (vInt == 27 || vInt == 28) {
+                recId = vInt - 27;
+            } else if (vInt == 0 || vInt == 1) {
+                recId = vInt;
+            } else if (vInt >= 35) {
+                // 兼容 EIP-155 风格 v 值（尽管 EIP-712 通常不携带 chainId），仅用于健壮性处理
+                recId = (vInt - 35) % 2;
+            } else {
+                throw new HypeError("Unsupported v value for recovery: " + vInt);
+            }
+            java.math.BigInteger rBI = new java.math.BigInteger(1, r);
+            java.math.BigInteger sBI = new java.math.BigInteger(1, s);
+            java.math.BigInteger pubKey = recoverPublicKeyFromSignature(recId, rBI, sBI, digest);
             String addr = org.web3j.crypto.Keys.getAddress(pubKey);
             return "0x" + addr.toLowerCase();
         } catch (Exception e) {
             throw new HypeError("Failed to recover address: " + e.getMessage());
         }
+    }
+
+    /**
+     * 公共辅助方法：从 digest 与 r/s/v 恢复地址（纯 EIP-712 非前缀）。
+     * 可用于测试与诊断，无需构造完整 typedData JSON。
+     *
+     * @param digest    32 字节 EIP-712 哈希
+     * @param signature r/s/v 签名
+     * @return 恢复出的地址（0x 小写）
+     */
+    public static String recoverAddressFromDigest(byte[] digest, Map<String, Object> signature) {
+        String rHex = String.valueOf(signature.get("r"));
+        String sHex = String.valueOf(signature.get("s"));
+        int vInt = Integer.parseInt(String.valueOf(signature.get("v")));
+        byte[] r = Numeric.hexStringToByteArray(rHex);
+        byte[] s = Numeric.hexStringToByteArray(sHex);
+        int recId;
+        if (vInt == 27 || vInt == 28) {
+            recId = vInt - 27;
+        } else if (vInt == 0 || vInt == 1) {
+            recId = vInt;
+        } else if (vInt >= 35) {
+            recId = (vInt - 35) % 2;
+        } else {
+            throw new HypeError("Unsupported v value for recovery: " + vInt);
+        }
+        java.math.BigInteger rBI = new java.math.BigInteger(1, r);
+        java.math.BigInteger sBI = new java.math.BigInteger(1, s);
+        java.math.BigInteger pubKey = recoverPublicKeyFromSignature(recId, rBI, sBI, digest);
+        String addr = org.web3j.crypto.Keys.getAddress(pubKey);
+        return "0x" + addr.toLowerCase();
+    }
+
+    /**
+     * 使用 BouncyCastle 实现的 ecrecover：根据 r/s/v 与消息摘要（digest）恢复未压缩公钥（64字节）。
+     * 该实现遵循 secp256k1 曲线参数，避免 web3j 高层 API 对消息哈希或前缀的约束。
+     *
+     * @param recId  0 或 1（由 v 归一化得到）
+     * @param r      ECDSA r 值
+     * @param s      ECDSA s 值
+     * @param digest 32 字节消息摘要（EIP-712 哈希）
+     * @return 未压缩公钥的 BigInteger 表示（64 字节 x||y）
+     */
+    private static java.math.BigInteger recoverPublicKeyFromSignature(int recId, java.math.BigInteger r,
+            java.math.BigInteger s, byte[] digest) {
+        // 使用 BouncyCastle 曲线参数
+        org.bouncycastle.asn1.x9.X9ECParameters x9 = org.bouncycastle.crypto.ec.CustomNamedCurves
+                .getByName("secp256k1");
+        org.bouncycastle.crypto.params.ECDomainParameters curve = new org.bouncycastle.crypto.params.ECDomainParameters(
+                x9.getCurve(), x9.getG(), x9.getN(), x9.getH());
+
+        java.math.BigInteger n = curve.getN();
+        java.math.BigInteger i = java.math.BigInteger.valueOf(recId / 2);
+        java.math.BigInteger x = r.add(i.multiply(n));
+
+        // 根据 recId 的奇偶确定压缩点的奇偶性
+        boolean yBit = (recId % 2) == 1;
+        org.bouncycastle.math.ec.ECPoint R = decompressKey(x, yBit, curve.getCurve());
+        if (R == null || !R.multiply(n).isInfinity()) {
+            throw new HypeError("Invalid R point during public key recovery");
+        }
+
+        java.math.BigInteger e = new java.math.BigInteger(1, digest);
+        java.math.BigInteger rInv = r.modInverse(n);
+        java.math.BigInteger srInv = s.multiply(rInv).mod(n);
+        java.math.BigInteger eInv = e.negate().mod(n);
+        java.math.BigInteger eInvRInv = eInv.multiply(rInv).mod(n);
+
+        org.bouncycastle.math.ec.ECPoint q = org.bouncycastle.math.ec.ECAlgorithms.sumOfTwoMultiplies(
+                curve.getG(), eInvRInv, R, srInv);
+        byte[] pubKeyEncoded = q.getEncoded(false); // 65 字节，首字节为 0x04
+        byte[] pubKeyNoPrefix = java.util.Arrays.copyOfRange(pubKeyEncoded, 1, pubKeyEncoded.length);
+        return new java.math.BigInteger(1, pubKeyNoPrefix);
+    }
+
+    /**
+     * 将给定 x 坐标与 y 奇偶标志，解压为曲线上点（未压缩）。
+     */
+    private static org.bouncycastle.math.ec.ECPoint decompressKey(java.math.BigInteger xBN, boolean yBit,
+            org.bouncycastle.math.ec.ECCurve curve) {
+        byte[] compEnc = new byte[33];
+        compEnc[0] = (byte) (yBit ? 0x03 : 0x02);
+        byte[] xBytes = xBN.toByteArray();
+        int start = Math.max(0, xBytes.length - 32);
+        int length = Math.min(32, xBytes.length);
+        System.arraycopy(xBytes, start, compEnc, 33 - length, length);
+        return curve.decodePoint(compEnc);
     }
 
     /**
@@ -538,9 +664,9 @@ public final class Signing {
      * @return 恢复得到的 0x 地址（小写）
      */
     public static String recoverAgentOrUserFromL1Action(Object action, String vaultAddress,
-                                                        long nonce, Long expiresAfter,
-                                                        boolean isMainnet,
-                                                        Map<String, Object> signature) {
+            long nonce, Long expiresAfter,
+            boolean isMainnet,
+            Map<String, Object> signature) {
         byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
         Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
         String typedJson = l1PayloadJson(agent);
@@ -559,10 +685,10 @@ public final class Signing {
      * @return 恢复得到的 0x 地址（小写）
      */
     public static String recoverUserFromUserSignedAction(Map<String, Object> action,
-                                                         Map<String, Object> signature,
-                                                         List<Map<String, Object>> payloadTypes,
-                                                         String primaryType,
-                                                         boolean isMainnet) {
+            Map<String, Object> signature,
+            List<Map<String, Object>> payloadTypes,
+            String primaryType,
+            boolean isMainnet) {
         action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
         String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
         return recoverFromTypedData(typedJson, signature);
@@ -607,6 +733,8 @@ public final class Signing {
             wires.add(w);
         }
         action.put("orders", wires);
+        // 与 Python 一致，默认分组为 "na"（置于 orders 之后）
+        action.put("grouping", "na");
         return action;
     }
 
