@@ -934,23 +934,6 @@ public class Exchange {
                 effectiveExpiresAfter,
                 isMainnet());
 
-        // 调试：打印 EIP-712 TypedData 预览与恢复地址（仅用于诊断）
-        try {
-            byte[] digest = Signing.actionHash(action, nonce, effectiveVault, effectiveExpiresAfter);
-            Map<String, Object> phantom = Signing.constructPhantomAgent(digest, isMainnet());
-            String typedJson = Signing.l1PayloadJson(phantom);
-            System.out.println("[调试] (实际发送前) L1 typedData: " + typedJson);
-            System.out.println("[调试] (实际发送前) nonce/vault/expiresAfter: nonce=" + nonce + ", vaultAddress="
-                    + effectiveVault + ", expiresAfter="
-                    + (effectiveExpiresAfter == null ? "null" : String.valueOf(effectiveExpiresAfter)));
-            String recovered = Signing.recoverAgentOrUserFromL1Action(action, effectiveVault, nonce,
-                    effectiveExpiresAfter,
-                    isMainnet(), signature);
-            System.out.println("[调试] (实际发送前) 恢复地址: " + recovered + " (签名者应为当前钱包/Agent)");
-        } catch (Exception ignore) {
-            // 非关键：若调试打印失败，不影响实际发送
-        }
-
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("action", action);
         payload.put("nonce", nonce);
