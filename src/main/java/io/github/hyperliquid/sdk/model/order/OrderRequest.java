@@ -4,7 +4,7 @@ import lombok.Data;
 
 /**
  * 下单请求结构（Java 侧语义化表示）。
- *
+ * <p>
  * 说明：
  * - 与 Python SDK 的 `OrderRequest` 对齐：coin/is_buy/sz/limit_px/order_type/reduce_only/cloid；
  * - 市价单在协议层以“限价 + IOC”表达，`limitPx` 可为空，价格由业务层根据中间价及滑点计算；
@@ -17,19 +17,19 @@ public class OrderRequest {
     /**
      * 交易品种类型（PERP 永续 / SPOT 现货）
      **/
-    private final InstrumentType instrumentType;
+    private InstrumentType instrumentType;
     /**
      * 币种名称（例如 "ETH"、"BTC"）
      **/
-    private final String coin;
+    private String coin;
     /**
      * 是否买入（true=买/做多，false=卖/做空）；市价平仓场景可为空，交由业务层自动推断
      **/
-    private final Boolean isBuy;
+    private Boolean isBuy;
     /**
      * 下单数量（浮点）；最终会规范化为字符串（8 位小数内）
      **/
-    private final Double sz;
+    private Double sz;
     /**
      * 限价价格；
      * - 可为空（市价单或触发单的市价执行）；
@@ -39,15 +39,15 @@ public class OrderRequest {
     /**
      * 订单类型：限价（TIF）或触发（triggerPx/isMarket/tpsl）；可为空表示普通限价/市价默认行为
      **/
-    private final OrderType orderType;
+    private OrderType orderType;
     /**
      * 仅减仓标记（true 表示不会增加仓位）；用于平仓或触发减仓
      **/
-    private final Boolean reduceOnly;
+    private Boolean reduceOnly;
     /**
      * 客户端订单 ID（Cloid），可为空
      **/
-    private final Cloid cloid;
+    private Cloid cloid;
 
     /**
      * 市价下单滑点比例（例如 0.05 表示 5%）；
@@ -76,6 +76,18 @@ public class OrderRequest {
         this.orderType = orderType;
         this.reduceOnly = reduceOnly;
         this.cloid = cloid;
+    }
+
+    public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, Double sz, Double limitPx, OrderType orderType, Boolean reduceOnly, Cloid cloid, Double slippage) {
+        this.instrumentType = instrumentType;
+        this.coin = coin;
+        this.isBuy = isBuy;
+        this.sz = sz;
+        this.limitPx = limitPx;
+        this.orderType = orderType;
+        this.reduceOnly = reduceOnly;
+        this.cloid = cloid;
+        this.slippage = slippage;
     }
 
     /**
@@ -305,6 +317,141 @@ public class OrderRequest {
                                                       Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Boolean reduceOnly, Cloid cloid) {
         return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx,
                 new OrderType(new TriggerOrderType(triggerPx, isMarket, tpsl)), reduceOnly, cloid);
+    }
+
+    /**
+     * 永续开仓
+     **/
+    public static class Open {
+
+        public static OrderRequest limit(Tif tif, String coin, Boolean isBuy, Double sz, Double limitPx, Cloid cloid) {
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx, new OrderType(new LimitOrderType(tif)), false, cloid);
+        }
+
+        public static OrderRequest limit(Tif tif, String coin, Boolean isBuy, java.math.BigDecimal sz, java.math.BigDecimal limitPx, Cloid cloid) {
+            Double s = sz == null ? null : sz.doubleValue();
+            Double p = limitPx == null ? null : limitPx.doubleValue();
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, s, p, new OrderType(new LimitOrderType(tif)), false, cloid);
+        }
+
+        public static OrderRequest limit(Tif tif, String coin, Boolean isBuy, Double sz, Double limitPx) {
+            return limit(tif, coin, isBuy, sz, limitPx, null);
+        }
+
+        public static OrderRequest market(String coin, Boolean isBuy, Double sz, Cloid cloid, Double slippage) {
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)), false, cloid, slippage);
+        }
+
+        public static OrderRequest market(String coin, Boolean isBuy, Double sz) {
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)), false, null);
+        }
+
+        public static OrderRequest trigger(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Cloid cloid) {
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx, new OrderType(new TriggerOrderType(triggerPx, isMarket, tpsl)), false, cloid);
+        }
+
+        public static OrderRequest trigger(String coin, Boolean isBuy, java.math.BigDecimal sz, java.math.BigDecimal limitPx, java.math.BigDecimal triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Cloid cloid) {
+            Double s = sz == null ? null : sz.doubleValue();
+            Double p = limitPx == null ? null : limitPx.doubleValue();
+            Double t = triggerPx == null ? null : triggerPx.doubleValue();
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, s, p, new OrderType(new TriggerOrderType(t, isMarket, tpsl)), false, cloid);
+        }
+
+        public static OrderRequest trigger(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl) {
+            return trigger(coin, isBuy, sz, limitPx, triggerPx, isMarket, tpsl, null);
+        }
+
+        public static OrderRequest tp(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx, Boolean isMarket, Cloid cloid) {
+            return trigger(coin, isBuy, sz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.TP, cloid);
+        }
+
+        public static OrderRequest sl(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx, Boolean isMarket, Cloid cloid) {
+            return trigger(coin, isBuy, sz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.SL, cloid);
+        }
+
+        public static java.util.List<OrderRequest> tpslBracket(String coin, Boolean isBuy, Double sz, Double tpPx, Double slPx, Cloid cloid) {
+            OrderRequest tp = trigger(coin, isBuy, sz, null, tpPx, Boolean.TRUE, TriggerOrderType.TpslType.TP, cloid);
+            OrderRequest sl = trigger(coin, isBuy, sz, null, slPx, Boolean.TRUE, TriggerOrderType.TpslType.SL, cloid);
+            return java.util.List.of(tp, sl);
+        }
+
+    }
+
+    /**
+     * 永续平仓
+     **/
+    public static class Close {
+
+        public static OrderRequest limit(Tif tif, String coin, Double sz, Double limitPx, Cloid cloid) {
+            if (sz == null || sz == 0.0) {
+                throw new IllegalArgumentException("No position to close for coin=" + coin);
+            }
+            boolean isBuy = sz < 0.0;
+            double absSz = Math.abs(sz);
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, limitPx, new OrderType(new LimitOrderType(tif)), true, cloid);
+        }
+
+        public static OrderRequest limit(Tif tif, String coin, Double sz, Double limitPx) {
+            return limit(tif, coin, sz, limitPx, null);
+        }
+
+        public static OrderRequest limit(Tif tif, String coin, java.math.BigDecimal signedSz, java.math.BigDecimal limitPx, Cloid cloid) {
+            if (signedSz == null || signedSz.doubleValue() == 0.0) {
+                throw new IllegalArgumentException("No position to close for coin=" + coin);
+            }
+            double s = signedSz.doubleValue();
+            boolean isBuy = s < 0.0;
+            double absSz = Math.abs(s);
+            Double p = limitPx == null ? null : limitPx.doubleValue();
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, p, new OrderType(new LimitOrderType(tif)), true, cloid);
+        }
+
+        public static OrderRequest market(String coin, Double sz, Cloid cloid) {
+            if (sz == null || sz == 0.0) {
+                throw new IllegalArgumentException("No position to close for coin=" + coin);
+            }
+            boolean isBuy = sz < 0.0;
+            double absSz = Math.abs(sz);
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, null, new OrderType(new LimitOrderType(Tif.IOC)), true, cloid);
+        }
+
+        public static OrderRequest market(String coin, Double sz) {
+            return market(coin, sz, null);
+        }
+
+        public static OrderRequest trigger(String coin, Double sz, Double limitPx, Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Cloid cloid) {
+            if (sz == null || sz == 0.0) {
+                throw new IllegalArgumentException("No position to close for coin=" + coin);
+            }
+            boolean isBuy = sz < 0.0;
+            double absSz = Math.abs(sz);
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, limitPx, new OrderType(new TriggerOrderType(triggerPx, isMarket, tpsl)), true, cloid);
+        }
+
+        public static OrderRequest trigger(String coin, Double sz, Double limitPx, Double triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl) {
+            return trigger(coin, sz, limitPx, triggerPx, isMarket, tpsl, null);
+        }
+
+        public static OrderRequest trigger(String coin, java.math.BigDecimal signedSz, java.math.BigDecimal limitPx, java.math.BigDecimal triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Cloid cloid) {
+            if (signedSz == null || signedSz.doubleValue() == 0.0) {
+                throw new IllegalArgumentException("No position to close for coin=" + coin);
+            }
+            double s = signedSz.doubleValue();
+            boolean isBuy = s < 0.0;
+            double absSz = Math.abs(s);
+            Double p = limitPx == null ? null : limitPx.doubleValue();
+            Double t = triggerPx == null ? null : triggerPx.doubleValue();
+            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, p, new OrderType(new TriggerOrderType(t, isMarket, tpsl)), true, cloid);
+        }
+
+        public static OrderRequest tp(String coin, Double signedSz, Double limitPx, Double triggerPx, Boolean isMarket, Cloid cloid) {
+            return trigger(coin, signedSz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.TP, cloid);
+        }
+
+        public static OrderRequest sl(String coin, Double signedSz, Double limitPx, Double triggerPx, Boolean isMarket, Cloid cloid) {
+            return trigger(coin, signedSz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.SL, cloid);
+        }
+
     }
 
 }

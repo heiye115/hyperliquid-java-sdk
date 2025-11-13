@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import lombok.Getter;
+import org.web3j.utils.Numeric;
 
 import java.math.BigInteger;
+import java.security.SecureRandom;
 
 /**
  * 客户端订单 ID（Cloid）Java 实现，对齐 Python 版本。
@@ -105,6 +107,14 @@ public class Cloid {
      */
     public static Cloid fromStr(String cloid) {
         return new Cloid(cloid);
+    }
+
+    public static Cloid auto() {
+        byte[] bytes = new byte[16];
+        new SecureRandom().nextBytes(bytes);
+        String hex = Numeric.toHexStringNoPrefix(bytes);
+        String padded = leftPad(hex);
+        return new Cloid("0x" + padded);
     }
 
     /**

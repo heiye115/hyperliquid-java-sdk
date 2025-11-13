@@ -68,6 +68,9 @@ public class Exchange {
             .recordStats()
             .build();
 
+    private final java.util.Map<String, Double> defaultSlippageByCoin = new java.util.concurrent.ConcurrentHashMap<>();
+    private Double defaultSlippage = 0.05;
+
     /**
      * 构造 Exchange 客户端。
      *
@@ -144,6 +147,7 @@ public class Exchange {
         OrderRequest effective = prepareRequest(req);
         marketOpenTransition(effective);
         normalizePerpLimitPx(effective);
+        normalizePerpTriggerPx(effective);
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
@@ -1218,7 +1222,8 @@ public class Exchange {
             return;
         if (req.getLimitPx() == null && req.getOrderType() != null && req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            double slipPx = computeSlippagePrice(req.getCoin(), req.getIsBuy(), req.getSlippage());
+            double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
     }
@@ -1273,6 +1278,63 @@ public class Exchange {
         }
         bd = bd.setScale(decimals, RoundingMode.HALF_UP);
         return bd.doubleValue();
+    }
+
+    private void normalizePerpTriggerPx(OrderRequest req) {
+        if (req == null)
+            return;
+        if (req.getInstrumentType() != InstrumentType.PERP)
+            return;
+        if (req.getOrderType() == null || req.getOrderType().getTrigger() == null)
+            return;
+        Double px = req.getOrderType().getTrigger().getTriggerPx();
+        if (px == null)
+            return;
+        String coin = req.getCoin();
+        Integer szDecimals = szDecimalsCache.getIfPresent(coin);
+        if (szDecimals == null) {
+            Meta.Universe mu = info.getMetaUniverse(coin);
+            szDecimals = mu.getSzDecimals();
+            if (szDecimals != null)
+                szDecimalsCache.put(coin, szDecimals);
+        }
+        if (szDecimals == null)
+            return;
+        int decimals = 6 - szDecimals;
+        if (decimals < 0)
+            decimals = 0;
+        BigDecimal bd = BigDecimal.valueOf(px).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+        double newPx = bd.doubleValue();
+        TriggerOrderType oldTrig = req.getOrderType().getTrigger();
+        TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
+        LimitOrderType oldLimit = req.getOrderType().getLimit();
+        req.setOrderType(new OrderType(oldLimit, newTrig));
+    }
+
+    public void setDefaultSlippage(double slippage) {
+        this.defaultSlippage = slippage;
+    }
+
+    public void setDefaultSlippage(String coin, double slippage) {
+        if (coin != null)
+            this.defaultSlippageByCoin.put(coin, slippage);
+    }
+
+    public Order closePositionAtMarketAll(String coin) {
+        OrderRequest req = OrderRequest.closePositionAtMarket(coin);
+        return order(req);
+    }
+
+    public Order closePositionLimitAll(Tif tif, String coin, double limitPx, Cloid cloid) {
+        double szi = inferSignedPosition(coin);
+        if (szi == 0.0)
+            throw new HypeError("No position to close for coin " + coin);
+        boolean isBuy = szi < 0.0;
+        double absSz = Math.abs(szi);
+        OrderRequest req = OrderRequest.Close.limit(tif, coin, szi, limitPx, cloid);
+        req.setSz(absSz);
+        req.setIsBuy(isBuy);
+        return order(req);
     }
 
     /**
