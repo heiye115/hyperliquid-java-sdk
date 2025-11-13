@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
+import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.Meta;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import io.github.hyperliquid.sdk.model.order.*;
@@ -164,7 +165,7 @@ public class Exchange {
     private void normalizePerpLimitPx(OrderRequest req) {
         if (req == null)
             return;
-        if (req.getInstrumentType() != io.github.hyperliquid.sdk.model.order.InstrumentType.PERP)
+        if (req.getInstrumentType() != InstrumentType.PERP)
             return;
         Double px = req.getLimitPx();
         if (px == null)
@@ -172,7 +173,7 @@ public class Exchange {
         String coin = req.getCoin();
         Integer szDecimals = szDecimalsCache.getIfPresent(coin);
         if (szDecimals == null) {
-            io.github.hyperliquid.sdk.model.info.Meta.Universe mu = info.getMetaUniverse(coin);
+            Meta.Universe mu = info.getMetaUniverse(coin);
             szDecimals = mu.getSzDecimals();
             if (szDecimals != null)
                 szDecimalsCache.put(coin, szDecimals);
@@ -215,12 +216,12 @@ public class Exchange {
     }
 
     private double inferSignedPosition(String coin) {
-        io.github.hyperliquid.sdk.model.info.ClearinghouseState state = info
+        ClearinghouseState state = info
                 .userState(wallet.getAddress().toLowerCase());
         if (state == null || state.getAssetPositions() == null)
             return 0.0;
-        for (io.github.hyperliquid.sdk.model.info.ClearinghouseState.AssetPositions ap : state.getAssetPositions()) {
-            io.github.hyperliquid.sdk.model.info.ClearinghouseState.Position pos = ap.getPosition();
+        for (ClearinghouseState.AssetPositions ap : state.getAssetPositions()) {
+            ClearinghouseState.Position pos = ap.getPosition();
             if (pos != null && coin.equalsIgnoreCase(pos.getCoin())) {
                 try {
                     return Double.parseDouble(pos.getSzi());
@@ -813,7 +814,7 @@ public class Exchange {
         return postAction(action);
     }
 
-   
+
     /**
      * SpotDeploy: 用户创世分配（userGenesis）。
      *
@@ -1055,7 +1056,7 @@ public class Exchange {
                 isMainnet());
 
         com.fasterxml.jackson.databind.JsonNode resp = postActionWithSignature(action, signature, nonce);
-        return new io.github.hyperliquid.sdk.model.approve.ApproveAgentResult(resp, agentPrivateKey, agentAddress);
+        return new ApproveAgentResult(resp, agentPrivateKey, agentAddress);
     }
 
     /**

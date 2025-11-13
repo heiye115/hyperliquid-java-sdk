@@ -451,7 +451,6 @@ public class OrderRequest {
         public static OrderRequest sl(String coin, Double signedSz, Double limitPx, Double triggerPx, Boolean isMarket, Cloid cloid) {
             return trigger(coin, signedSz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.SL, cloid);
         }
-
     }
 
 }
