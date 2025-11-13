@@ -10,9 +10,9 @@ import org.web3j.crypto.Credentials;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -29,18 +29,18 @@ public class HyperliquidClient {
     /**
      * K:私钥 V:Exchange
      **/
-    private final Map<String, Exchange> exchangeMap;
+    private final Map<String, Exchange> exchangesByPrivateKey;
 
     /**
      * K:私钥 V:地址
      **/
-    private final Map<String, String> privateKeyMap;
+    private final Map<String, String> addressesByPrivateKey;
 
 
-    private HyperliquidClient(Info info, Map<String, Exchange> exchangeMap, Map<String, String> privateKeyMap) {
+    private HyperliquidClient(Info info, Map<String, Exchange> exchangesByPrivateKey, Map<String, String> addressesByPrivateKey) {
         this.info = info;
-        this.exchangeMap = exchangeMap;
-        this.privateKeyMap = privateKeyMap;
+        this.exchangesByPrivateKey = exchangesByPrivateKey;
+        this.addressesByPrivateKey = addressesByPrivateKey;
     }
 
     public Info getInfo() {
@@ -51,17 +51,17 @@ public class HyperliquidClient {
      * 获取单个Exchange  , 如果有多个则返回第一个
      **/
     public Exchange getSingleExchange() {
-        if (exchangeMap.isEmpty()) {
+        if (exchangesByPrivateKey.isEmpty()) {
             throw new HypeError("No exchange instances available.");
         }
-        return exchangeMap.values().iterator().next();
+        return exchangesByPrivateKey.values().iterator().next();
     }
 
     /**
      * 根据私钥获取 Exchange 实例
      **/
     public Exchange useExchange(String privateKey) {
-        Exchange ex = exchangeMap.get(privateKey);
+        Exchange ex = exchangesByPrivateKey.get(privateKey);
         if (ex == null) {
             throw new HypeError("No exchange instance found for the provided private key.");
         }
@@ -72,7 +72,7 @@ public class HyperliquidClient {
      * 获取钱包地址
      **/
     public String getAddress(String privateKey) {
-        return privateKeyMap.entrySet().stream()
+        return addressesByPrivateKey.entrySet().stream()
                 .filter(entry -> entry.getKey().equalsIgnoreCase(privateKey))
                 .map(Map.Entry::getValue).findFirst()
                 .orElseThrow(() -> new HypeError("No address found for the provided private key."));
@@ -82,10 +82,10 @@ public class HyperliquidClient {
      * 获取单个钱包地址 , 如果有多个则返回第一个
      **/
     public String getSingleAddress() {
-        if (privateKeyMap.isEmpty()) {
+        if (addressesByPrivateKey.isEmpty()) {
             throw new HypeError("No addresses available.");
         }
-        return privateKeyMap.values().iterator().next();
+        return addressesByPrivateKey.values().iterator().next();
     }
 
     public static Builder builder() {
@@ -158,8 +158,8 @@ public class HyperliquidClient {
             OkHttpClient httpClient = getOkHttpClient();
             HypeHttpClient hypeHttpClient = new HypeHttpClient(baseUrl, httpClient);
             Info info = new Info(baseUrl, hypeHttpClient, skipWs);
-            Map<String, Exchange> exchangeMap = new ConcurrentHashMap<>();
-            Map<String, String> privateKeyMap = new ConcurrentHashMap<>();
+            Map<String, Exchange> exchangeMap = new LinkedHashMap<>();
+            Map<String, String> privateKeyMap = new LinkedHashMap<>();
             if (!privateKeys.isEmpty()) {
                 for (String key : privateKeys) {
                     Credentials credentials = Credentials.create(key);

@@ -126,24 +126,16 @@ public class Exchange {
      * - Builder 参数的专用用途 ：仅在用户希望将订单路由到特定的 Builder-deployed perp
      * dex（由第三方开发者部署的永续合约去中心化交易所）时才需要传递该参数。
      * - 例如：当用户想利用某个 Builder 提供的定制化流动性、特定交易策略或支付 Builder 费用时，才需要设置 builder 参数。
-     *
-     * @param req     下单请求
-     * @param builder 可选 builder 信息（可包含键 "b"）
-     * @return 交易接口响应 JSON
      */
-    private final Object orderLock = new Object();
-
     public Order order(OrderRequest req, Map<String, Object> builder) {
-        synchronized (orderLock) {
-            Long prevExpires = this.expiresAfter;
-            if (prevExpires == null) {
-                this.expiresAfter = 120_000L;
-            }
-            try {
-                return innerOrder(req, builder);
-            } finally {
-                this.expiresAfter = prevExpires;
-            }
+        Long prevExpires = this.expiresAfter;
+        if (prevExpires == null) {
+            this.expiresAfter = 120_000L;
+        }
+        try {
+            return innerOrder(req, builder);
+        } finally {
+            this.expiresAfter = prevExpires;
         }
     }
 
@@ -633,7 +625,7 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
-            String fromSubAccount) {
+                              String fromSubAccount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "sendAsset");
@@ -802,7 +794,7 @@ public class Exchange {
      * SpotDeploy: 注册 Token（registerToken2）
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-            String fullName) {
+                                            String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -817,11 +809,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 用户创世分配（userGenesis）
-     * userAndWei: [ [user,addressLower], [wei,string] ] 形式的二元列表
-     * existingTokenAndWei: [ [tokenId,int], [wei,string] ] 形式的二元列表
-     */
+   
     /**
      * SpotDeploy: 用户创世分配（userGenesis）。
      *
@@ -865,9 +853,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 启用冻结权限
-     */
+
     /**
      * SpotDeploy: 启用冻结权限。
      *
@@ -878,9 +864,7 @@ public class Exchange {
         return spotDeployTokenActionInner("enableFreezePrivilege", token);
     }
 
-    /**
-     * SpotDeploy: 撤销冻结权限
-     */
+
     /**
      * SpotDeploy: 撤销冻结权限。
      *
@@ -891,9 +875,7 @@ public class Exchange {
         return spotDeployTokenActionInner("revokeFreezePrivilege", token);
     }
 
-    /**
-     * SpotDeploy: 冻结/解冻用户
-     */
+
     /**
      * SpotDeploy: 冻结/解冻用户。
      *
@@ -913,9 +895,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 启用报价 Token
-     */
+
     /**
      * SpotDeploy: 启用报价 Token。
      *
@@ -938,9 +918,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 创世（genesis）
-     */
+
     /**
      * SpotDeploy: 创世（genesis）。
      *
@@ -962,9 +940,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 注册现货交易对（registerSpot）
-     */
+
     /**
      * SpotDeploy: 注册现货交易对（registerSpot）。
      *
@@ -984,9 +960,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 注册 uidity 做市
-     */
+
     /**
      * SpotDeploy: 注册 Hyperliquidity 做市。
      *
@@ -998,7 +972,7 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
-            Integer nSeededLevels) {
+                                                     Integer nSeededLevels) {
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("spot", spot);
         register.put("startPx", String.valueOf(startPx));
@@ -1013,9 +987,7 @@ public class Exchange {
         return postAction(action);
     }
 
-    /**
-     * SpotDeploy: 设置部署者交易费分成
-     */
+
     /**
      * SpotDeploy: 设置部署者交易费分成。
      *
@@ -1111,9 +1083,9 @@ public class Exchange {
             }
         }
 
-        Long effectiveExpiresAfter = expiresAfter;
-        if (effectiveExpiresAfter != null && effectiveExpiresAfter < 1_000_000_000_000L) {
-            effectiveExpiresAfter = nonce + effectiveExpiresAfter;
+        Long ea = expiresAfter;
+        if (ea != null && ea < 1_000_000_000_000L) {
+            ea = nonce + ea;
         }
 
         Map<String, Object> signature = Signing.signL1Action(
@@ -1121,7 +1093,7 @@ public class Exchange {
                 action,
                 effectiveVault,
                 nonce,
-                effectiveExpiresAfter,
+                ea,
                 isMainnet());
 
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -1130,7 +1102,7 @@ public class Exchange {
         payload.put("signature", signature);
         payload.put("vaultAddress", effectiveVault);
         // L1 普通动作（本方法内签名）支持 expiresAfter，直接传递；用户签名动作的特殊处理在 postActionWithSignature 中完成
-        payload.put("expiresAfter", effectiveExpiresAfter);
+        payload.put("expiresAfter", ea);
 
         return hypeHttpClient.post("/exchange", payload);
     }
@@ -1157,12 +1129,10 @@ public class Exchange {
                 || "setReferrer".equals(type)
                 || "tokenDelegate".equals(type)
                 || "convertToMultiSigUser".equals(type);
-        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type) || userSigned) ? null
-                : vaultAddress;
+        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type) || userSigned) ? null : vaultAddress;
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        // 保持用户签名动作的 action 原样发送（包含 signatureChainId 与 hyperliquidChain），与 Python SDK
-        // 行为一致。
+        // 保持用户签名动作的 action 原样发送（包含 signatureChainId 与 hyperliquidChain），与 Python SDK行为一致。
         payload.put("action", action);
         payload.put("nonce", nonce);
         payload.put("signature", signature);
