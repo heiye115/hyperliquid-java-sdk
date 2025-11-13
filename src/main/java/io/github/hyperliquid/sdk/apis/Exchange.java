@@ -352,8 +352,8 @@ public class Exchange {
         ensureDexAbstractionEnabled();
         int assetId = ensureAssetId(coinName);
         Map<String, Object> cancel = new LinkedHashMap<>();
-        cancel.put("coin", assetId);
-        cancel.put("oid", oid);
+        cancel.put("a", assetId);
+        cancel.put("o", oid);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "cancel");
         action.put("cancels", List.of(cancel));

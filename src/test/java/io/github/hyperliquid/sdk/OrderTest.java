@@ -1,5 +1,6 @@
 package io.github.hyperliquid.sdk;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.model.order.Cloid;
 import io.github.hyperliquid.sdk.model.order.Order;
 import io.github.hyperliquid.sdk.model.order.OrderRequest;
@@ -81,6 +82,28 @@ public class OrderTest {
     public void testLimitCloseAllOrder() {
         Order order = client.getSingleExchange().closePositionLimitAll(Tif.GTC, "ETH", 4000.0, Cloid.auto());
         System.out.println(order);
+    }
+
+
+    /**
+     * 市价下单 + 全部平仓
+     **/
+    @Test
+    public void testMarketOrderALL() {
+        OrderRequest req = OrderRequest.Open.market("ETH", true, 0.01);
+        Order order = client.getSingleExchange().order(req);
+        System.out.println(order);
+        Order closeOrder = client.getSingleExchange().closePositionAtMarketAll("ETH");
+        System.out.println(closeOrder);
+    }
+
+    /**
+     * 根据 OID 撤单
+     **/
+    @Test
+    public void testCancel() {
+        JsonNode node = client.getSingleExchange().cancel("ETH", 42988070692L);
+        System.out.println(node.toPrettyString());
     }
 
 }
