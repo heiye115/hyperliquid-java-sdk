@@ -143,6 +143,30 @@ public class Exchange {
         }
     }
 
+    /**
+     * 内部下单实现（统一规范化→签名→提交）。
+     *
+     * <p>
+     * 流程：
+     * 1) 校验并启用 Dex Abstraction；
+     * 2) {@link #prepareRequest(OrderRequest)} 推断市价平仓方向/数量；
+     * 3) {@link #marketOpenTransition(OrderRequest)} 应用默认滑点计算市价占位价；
+     * 4) {@link #normalizePerpLimitPx(OrderRequest)} 与
+     * {@link #normalizePerpTriggerPx(OrderRequest)} 统一价格精度；
+     * 5) 转换为 wire，构造动作并发送；
+     * 6) 将服务端 JSON 映射为 {@link Order}。
+     *
+     * @param req     下单请求
+     * @param builder 可选 builder（包含 b/f），为空时走平台默认引擎
+     * @return 服务端返回的订单响应
+     * @throws HypeError 当服务端返回 status=err 时抛出（携带原始响应）
+     *                   使用示例：
+     * 
+     *                   <pre>
+     *                   OrderRequest r = OrderRequest.Open.market("ETH", true, 0.01);
+     *                   Order o = exchange.innerOrder(r, null); // 私有方法仅供内部调用
+     *                   </pre>
+     */
     private Order innerOrder(OrderRequest req, Map<String, Object> builder) {
         ensureDexAbstractionEnabled();
         OrderRequest effective = prepareRequest(req);
@@ -162,6 +186,15 @@ public class Exchange {
         return JSONUtil.convertValue(node, Order.class);
     }
 
+    /**
+     * 规范化永续（PERP）限价价格精度。
+     *
+     * <p>
+     * 规则与 Python SDK 对齐：先按 5 位有效数字四舍五入，再按 (6 - szDecimals) 小数位四舍五入。
+     * </p>
+     *
+     * @param req 下单请求（仅当 instrumentType=PERP 且 limitPx 非空时生效）
+     */
     private void normalizePerpLimitPx(OrderRequest req) {
         if (req == null)
             return;
@@ -189,6 +222,21 @@ public class Exchange {
         req.setLimitPx(bd.doubleValue());
     }
 
+    /**
+     * 准备下单请求：推断市价平仓方向与数量。
+     *
+     * <p>
+     * 当检测为“市价平仓占位”（IOC + reduceOnly=true 且 limitPx 为空）时：
+     * - 若传入 isBuy 与 sz，则原样返回；
+     * - 否则根据当前仓位签名尺寸推断方向（szi&lt;0 → 买入/平空；szi&gt;0 → 卖出/平多），
+     * 并将数量设为传入 sz 或绝对仓位大小；
+     * - 返回一个规范化的市价平仓请求。
+     * </p>
+     *
+     * @param req 原始下单请求
+     * @return 规范化后的下单请求
+     * @throws HypeError 当无可平仓位时抛出
+     */
     private OrderRequest prepareRequest(OrderRequest req) {
         if (isClosePositionMarket(req)) {
             if (req.getIsBuy() != null && req.getSz() != null) {
@@ -205,6 +253,12 @@ public class Exchange {
         return req;
     }
 
+    /**
+     * 判定是否为“市价平仓占位”请求。
+     *
+     * @param req 下单请求
+     * @return 是则返回 true，否则 false
+     */
     private boolean isClosePositionMarket(OrderRequest req) {
         return req != null
                 && req.getInstrumentType() == InstrumentType.PERP
@@ -215,6 +269,16 @@ public class Exchange {
                 && req.getLimitPx() == null;
     }
 
+    /**
+     * 推断当前账户在指定币种的“签名仓位尺寸”。
+     *
+     * <p>
+     * 正数表示多仓，负数表示空仓；当无仓位或解析失败时返回 0.0。
+     * </p>
+     *
+     * @param coin 币种名称
+     * @return 签名尺寸（double）
+     */
     private double inferSignedPosition(String coin) {
         ClearinghouseState state = info
                 .userState(wallet.getAddress().toLowerCase());
@@ -630,7 +694,7 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
-                              String fromSubAccount) {
+            String fromSubAccount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "sendAsset");
@@ -799,7 +863,7 @@ public class Exchange {
      * SpotDeploy: 注册 Token（registerToken2）
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-                                            String fullName) {
+            String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -813,7 +877,6 @@ public class Exchange {
         action.put("registerToken2", registerToken2);
         return postAction(action);
     }
-
 
     /**
      * SpotDeploy: 用户创世分配（userGenesis）。
@@ -858,7 +921,6 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * SpotDeploy: 启用冻结权限。
      *
@@ -869,7 +931,6 @@ public class Exchange {
         return spotDeployTokenActionInner("enableFreezePrivilege", token);
     }
 
-
     /**
      * SpotDeploy: 撤销冻结权限。
      *
@@ -879,7 +940,6 @@ public class Exchange {
     public JsonNode spotDeployRevokeFreezePrivilege(int token) {
         return spotDeployTokenActionInner("revokeFreezePrivilege", token);
     }
-
 
     /**
      * SpotDeploy: 冻结/解冻用户。
@@ -899,7 +959,6 @@ public class Exchange {
         action.put("freezeUser", freezeUser);
         return postAction(action);
     }
-
 
     /**
      * SpotDeploy: 启用报价 Token。
@@ -923,7 +982,6 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * SpotDeploy: 创世（genesis）。
      *
@@ -945,7 +1003,6 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * SpotDeploy: 注册现货交易对（registerSpot）。
      *
@@ -965,7 +1022,6 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * SpotDeploy: 注册 Hyperliquidity 做市。
      *
@@ -977,7 +1033,7 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
-                                                     Integer nSeededLevels) {
+            Integer nSeededLevels) {
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("spot", spot);
         register.put("startPx", String.valueOf(startPx));
@@ -991,7 +1047,6 @@ public class Exchange {
         action.put("registerHyperliquidity", register);
         return postAction(action);
     }
-
 
     /**
      * SpotDeploy: 设置部署者交易费分成。
@@ -1134,10 +1189,12 @@ public class Exchange {
                 || "setReferrer".equals(type)
                 || "tokenDelegate".equals(type)
                 || "convertToMultiSigUser".equals(type);
-        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type) || userSigned) ? null : vaultAddress;
+        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type) || userSigned) ? null
+                : vaultAddress;
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        // 保持用户签名动作的 action 原样发送（包含 signatureChainId 与 hyperliquidChain），与 Python SDK行为一致。
+        // 保持用户签名动作的 action 原样发送（包含 signatureChainId 与 hyperliquidChain），与 Python
+        // SDK行为一致。
         payload.put("action", action);
         payload.put("nonce", nonce);
         payload.put("signature", signature);
@@ -1163,6 +1220,17 @@ public class Exchange {
         return assetId;
     }
 
+    /**
+     * 确保当前地址已启用 Dex Abstraction。
+     *
+     * <p>
+     * 顺序尝试：
+     * 1) 查询状态；
+     * 2) userDexAbstraction(user, true) 用户签名开启；
+     * 3) agentEnableDexAbstraction L1 开启。
+     * 成功后写入本地缓存。
+     * </p>
+     */
     private void ensureDexAbstractionEnabled() {
         String address = wallet.getAddress().toLowerCase();
         Boolean cached = dexEnabledCache.getIfPresent(address);
@@ -1197,6 +1265,12 @@ public class Exchange {
         }
     }
 
+    /**
+     * 解析 Dex Abstraction 启用状态。
+     *
+     * @param node 状态 JSON
+     * @return 已启用返回 true，否则 false
+     */
     private boolean isDexEnabled(JsonNode node) {
         if (node == null)
             return false;
@@ -1208,22 +1282,46 @@ public class Exchange {
         return s.contains("\"enabled\":true");
     }
 
+    /**
+     * 判断响应是否 status=ok。
+     *
+     * @param node 响应 JSON
+     * @return 是则 true，否则 false
+     */
     private boolean isOk(JsonNode node) {
         return node != null && node.has("status") && "ok".equalsIgnoreCase(node.get("status").asText());
     }
 
+    /**
+     * 判断响应是否为“已设置”类错误（already set）。
+     *
+     * @param node 响应 JSON
+     * @return 是则 true，否则 false
+     */
     private boolean isAlreadySet(JsonNode node) {
         return node != null && node.has("status") && "err".equalsIgnoreCase(node.get("status").asText())
                 && node.has("response") && node.get("response").isTextual()
                 && node.get("response").asText().toLowerCase().contains("already set");
     }
 
+    /**
+     * 市价开仓占位转换：为 IOC 市价单计算占位限价。
+     *
+     * <p>
+     * 当 limitPx 为空且 TIF=IOC 时：
+     * - 取 {@code req.slippage} 或默认滑点配置；
+     * - 使用 {@link #computeSlippagePrice(String, boolean, double)} 计算占位价并写回。
+     * </p>
+     *
+     * @param req 下单请求
+     */
     private void marketOpenTransition(OrderRequest req) {
         if (req == null)
             return;
         if (req.getLimitPx() == null && req.getOrderType() != null && req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            double slip = req.getSlippage() != null ? req.getSlippage()
+                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
@@ -1281,6 +1379,15 @@ public class Exchange {
         return bd.doubleValue();
     }
 
+    /**
+     * 规范化永续（PERP）触发价精度（triggerPx）。
+     *
+     * <p>
+     * 规则与限价一致：先按 5 位有效数字，再按 (6 - szDecimals) 小数位。
+     * </p>
+     *
+     * @param req 下单请求（仅当 instrumentType=PERP 且为触发单且 triggerPx 非空时生效）
+     */
     private void normalizePerpTriggerPx(OrderRequest req) {
         if (req == null)
             return;
@@ -1304,7 +1411,8 @@ public class Exchange {
         int decimals = 6 - szDecimals;
         if (decimals < 0)
             decimals = 0;
-        BigDecimal bd = BigDecimal.valueOf(px).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+        BigDecimal bd = BigDecimal.valueOf(px).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals,
+                RoundingMode.HALF_UP);
         double newPx = bd.doubleValue();
         TriggerOrderType oldTrig = req.getOrderType().getTrigger();
         TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
@@ -1312,20 +1420,53 @@ public class Exchange {
         req.setOrderType(new OrderType(oldLimit, newTrig));
     }
 
+    /**
+     * 设置全局默认滑点比例。
+     *
+     * @param slippage 滑点比例（例如 0.05 表示 5%）
+     */
     public void setDefaultSlippage(double slippage) {
         this.defaultSlippage = slippage;
     }
 
+    /**
+     * 为指定币种设置默认滑点比例（覆盖全局）。
+     *
+     * @param coin     币种名称
+     * @param slippage 滑点比例
+     */
     public void setDefaultSlippage(String coin, double slippage) {
         if (coin != null)
             this.defaultSlippageByCoin.put(coin, slippage);
     }
 
+    /**
+     * 一键市价全量平仓（根据账户当前仓位自动推断方向与数量）。
+     *
+     * @param coin 币种名称
+     * @return 服务端订单响应
+     * @throws HypeError 当无仓位可平时抛出
+     *                   使用示例：
+     * 
+     *                   <pre>
+     *                   Order o = exchange.closePositionAtMarketAll("ETH");
+     *                   </pre>
+     */
     public Order closePositionAtMarketAll(String coin) {
         OrderRequest req = OrderRequest.closePositionAtMarket(coin);
         return order(req);
     }
 
+    /**
+     * 一键限价全量平仓（根据账户当前仓位自动推断方向与数量）。
+     *
+     * @param tif     TIF 策略
+     * @param coin    币种名称
+     * @param limitPx 限价价格
+     * @param cloid   客户端订单 ID（可为 null）
+     * @return 服务端订单响应
+     * @throws HypeError 当无仓位可平时抛出
+     */
     public Order closePositionLimitAll(Tif tif, String coin, double limitPx, Cloid cloid) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0)
