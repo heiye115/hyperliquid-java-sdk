@@ -160,12 +160,6 @@ public class Exchange {
      * @param builder 可选 builder（包含 b/f），为空时走平台默认引擎
      * @return 服务端返回的订单响应
      * @throws HypeError 当服务端返回 status=err 时抛出（携带原始响应）
-     *                   使用示例：
-     * 
-     *                   <pre>
-     *                   OrderRequest r = OrderRequest.Open.market("ETH", true, 0.01);
-     *                   Order o = exchange.innerOrder(r, null); // 私有方法仅供内部调用
-     *                   </pre>
      */
     private Order innerOrder(OrderRequest req, Map<String, Object> builder) {
         ensureDexAbstractionEnabled();
@@ -248,7 +242,7 @@ public class Exchange {
             }
             boolean isBuy = szi < 0.0;
             double sz = (req.getSz() != null && req.getSz() > 0.0) ? req.getSz() : Math.abs(szi);
-            return OrderRequest.createPerpMarketOrder(req.getCoin(), isBuy, sz, true, req.getCloid());
+            return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
         }
         return req;
     }
@@ -280,8 +274,7 @@ public class Exchange {
      * @return 签名尺寸（double）
      */
     private double inferSignedPosition(String coin) {
-        ClearinghouseState state = info
-                .userState(wallet.getAddress().toLowerCase());
+        ClearinghouseState state = info.userState(wallet.getAddress().toLowerCase());
         if (state == null || state.getAssetPositions() == null)
             return 0.0;
         for (ClearinghouseState.AssetPositions ap : state.getAssetPositions()) {
@@ -489,15 +482,6 @@ public class Exchange {
 
     /**
      * 用户侧 Dex Abstraction 开关（与 Python exchange.user_dex_abstraction 一致）。
-     * 说明：
-     * - 此为用户签名动作（EIP-712 UserSigned），不是 L1 动作，需使用 signUserSignedAction。
-     * - payload 类型需与 Python 完全一致：
-     * HyperliquidTransaction:UserDexAbstraction = [
-     * {name: "hyperliquidChain", type: "string"},
-     * {name: "user", type: "address"},
-     * {name: "enabled", type: "bool"},
-     * {name: "nonce", type: "uint64"}
-     * ]
      *
      * @param user    用户地址（0x 前缀）
      * @param enabled 是否启用
@@ -694,7 +678,7 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
-            String fromSubAccount) {
+                              String fromSubAccount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "sendAsset");
@@ -863,7 +847,7 @@ public class Exchange {
      * SpotDeploy: 注册 Token（registerToken2）
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-            String fullName) {
+                                            String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -1033,7 +1017,7 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
-            Integer nSeededLevels) {
+                                                     Integer nSeededLevels) {
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("spot", spot);
         register.put("startPx", String.valueOf(startPx));
@@ -1320,8 +1304,7 @@ public class Exchange {
             return;
         if (req.getLimitPx() == null && req.getOrderType() != null && req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            double slip = req.getSlippage() != null ? req.getSlippage()
-                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
@@ -1446,15 +1429,9 @@ public class Exchange {
      * @param coin 币种名称
      * @return 服务端订单响应
      * @throws HypeError 当无仓位可平时抛出
-     *                   使用示例：
-     * 
-     *                   <pre>
-     *                   Order o = exchange.closePositionAtMarketAll("ETH");
-     *                   </pre>
      */
     public Order closePositionAtMarketAll(String coin) {
-        OrderRequest req = OrderRequest.closePositionAtMarket(coin);
-        return order(req);
+        return order(OrderRequest.Close.positionAtMarketAll(coin));
     }
 
     /**
