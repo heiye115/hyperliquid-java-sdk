@@ -190,10 +190,13 @@ public class Exchange {
      * @param req 下单请求（仅当 instrumentType=PERP 且 limitPx 非空时生效）
      */
     private void normalizePerpLimitPx(OrderRequest req) {
-        if (req == null) return;
-        if (req.getInstrumentType() != InstrumentType.PERP) return;
+        if (req == null)
+            return;
+        if (req.getInstrumentType() != InstrumentType.PERP)
+            return;
         Double px = req.getLimitPx();
-        if (px == null) return;
+        if (px == null)
+            return;
         String coin = req.getCoin();
         Integer szDecimals = szDecimalsCache.getIfPresent(coin);
         if (szDecimals == null) {
@@ -203,7 +206,8 @@ public class Exchange {
                 szDecimalsCache.put(coin, szDecimals);
             }
         }
-        if (szDecimals == null) return;
+        if (szDecimals == null)
+            return;
         int decimals = 6 - szDecimals;
         if (decimals < 0)
             decimals = 0;
@@ -1157,16 +1161,29 @@ public class Exchange {
      */
     private JsonNode postActionWithSignature(Map<String, Object> action, Map<String, Object> signature, long nonce) {
         String type = String.valueOf(action.getOrDefault("type", ""));
+        boolean userSigned = "approveAgent".equals(type)
+                || "userDexAbstraction".equals(type)
+                || "usdSend".equals(type)
+                || "withdraw3".equals(type)
+                || "spotSend".equals(type)
+                || "usdClassTransfer".equals(type)
+                || "sendAsset".equals(type)
+                || "approveBuilderFee".equals(type)
+                || "setReferrer".equals(type)
+                || "tokenDelegate".equals(type)
+                || "convertToMultiSigUser".equals(type);
         String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type)) ? null : vaultAddress;
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        // 保持用户签名动作的 action 原样发送（包含 signatureChainId 与 hyperliquidChain），与 Python
-        // SDK行为一致。
         payload.put("action", action);
         payload.put("nonce", nonce);
         payload.put("signature", signature);
-        payload.put("vaultAddress", effectiveVault);
-        payload.put("expiresAfter", expiresAfter);
+        if (!userSigned) {
+            payload.put("vaultAddress", effectiveVault);
+            payload.put("expiresAfter", expiresAfter);
+        } else {
+            payload.put("vaultAddress", effectiveVault);
+        }
         return hypeHttpClient.post("/exchange", payload);
     }
 
@@ -1285,7 +1302,8 @@ public class Exchange {
             return;
         if (req.getLimitPx() == null && req.getOrderType() != null && req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            double slip = req.getSlippage() != null ? req.getSlippage()
+                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
