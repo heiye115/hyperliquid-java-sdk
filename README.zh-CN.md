@@ -131,8 +131,8 @@ public class QuickStart {
         L2Book book = info.l2Book("ETH");
         System.out.println("买一价: " + book.getLevels().get(0).get(0).getPx());
 
-        Exchange ex = client.useExchange(pk);
-        OrderRequest req = OrderRequest.createDefaultPerpLimitOrder(Tif.GTC, "ETH", true, 0.001, 3500.0);
+        Exchange ex = client.getSingleExchange();
+        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.001, 3500.0);
         try {
             Order order = ex.order(req);
             System.out.println("下单状态: " + order.getStatus());
@@ -165,37 +165,6 @@ public class QuickStart {
     - `setMaxReconnectAttempts(int)`（`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:897`）。
     - `setNetworkCheckIntervalSeconds(int)`（`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:910`）。
     - `setReconnectBackoffMs(initialMs, maxMs)`（`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:924`）。
-
-## API 参考
-
-- HyperliquidClient
-    - `builder()`（`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:91`）
-    - `getInfo()`（`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:46`）
-    - `useExchange(privateKey)`（`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:63`）
-    - `getAddress(privateKey)`（`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:74`）
-- Info
-    - `l2Book(String coin)`（`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:225`）
-    - `subscribe(JsonNode, MessageCallback)`（`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:838`）
-    - 用户/账户状态：`clearinghouseState`、`userState`、`spotClearinghouseState`（见 `Info.java:591`, `Info.java:617`,
-      `Info.java:628`）。
-- Exchange
-    - `order(OrderRequest)` 及带 builder 重载（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:208`,
-      `Exchange.java:127`）。
-    - `bulkOrders(List<OrderRequest>)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:253`）。
-    - `cancel(String coin, long oid)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:264`）。
-    - `cancelByCloid(String coin, Cloid)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:283`）。
-    - `modifyOrder(String coin, long oid, OrderRequest)`（
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:302`）。
-    - `updateLeverage(String coin, boolean crossed, int leverage)`（
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:100`）。
-    - Dex Abstraction：`agentEnableDexAbstraction()` / `userDexAbstraction(user, enabled)`（
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:386`, `Exchange.java:409`）。
-- WebsocketManager
-    - `MessageCallback` 接口（`src/main/java/io/github/hyperliquid/sdk/websocket/WebsocketManager.java:106`）。
-    - 支持连接状态监听与回调异常监听。
-- HypeHttpClient
-    - `post(String, Object)` 携带 4xx/5xx 错误分类（
-      `src/main/java/io/github/hyperliquid/sdk/utils/HypeHttpClient.java:37`）。
 
 ## 贡献指南
 

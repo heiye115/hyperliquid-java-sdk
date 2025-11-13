@@ -132,8 +132,8 @@ public class Demo {
         L2Book book = info.l2Book("ETH");
         System.out.println("Best bid: " + book.getLevels().get(0).get(0).getPx());
 
-        Exchange ex = client.useExchange(pk);
-        OrderRequest req = OrderRequest.createDefaultPerpLimitOrder(Tif.GTC, "ETH", true, 0.001, 3500.0);
+        Exchange ex = client.getSingleExchange();
+        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.001, 3500.0);
         try {
             Order order = ex.order(req);
             System.out.println("Order status: " + order.getStatus());
@@ -165,37 +165,6 @@ public class Demo {
     - `setMaxReconnectAttempts(int)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:897`).
     - `setNetworkCheckIntervalSeconds(int)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:910`).
     - `setReconnectBackoffMs(initialMs, maxMs)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:924`).
-
-## API Reference
-
-- HyperliquidClient
-    - `builder()` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:91`)
-    - `getInfo()` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:46`)
-    - `useExchange(privateKey)` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:63`)
-    - `getAddress(privateKey)` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:74`)
-- Info
-    - `l2Book(String coin)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:225`)
-    - `subscribe(JsonNode, MessageCallback)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:838`)
-    - User/account state: `clearinghouseState`, `userState`, `spotClearinghouseState` (see `Info.java:591`,
-      `Info.java:617`, `Info.java:628`).
-- Exchange
-    - `order(OrderRequest)` and builder overload (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:208`,
-      `Exchange.java:127`).
-    - `bulkOrders(List<OrderRequest>)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:253`).
-    - `cancel(String coin, long oid)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:264`).
-    - `cancelByCloid(String coin, Cloid)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:283`).
-    - `modifyOrder(String coin, long oid, OrderRequest)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:302`).
-    - `updateLeverage(String coin, boolean crossed, int leverage)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:100`).
-    - Dex Abstraction: `agentEnableDexAbstraction()` and `userDexAbstraction(user, enabled)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:386`, `Exchange.java:409`).
-- WebsocketManager
-    - `MessageCallback` interface (`src/main/java/io/github/hyperliquid/sdk/websocket/WebsocketManager.java:106`).
-    - Connection listener and error listener hooks.
-- HypeHttpClient
-    - `post(String, Object)` with error classification (
-      `src/main/java/io/github/hyperliquid/sdk/utils/HypeHttpClient.java:37`).
 
 ## Contribution
 
