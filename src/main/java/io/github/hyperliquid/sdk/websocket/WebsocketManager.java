@@ -31,6 +31,8 @@ public class WebsocketManager {
      */
     private final String baseUrl;
     private final String wsUrl;
+    private String probeUrl;
+    private boolean probeDisabled = false;
     private final OkHttpClient client;
     private WebSocket webSocket;
     private volatile boolean stopped = false;
@@ -151,6 +153,7 @@ public class WebsocketManager {
         String scheme = baseUrl.startsWith("https") ? "wss" : "ws";
         String tail = baseUrl.replaceFirst("https?", "");
         this.wsUrl = scheme + tail + "/ws";
+        this.probeUrl = null;
         this.client = new OkHttpClient.Builder()
                 .pingInterval(Duration.ofSeconds(20))
                 .readTimeout(Duration.ofSeconds(0)) // WebSocket 不设 readTimeout
@@ -360,14 +363,26 @@ public class WebsocketManager {
      * 简单的网络可用性探测：HEAD 请求 baseUrl，允许 2xx/3xx
      */
     private boolean isNetworkAvailable() {
+        if (probeDisabled) {
+            return true;
+        }
+        String url = probeUrl != null ? probeUrl : baseUrl;
         try {
-            Request req = new Request.Builder().url(baseUrl).head().build();
+            Request req = new Request.Builder().url(url).head().build();
             try (Response resp = networkClient.newCall(req).execute()) {
                 return resp.code() < 400;
             }
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public void setNetworkProbeUrl(String url) {
+        this.probeUrl = url;
+    }
+
+    public void setNetworkProbeDisabled(boolean disabled) {
+        this.probeDisabled = disabled;
     }
 
     /**
@@ -530,8 +545,13 @@ public class WebsocketManager {
      */
     public void subscribe(JsonNode subscription, MessageCallback callback) {
         String identifier = subscriptionToIdentifier(subscription);
-        subscriptions.computeIfAbsent(identifier, k -> new CopyOnWriteArrayList<>())
-                .add(new ActiveSubscription(subscription, callback));
+        List<ActiveSubscription> list = subscriptions.computeIfAbsent(identifier, k -> new CopyOnWriteArrayList<>());
+        for (ActiveSubscription s : list) {
+            if (s.subscription.equals(subscription)) {
+                return;
+            }
+        }
+        list.add(new ActiveSubscription(subscription, callback));
         sendSubscribe(subscription);
     }
 
