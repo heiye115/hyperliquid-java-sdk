@@ -1,10 +1,7 @@
 package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.github.hyperliquid.sdk.model.order.Cloid;
-import io.github.hyperliquid.sdk.model.order.Order;
-import io.github.hyperliquid.sdk.model.order.OrderRequest;
-import io.github.hyperliquid.sdk.model.order.Tif;
+import io.github.hyperliquid.sdk.model.order.*;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -84,10 +81,13 @@ public class OrderTest {
         System.out.println(order);
     }
 
+    @Test
+    public void testCancel() {
+        JsonNode node = client.getSingleExchange().cancel("ETH", 42988070692L);
+        System.out.println(node.toPrettyString());
+    }
 
-    /**
-     * 市价下单 + 全部平仓
-     **/
+
     @Test
     public void testMarketOrderALL() {
         OrderRequest req = OrderRequest.Open.market("ETH", true, 0.01);
@@ -97,13 +97,13 @@ public class OrderTest {
         System.out.println(closeOrder);
     }
 
-    /**
-     * 根据 OID 撤单
-     **/
     @Test
-    public void testCancel() {
-        JsonNode node = client.getSingleExchange().cancel("ETH", 42988070692L);
-        System.out.println(node.toPrettyString());
+    public void testTriggerOrderALL() {
+        OrderRequest req = OrderRequest.Open.trigger("ETH", true, 0.01, 4000.0, 4000.0, true,
+                TriggerOrderType.TpslType.TP);
+        Order order = client.getSingleExchange().order(req);
+        System.out.println(order);
     }
-
 }
+
+ 

@@ -102,7 +102,6 @@ public class Info {
         return allMids(null);
     }
 
-
     /**
      * 查询 perp 元数据（meta）。
      *
@@ -172,7 +171,6 @@ public class Info {
         return JSONUtil.convertValue(node, MetaAndAssetCtxs.class);
     }
 
-
     /**
      * 查询现货元数据（spotMeta）。
      *
@@ -192,7 +190,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "spotMetaAndAssetCtxs");
         return postInfo(payload);
     }
-
 
     /**
      * L2 订单簿快照。
@@ -273,7 +270,6 @@ public class Info {
         return JSONUtil.toList(postInfo(payload), Candle.class);
     }
 
-
     /**
      * 获取最近一个间隔周期的最新 K 线。
      *
@@ -287,7 +283,6 @@ public class Info {
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
         return !candles.isEmpty() ? candles.getLast() : null;
     }
-
 
     /**
      * 按数量获取最近的 K 线列表。
@@ -308,7 +303,6 @@ public class Info {
         return candles.size() > count ? candles.subList(candles.size() - count, candles.size()) : candles;
     }
 
-
     /**
      * 查询用户未成交订单（默认 perp dex）。
      *
@@ -318,7 +312,6 @@ public class Info {
     public List<OpenOrder> openOrders(String address) {
         return openOrders(address, null);
     }
-
 
     /**
      * 查询用户未成交订单（可指定 perp dex）。
@@ -336,7 +329,6 @@ public class Info {
         }
         return JSONUtil.toList(postInfo(payload), OpenOrder.class);
     }
-
 
     /**
      * 查询用户成交（按时间范围）。
@@ -374,7 +366,6 @@ public class Info {
         return userFillsByTime(address, startTime, null, aggregateByTime);
     }
 
-
     /**
      * 查询用户费用（返现/手续费）。
      *
@@ -385,7 +376,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "userFees", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 查询资金费率历史（按资产 ID）。
@@ -399,7 +389,6 @@ public class Info {
         return this.fundingHistory(this.coinIdToInfoCoinString(coin), startMs, endMs);
     }
 
- 
     /**
      * 查询资金费率历史（按币种名称）。
      *
@@ -424,7 +413,6 @@ public class Info {
         payload.put("endTime", endMs);
         return postInfo(payload);
     }
-
 
     /**
      * 查询用户资金费率历史（按资产 ID）。
@@ -455,7 +443,6 @@ public class Info {
         return "@" + coinId;
     }
 
-
     /**
      * 查询用户资金费率历史（按币种名称）。
      *
@@ -485,7 +472,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * 用户非资金费率账本更新（不含 funding）。
      *
@@ -502,7 +488,6 @@ public class Info {
         payload.put("endTime", endMs);
         return postInfo(payload);
     }
-
 
     /**
      * 历史订单查询。
@@ -521,7 +506,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * 用户 TWAP 切片成交查询。
      *
@@ -538,7 +522,6 @@ public class Info {
         payload.put("endTime", endMs);
         return postInfo(payload);
     }
-
 
     /**
      * 前端附加信息的未成交订单（frontendOpenOrders）。
@@ -567,7 +550,6 @@ public class Info {
         return frontendOpenOrders(address, null);
     }
 
-
     /**
      * 用户最近成交（最多 2000 条）。
      *
@@ -589,7 +571,6 @@ public class Info {
         return userFills(address, null);
     }
 
-
     /**
      * 查询所有 perpetual dexs（perpDexs）。
      *
@@ -599,7 +580,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "perpDexs");
         return postInfo(payload);
     }
-
 
     /**
      * 查询所有 perpetual dexs（类型化返回）。
@@ -613,7 +593,6 @@ public class Info {
                 TypeFactory.defaultInstance().constructCollectionType(List.class,
                         TypeFactory.defaultInstance().constructMapType(Map.class, String.class, Object.class)));
     }
-
 
     /**
      * 永续清算所状态（用户账户摘要）。
@@ -652,7 +631,6 @@ public class Info {
         return clearinghouseState(address, null);
     }
 
-
     /**
      * 获取用户的代币余额（现货清算所状态）。
      *
@@ -664,7 +642,6 @@ public class Info {
         JsonNode node = postInfo(payload);
         return JSONUtil.convertValue(node, SpotClearinghouseState.class);
     }
-
 
     /**
      * 查询 Vault 详情。
@@ -683,7 +660,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * Spot Deploy Auction 状态。
      *
@@ -694,7 +670,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "spotDeployState", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 用户组合（portfolio）。
@@ -707,7 +682,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * 用户仓位费率与等级（userRole）。
      *
@@ -719,7 +693,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * 用户速率限制（userRateLimit）。
      *
@@ -730,7 +703,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "userRateLimit", "user", address);
         return JSONUtil.convertValue(postInfo(payload), UserRateLimit.class);
     }
-
 
     /**
      * 订单状态查询（按 OID）。
@@ -744,7 +716,6 @@ public class Info {
         return JSONUtil.convertValue(postInfo(payload), OrderStatus.class);
     }
 
-
     /**
      * 查询推荐人状态（queryReferralState）。
      *
@@ -752,10 +723,9 @@ public class Info {
      * @return JSON 响应
      */
     public JsonNode queryReferralState(String address) {
-        Map<String, Object> payload = Map.of("type", "queryReferralState", "user", address);
+        Map<String, Object> payload = Map.of("type", "referral", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 查询子账户列表。
@@ -764,10 +734,9 @@ public class Info {
      * @return JSON 响应
      */
     public JsonNode querySubAccounts(String address) {
-        Map<String, Object> payload = Map.of("type", "querySubAccounts", "user", address);
+        Map<String, Object> payload = Map.of("type", "subAccounts", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 查询用户到多签签名者映射。
@@ -776,10 +745,9 @@ public class Info {
      * @return JSON 响应
      */
     public JsonNode queryUserToMultiSigSigners(String address) {
-        Map<String, Object> payload = Map.of("type", "queryUserToMultiSigSigners", "user", address);
+        Map<String, Object> payload = Map.of("type", "userToMultiSigSigners", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 永续部署拍卖状态。
@@ -787,10 +755,9 @@ public class Info {
      * @return JSON 响应
      */
     public JsonNode queryPerpDeployAuctionStatus() {
-        Map<String, Object> payload = Map.of("type", "queryPerpDeployAuctionStatus");
+        Map<String, Object> payload = Map.of("type", "perpDeployAuctionStatus");
         return postInfo(payload);
     }
-
 
     /**
      * 现货部署拍卖状态。
@@ -798,8 +765,14 @@ public class Info {
      * @return JSON 响应
      */
     public JsonNode querySpotDeployAuctionStatus() {
-        Map<String, Object> payload = Map.of("type", "querySpotDeployAuctionStatus");
-        return postInfo(payload);
+        // 该接口在 Python SDK 中对应 spotDeployState(user)，Java SDK 已提供
+        // spotDeployState(address)
+        // 保持方法以避免破坏现有调用，但服务器不支持无用户的 spotDeploy 查询，返回空对象以避免 4xx
+        try {
+            return JSONUtil.readTree("{}");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse empty JSON", e);
+        }
     }
 
     /**
@@ -826,7 +799,6 @@ public class Info {
         return JSONUtil.convertValue(node, PerpDexStatus.class);
     }
 
-
     /**
      * 查询用户 DEX 抽象状态。
      *
@@ -834,10 +806,9 @@ public class Info {
      * @return JSON 响应
      */
     public JsonNode queryUserDexAbstractionState(String address) {
-        Map<String, Object> payload = Map.of("type", "queryUserDexAbstractionState", "user", address);
+        Map<String, Object> payload = Map.of("type", "userDexAbstraction", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 用户仓库（vault）权益。
@@ -850,7 +821,6 @@ public class Info {
         return postInfo(payload);
     }
 
-
     /**
      * 用户的额外代理（extraAgents）。
      *
@@ -861,7 +831,6 @@ public class Info {
         Map<String, Object> payload = Map.of("type", "extraAgents", "user", address);
         return postInfo(payload);
     }
-
 
     /**
      * 订阅 WebSocket。
@@ -875,7 +844,6 @@ public class Info {
         wsManager.subscribe(subscription, callback);
     }
 
-
     /**
      * 取消订阅。
      *
@@ -887,7 +855,6 @@ public class Info {
         wsManager.unsubscribe(subscription);
     }
 
-
     /**
      * 关闭 WebSocket 连接。
      */
@@ -895,7 +862,6 @@ public class Info {
         if (wsManager != null)
             wsManager.stop();
     }
-
 
     /**
      * 添加连接状态监听器（连接/断开/重连/网络状态变化）。
@@ -909,7 +875,6 @@ public class Info {
             wsManager.addConnectionListener(listener);
     }
 
-
     /**
      * 移除连接状态监听器。
      *
@@ -921,7 +886,6 @@ public class Info {
         if (wsManager != null)
             wsManager.removeConnectionListener(listener);
     }
-
 
     /**
      * 设置最大重连尝试次数（默认 5）。
@@ -935,7 +899,6 @@ public class Info {
             wsManager.setMaxReconnectAttempts(max);
     }
 
-
     /**
      * 设置网络监控的检查间隔（秒）。
      *
@@ -947,7 +910,6 @@ public class Info {
         if (wsManager != null)
             wsManager.setNetworkCheckIntervalSeconds(seconds);
     }
-
 
     /**
      * 设置重连指数退避参数。
@@ -962,7 +924,6 @@ public class Info {
             wsManager.setReconnectBackoffMs(initialMs, maxMs);
     }
 
-
     /**
      * 添加回调异常监听器。
      *
@@ -974,7 +935,6 @@ public class Info {
         if (wsManager != null)
             wsManager.addCallbackErrorListener(listener);
     }
-
 
     /**
      * 移除回调异常监听器。
