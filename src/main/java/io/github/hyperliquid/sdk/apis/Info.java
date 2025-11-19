@@ -378,40 +378,20 @@ public class Info {
     }
 
     /**
-     * 查询资金费率历史（按资产 ID）。
-     *
-     * @param coin    资产 ID
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return JSON 响应
-     */
-    public JsonNode fundingHistory(int coin, long startMs, long endMs) {
-        return this.fundingHistory(this.coinIdToInfoCoinString(coin), startMs, endMs);
-    }
-
-    /**
      * 查询资金费率历史（按币种名称）。
      *
-     * @param coin    币种名称或内部标识（如 "BTC" 或 "@107"）
+     * @param coin    币种名称（如 "BTC"）
      * @param startMs 起始毫秒
      * @param endMs   结束毫秒
-     * @return JSON 响应
+     * @return List<FundingHistory> 响应
      */
-    public JsonNode fundingHistory(String coin, long startMs, long endMs) {
+    public List<FundingHistory> fundingHistory(String coin, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "fundingHistory");
-        String effectiveCoin = coin;
-        if (effectiveCoin != null && !effectiveCoin.startsWith("@")) {
-            try {
-                Integer assetId = nameToAsset(effectiveCoin);
-                effectiveCoin = coinIdToInfoCoinString(assetId);
-            } catch (Exception ignored) {
-            }
-        }
-        payload.put("coin", effectiveCoin);
+        payload.put("coin", coin);
         payload.put("startTime", startMs);
         payload.put("endTime", endMs);
-        return postInfo(payload);
+        return JSONUtil.toList(postInfo(payload), FundingHistory.class);
     }
 
     /**

@@ -59,7 +59,7 @@ public class HyperliquidClientTest {
         System.setErr(new PrintStream(errContent));
 
         client = HyperliquidClient.builder()
-                .testNetUrl()
+                //.testNetUrl()
                 .addPrivateKey(TESTNET_PRIVATE_KEY)
                 .enableDebugLogs()
                 .build();
@@ -394,20 +394,17 @@ public class HyperliquidClientTest {
     @DisplayName("资金费率：fundingHistory(id/name)")
     void testFundingHistory() {
         Info info = client.getInfo();
-        long start = 1681923833000L;
-        long end = 1684811870000L;
+        long start = 1763136000000L;
+        long end = 1763532000000L;
 
         resetLogs();
         try {
-            JsonNode byName = info.fundingHistory("BTC", start, end);
-            assertNotNull(byName);
+            List<FundingHistory> list = info.fundingHistory("BTC", start, end);
+            assertNotNull(list);
             assertHttpLogsPresent();
         } catch (HypeError.ServerHypeError e) {
             assertHttpLogsPresent();
         }
-
-        // 非法资产 ID 触发本地校验异常
-        assertThrows(HypeError.class, () -> info.fundingHistory(-1, start, end));
     }
 
     /**
