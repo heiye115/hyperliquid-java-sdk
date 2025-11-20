@@ -203,15 +203,7 @@ public class Info {
     public L2Book l2Book(String coin, Integer nSigFigs, Integer mantissa) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "l2Book");
-        String effectiveCoin = coin;
-        if (effectiveCoin != null && !effectiveCoin.startsWith("@")) {
-            try {
-                Integer assetId = nameToAsset(effectiveCoin);
-                effectiveCoin = coinIdToInfoCoinString(assetId);
-            } catch (Exception ignored) {
-            }
-        }
-        payload.put("coin", effectiveCoin);
+        payload.put("coin", coin);
         if (nSigFigs != null) {
             payload.put("nSigFigs", nSigFigs);
         }
@@ -252,15 +244,7 @@ public class Info {
      */
     public List<Candle> candleSnapshot(String coin, CandleInterval interval, Long startTime, Long endTime) {
         Map<String, Object> req = new LinkedHashMap<>();
-        String effectiveCoin = coin;
-        if (effectiveCoin != null && !effectiveCoin.startsWith("@")) {
-            try {
-                Integer assetId = nameToAsset(effectiveCoin);
-                effectiveCoin = coinIdToInfoCoinString(assetId);
-            } catch (Exception ignored) {
-            }
-        }
-        req.put("coin", effectiveCoin);
+        req.put("coin", coin);
         req.put("interval", interval.getCode());
         req.put("startTime", startTime);
         req.put("endTime", endTime);
