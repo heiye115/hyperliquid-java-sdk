@@ -2,6 +2,7 @@ package io.github.hyperliquid.sdk;
 
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.apis.Info;
+import io.github.hyperliquid.sdk.model.wallet.ApiWallet;
 import io.github.hyperliquid.sdk.utils.Constants;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import io.github.hyperliquid.sdk.utils.HypeHttpClient;
@@ -32,61 +33,47 @@ public class HyperliquidClient {
     private final Info info;
 
     /**
-     * K:私钥 V:Exchange
+     * K:钱包地址 V:Exchange
      **/
-    private final Map<String, Exchange> exchangesByPrivateKey;
+    @Getter
+    private final Map<String, Exchange> exchangesByAddress;
 
     /**
-     * K:私钥 V:地址
+     * API钱包列表
      **/
-    private final Map<String, String> addressesByPrivateKey;
+    @Getter
+    private final List<ApiWallet> apiWallets;
 
 
-    private HyperliquidClient(Info info, Map<String, Exchange> exchangesByPrivateKey, Map<String, String> addressesByPrivateKey) {
+    public HyperliquidClient(Info info, Map<String, Exchange> exchangesByAddress, List<ApiWallet> apiWallets) {
         this.info = info;
-        this.exchangesByPrivateKey = exchangesByPrivateKey;
-        this.addressesByPrivateKey = addressesByPrivateKey;
+        this.exchangesByAddress = exchangesByAddress;
+        this.apiWallets = apiWallets;
     }
 
     /**
      * 获取单个Exchange  , 如果有多个则返回第一个
      **/
     public Exchange getSingleExchange() {
-        if (exchangesByPrivateKey.isEmpty()) {
+        if (exchangesByAddress.isEmpty()) {
             throw new HypeError("No exchange instances available.");
         }
-        return exchangesByPrivateKey.values().iterator().next();
+        return exchangesByAddress.values().iterator().next();
     }
 
     /**
-     * 根据私钥获取 Exchange 实例
+     * 根据钱包地址获取 Exchange 实例
      **/
-    public Exchange useExchange(String privateKey) {
-        Exchange ex = exchangesByPrivateKey.get(privateKey);
+    public Exchange useExchange(String address) {
+        Exchange ex = exchangesByAddress.get(address);
         if (ex == null) {
             throw new HypeError("No exchange instance found for the provided private key.");
         }
         return ex;
     }
 
-    /**
-     * 获取钱包地址
-     **/
-    public String getAddress(String privateKey) {
-        return addressesByPrivateKey.entrySet().stream()
-                .filter(entry -> entry.getKey().equalsIgnoreCase(privateKey))
-                .map(Map.Entry::getValue).findFirst()
-                .orElseThrow(() -> new HypeError("No address found for the provided private key."));
-    }
-
-    /**
-     * 获取单个钱包地址 , 如果有多个则返回第一个
-     **/
     public String getSingleAddress() {
-        if (addressesByPrivateKey.isEmpty()) {
-            throw new HypeError("No addresses available.");
-        }
-        return addressesByPrivateKey.values().iterator().next();
+        return apiWallets.getFirst().getPrimaryWalletAddress();
     }
 
     public static Builder builder() {
@@ -101,7 +88,7 @@ public class HyperliquidClient {
 
         private boolean skipWs = false;
 
-        private final List<String> privateKeys = new ArrayList<>();
+        private final List<ApiWallet> apiWallets = new ArrayList<>();
 
         private OkHttpClient okHttpClient = null;
 
@@ -116,12 +103,14 @@ public class HyperliquidClient {
         }
 
         public Builder addPrivateKey(String privateKey) {
-            privateKeys.add(privateKey);
+            addApiWallet(null, privateKey);
             return this;
         }
 
         public Builder addPrivateKeys(List<String> pks) {
-            privateKeys.addAll(pks);
+            for (String pk : pks) {
+                addPrivateKey(pk);
+            }
             return this;
         }
 
@@ -132,6 +121,21 @@ public class HyperliquidClient {
 
         public Builder timeout(int timeout) {
             this.timeout = timeout;
+            return this;
+        }
+
+        public Builder addApiWallet(ApiWallet apiWallet) {
+            apiWallets.add(apiWallet);
+            return this;
+        }
+
+        public Builder addApiWallet(String primaryWalletAddress, String apiWalletPrivateKey) {
+            apiWallets.add(new ApiWallet(primaryWalletAddress, apiWalletPrivateKey));
+            return this;
+        }
+
+        public Builder addApiWallets(List<ApiWallet> apiWallets) {
+            this.apiWallets.addAll(apiWallets);
             return this;
         }
 
@@ -159,17 +163,18 @@ public class HyperliquidClient {
             OkHttpClient httpClient = getOkHttpClient();
             HypeHttpClient hypeHttpClient = new HypeHttpClient(baseUrl, httpClient);
             Info info = new Info(baseUrl, hypeHttpClient, skipWs);
-            Map<String, Exchange> exchangeMap = new LinkedHashMap<>();
-            Map<String, String> privateKeyMap = new LinkedHashMap<>();
-            if (!privateKeys.isEmpty()) {
-                for (String key : privateKeys) {
-                    validatePrivateKey(key);
-                    Credentials credentials = Credentials.create(key);
-                    privateKeyMap.put(key, credentials.getAddress());
-                    exchangeMap.put(key, new Exchange(hypeHttpClient, credentials, info));
+            Map<String, Exchange> exchangesByAddress = new LinkedHashMap<>();
+            if (!apiWallets.isEmpty()) {
+                for (ApiWallet apiWallet : apiWallets) {
+                    validatePrivateKey(apiWallet.getApiWalletPrivateKey());
+                    Credentials credentials = Credentials.create(apiWallet.getApiWalletPrivateKey());
+                    if (apiWallet.getPrimaryWalletAddress() == null || apiWallet.getPrimaryWalletAddress().trim().isEmpty()) {
+                        apiWallet.setPrimaryWalletAddress(credentials.getAddress());
+                    }
+                    exchangesByAddress.put(apiWallet.getPrimaryWalletAddress(), new Exchange(hypeHttpClient, credentials, info));
                 }
             }
-            return new HyperliquidClient(info, exchangeMap, privateKeyMap);
+            return new HyperliquidClient(info, exchangesByAddress, null);
         }
 
 

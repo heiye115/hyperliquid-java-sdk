@@ -170,9 +170,9 @@ public class Exchange {
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
-        com.fasterxml.jackson.databind.JsonNode node = postAction(action);
+        JsonNode node = postAction(action);
         if (node != null && node.has("status") && "err".equals(node.get("status").asText())) {
-            com.fasterxml.jackson.databind.JsonNode resp = node.get("response");
+            JsonNode resp = node.get("response");
             if (resp != null && resp.isTextual()) {
                 throw new HypeError(resp.asText());
             }
@@ -1144,7 +1144,9 @@ public class Exchange {
         payload.put("action", action);
         payload.put("nonce", nonce);
         payload.put("signature", signature);
-        payload.put("vaultAddress", effectiveVault);
+        if (effectiveVault != null) {
+            payload.put("vaultAddress", effectiveVault);
+        }
         payload.put("expiresAfter", ea);
 
         return hypeHttpClient.post("/exchange", payload);
@@ -1377,9 +1379,7 @@ public class Exchange {
             return;
         if (req.getOrderType() == null || req.getOrderType().getTrigger() == null)
             return;
-        Double px = req.getOrderType().getTrigger().getTriggerPx();
-        if (px == null)
-            return;
+        double px = req.getOrderType().getTrigger().getTriggerPx();
         String coin = req.getCoin();
         Integer szDecimals = szDecimalsCache.getIfPresent(coin);
         if (szDecimals == null) {

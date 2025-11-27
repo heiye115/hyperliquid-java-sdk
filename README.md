@@ -85,21 +85,14 @@ classDiagram
 <dependency>
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.0-beta3</version>
+    <version>0.2.1</version>
 </dependency>
 ```
 
 - Gradle (Groovy):
 
 ```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.0-beta3'
-```
-
-- Alternative: JitPack (if not on Central yet):
-
-```gradle
-repositories { maven { url 'https://jitpack.io' } }
-implementation 'com.github.heiye115:hyperliquid-java-sdk:main-SNAPSHOT'
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.1'
 ```
 
 ## Quick Start

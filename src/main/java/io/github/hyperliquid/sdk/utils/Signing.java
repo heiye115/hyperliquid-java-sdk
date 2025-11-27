@@ -20,6 +20,10 @@ import java.util.*;
  * - 统一使用 API 层共享的 ObjectMapper，避免多处配置不一致与重复实例化；
  * - 在 addressToBytes 方法中实现严格的地址长度校验（默认 20 字节），并可通过开关启用兼容性降级策略；
  * - 为关键方法补充详细文档，包括 @return 与 @throws 注释，便于 IDE 友好提示与二次开发。
+ * <p>
+ * 下单 / 取消 / 所有 Exchange 下的交易行为：必须使用 sign_l1_action（即 L1 action 签名流程 —— msgpack(action) → actionHash → 构造 phantom agent → 用 EIP-712 对 phantom agent 签名）。
+ * <p>
+ * 资金/管理类操作（USD/USDT 转账、approve agent、withdraw/deposit 等需要用户显式资产授权的操作）：必须使用 sign_user_signed_action（即直接对 action 使用 EIP-712 签名，chainId = 0x66eee，没有 phantom agent）。
  */
 public final class Signing {
 
@@ -68,7 +72,7 @@ public final class Signing {
 
     /**
      * 将浮点数转换为用于哈希的整数（与 Python float_to_int_for_hashing 一致，放大 1e8）。
-     *
+     * <p>
      * 规则：
      * - with_decimals = x * 10^8；
      * - 若 |round(with_decimals) - with_decimals| >= 1e-3，抛出异常（避免不可接受的舍入）；
@@ -96,7 +100,7 @@ public final class Signing {
 
     /**
      * 通用整数转换：按 10^power 放大并取整（与 Python float_to_int 一致）。
-     *
+     * <p>
      * 规则：
      * - with_decimals = x * 10^power；
      * - 若 |round(with_decimals) - with_decimals| >= 1e-3，抛出异常；
@@ -197,9 +201,9 @@ public final class Signing {
 
             // 追加 vaultAddress 标记及地址
             if (vaultAddress == null) {
-                baos.write(new byte[] { 0x00 });
+                baos.write(new byte[]{0x00});
             } else {
-                baos.write(new byte[] { 0x01 });
+                baos.write(new byte[]{0x01});
                 byte[] addrBytes = addressToBytes(vaultAddress);
                 if (addrBytes.length != 20) {
                     throw new IllegalArgumentException("vaultAddress must be 20 bytes");
@@ -208,7 +212,7 @@ public final class Signing {
             }
 
             if (expiresAfter != null) {
-                baos.write(new byte[] { 0x00 });
+                baos.write(new byte[]{0x00});
                 byte[] expBytes = java.nio.ByteBuffer.allocate(8).putLong(expiresAfter).array();
                 baos.write(expBytes);
             }
@@ -435,7 +439,7 @@ public final class Signing {
      * -> 签名。
      */
     public static Map<String, Object> signL1Action(Credentials credentials, Object action, String vaultAddress,
-            long nonce, Long expiresAfter, boolean isMainnet) {
+                                                   long nonce, Long expiresAfter, boolean isMainnet) {
         byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
         Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
         String typedJson = l1PayloadJson(agent);
@@ -456,7 +460,7 @@ public final class Signing {
      * @return EIP-712 TypedData 的 JSON 字符串
      */
     public static String userSignedPayloadJson(String primaryType, List<Map<String, Object>> payloadTypes,
-            Map<String, Object> action) {
+                                               Map<String, Object> action) {
         // 将 signatureChainId 的 16 进制字符串解析为整型链 ID
         Object sigChainIdObj = action.get("signatureChainId");
         if (sigChainIdObj == null) {
@@ -514,10 +518,10 @@ public final class Signing {
      * @return r/s/v 签名
      */
     public static Map<String, Object> signUserSignedAction(Credentials credentials,
-            Map<String, Object> action,
-            List<Map<String, Object>> payloadTypes,
-            String primaryType,
-            boolean isMainnet) {
+                                                           Map<String, Object> action,
+                                                           List<Map<String, Object>> payloadTypes,
+                                                           String primaryType,
+                                                           boolean isMainnet) {
         action.put("signatureChainId", "0x66eee");
         action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
         String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
@@ -607,7 +611,7 @@ public final class Signing {
      * @return 未压缩公钥的 BigInteger 表示（64 字节 x||y）
      */
     private static java.math.BigInteger recoverPublicKeyFromSignature(int recId, java.math.BigInteger r,
-            java.math.BigInteger s, byte[] digest) {
+                                                                      java.math.BigInteger s, byte[] digest) {
         // 使用 BouncyCastle 曲线参数
         org.bouncycastle.asn1.x9.X9ECParameters x9 = org.bouncycastle.crypto.ec.CustomNamedCurves
                 .getByName("secp256k1");
@@ -642,7 +646,7 @@ public final class Signing {
      * 将给定 x 坐标与 y 奇偶标志，解压为曲线上点（未压缩）。
      */
     private static org.bouncycastle.math.ec.ECPoint decompressKey(java.math.BigInteger xBN, boolean yBit,
-            org.bouncycastle.math.ec.ECCurve curve) {
+                                                                  org.bouncycastle.math.ec.ECCurve curve) {
         byte[] compEnc = new byte[33];
         compEnc[0] = (byte) (yBit ? 0x03 : 0x02);
         byte[] xBytes = xBN.toByteArray();
@@ -664,9 +668,9 @@ public final class Signing {
      * @return 恢复得到的 0x 地址（小写）
      */
     public static String recoverAgentOrUserFromL1Action(Object action, String vaultAddress,
-            long nonce, Long expiresAfter,
-            boolean isMainnet,
-            Map<String, Object> signature) {
+                                                        long nonce, Long expiresAfter,
+                                                        boolean isMainnet,
+                                                        Map<String, Object> signature) {
         byte[] hash = actionHash(action, nonce, vaultAddress, expiresAfter);
         Map<String, Object> agent = constructPhantomAgent(hash, isMainnet);
         String typedJson = l1PayloadJson(agent);
@@ -685,10 +689,10 @@ public final class Signing {
      * @return 恢复得到的 0x 地址（小写）
      */
     public static String recoverUserFromUserSignedAction(Map<String, Object> action,
-            Map<String, Object> signature,
-            List<Map<String, Object>> payloadTypes,
-            String primaryType,
-            boolean isMainnet) {
+                                                         Map<String, Object> signature,
+                                                         List<Map<String, Object>> payloadTypes,
+                                                         String primaryType,
+                                                         boolean isMainnet) {
         action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
         String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
         return recoverFromTypedData(typedJson, signature);
