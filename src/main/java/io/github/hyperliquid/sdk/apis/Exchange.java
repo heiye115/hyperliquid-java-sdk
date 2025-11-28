@@ -1,8 +1,6 @@
 package io.github.hyperliquid.sdk.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.Meta;
@@ -13,13 +11,12 @@ import lombok.Setter;
 import org.web3j.crypto.Credentials;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ExchangeClient 客户端，负责下单、撤单、转账等 L1/L2 操作。
@@ -54,16 +51,8 @@ public class Exchange {
     @Setter
     private Long expiresAfter;
 
-    /**
-     * 缓存资产精度
-     */
-    private final Cache<String, Integer> szDecimalsCache = Caffeine.newBuilder()
-            .maximumSize(1024)
-            .expireAfterWrite(30, TimeUnit.MINUTES)
-            .recordStats()
-            .build();
-
-    private final java.util.Map<String, Double> defaultSlippageByCoin = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Double> defaultSlippageByCoin = new ConcurrentHashMap<>();
+    
     private Double defaultSlippage = 0.05;
 
     /**
@@ -140,16 +129,6 @@ public class Exchange {
     /**
      * 内部下单实现（统一规范化→签名→提交）。
      *
-     * <p>
-     * 流程：
-     * 1) 校验并启用 Dex Abstraction；
-     * 2) {@link #prepareRequest(OrderRequest)} 推断市价平仓方向/数量；
-     * 3) {@link #marketOpenTransition(OrderRequest)} 应用默认滑点计算市价占位价；
-     * 4) {@link #normalizePerpLimitPx(OrderRequest)} 与
-     * {@link #normalizePerpTriggerPx(OrderRequest)} 统一价格精度；
-     * 5) 转换为 wire，构造动作并发送；
-     * 6) 将服务端 JSON 映射为 {@link Order}。
-     *
      * @param req     下单请求
      * @param builder 可选 builder（包含 b/f），为空时走平台默认引擎
      * @return 服务端返回的订单响应
@@ -157,9 +136,8 @@ public class Exchange {
      */
     private Order innerOrder(OrderRequest req, Map<String, Object> builder) {
         OrderRequest effective = prepareRequest(req);
+        formatOrderSize(req);
         marketOpenTransition(effective);
-        normalizePerpLimitPx(effective);
-        normalizePerpTriggerPx(effective);
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
@@ -174,35 +152,17 @@ public class Exchange {
     }
 
     /**
-     * 规范化永续（PERP）限价价格精度。
-     *
-     * <p>
-     * 规则与 Python SDK 对齐：先按 5 位有效数字四舍五入，再按 (6 - szDecimals) 小数位四舍五入。
-     * </p>
-     *
-     * @param req 下单请求（仅当 instrumentType=PERP 且 limitPx 非空时生效）
+     * 根据资产精度格式化订单数量
      */
-    private void normalizePerpLimitPx(OrderRequest req) {
-        if (req == null) return;
-        if (req.getInstrumentType() != InstrumentType.PERP) return;
-        Double px = req.getLimitPx();
-        if (px == null) return;
-        String coin = req.getCoin();
-        Integer szDecimals = szDecimalsCache.getIfPresent(coin);
-        if (szDecimals == null) {
-            Meta.Universe mu = info.getMetaUniverse(coin);
-            szDecimals = mu.getSzDecimals();
-            if (szDecimals != null) {
-                szDecimalsCache.put(coin, szDecimals);
-            }
-        }
+    public void formatOrderSize(OrderRequest req) {
+        Meta.Universe universe = info.getMetaUniverse(req.getCoin());
+        Integer szDecimals = universe.getSzDecimals();
         if (szDecimals == null) return;
-        int decimals = 6 - szDecimals;
-        if (decimals < 0)
-            decimals = 0;
-        BigDecimal bd = BigDecimal.valueOf(px).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
-        req.setLimitPx(bd.doubleValue());
+        // 使用 BigDecimal 按精度四舍五入 向下取整更安全
+        BigDecimal bd = BigDecimal.valueOf(req.getSz()).setScale(szDecimals, RoundingMode.DOWN);
+        req.setSz(bd.doubleValue());
     }
+
 
     /**
      * 准备下单请求：推断市价平仓方向与数量。
@@ -1241,8 +1201,7 @@ public class Exchange {
             return;
         if (req.getLimitPx() == null && req.getOrderType() != null && req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            double slip = req.getSlippage() != null ? req.getSlippage()
-                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
@@ -1263,81 +1222,17 @@ public class Exchange {
      * @return 处理后的价格（double）
      */
     public double computeSlippagePrice(String coin, boolean isBuy, double slippage) {
-        double basePx;
         Map<String, String> mids = info.allMids();
         String midStr = mids.get(coin);
         if (midStr == null) {
-            throw new HypeError("Failed to get mid price for coin " + coin
-                    + " (allMids returned empty or does not contain the coin)");
+            throw new HypeError("Failed to get mid price for coin " + coin + " (allMids returned empty or does not contain the coin)");
         }
-        try {
-            basePx = Double.parseDouble(midStr);
-        } catch (NumberFormatException e) {
-            throw new HypeError("Mid price format exception: " + midStr, e);
-        }
-
-        double adjusted = basePx * (isBuy ? (1.0 + slippage) : (1.0 - slippage));
-
-        // 5 位有效数字处理
-        BigDecimal bd = BigDecimal.valueOf(adjusted);
-        bd = bd.round(new MathContext(5, RoundingMode.HALF_UP));
-
-        Integer szDecimals = szDecimalsCache.getIfPresent(coin);
-        if (szDecimals == null) {
-            Meta.Universe metaUniverse = info.getMetaUniverse(coin);
-            szDecimals = metaUniverse.getSzDecimals();
-            if (szDecimals == null) {
-                throw new HypeError("Failed to get szDecimals from Meta.Universe, coin: " + coin);
-            }
-            szDecimalsCache.put(coin, szDecimals);
-        }
-        int decimals = 6 - szDecimals;
-        if (decimals < 0) {
-            // 防御：避免出现负小数位导致异常，直接不再缩放
-            decimals = 0;
-        }
-        bd = bd.setScale(decimals, RoundingMode.HALF_UP);
+        BigDecimal basePx = new BigDecimal(midStr);
+        double adjusted = basePx.doubleValue() * (isBuy ? (1.0 + slippage) : (1.0 - slippage));
+        BigDecimal bd = BigDecimal.valueOf(adjusted).setScale(basePx.scale(), RoundingMode.HALF_UP);
         return bd.doubleValue();
     }
 
-    /**
-     * 规范化永续（PERP）触发价精度（triggerPx）。
-     *
-     * <p>
-     * 规则与限价一致：先按 5 位有效数字，再按 (6 - szDecimals) 小数位。
-     * </p>
-     *
-     * @param req 下单请求（仅当 instrumentType=PERP 且为触发单且 triggerPx 非空时生效）
-     */
-    private void normalizePerpTriggerPx(OrderRequest req) {
-        if (req == null)
-            return;
-        if (req.getInstrumentType() != InstrumentType.PERP)
-            return;
-        if (req.getOrderType() == null || req.getOrderType().getTrigger() == null)
-            return;
-        double px = req.getOrderType().getTrigger().getTriggerPx();
-        String coin = req.getCoin();
-        Integer szDecimals = szDecimalsCache.getIfPresent(coin);
-        if (szDecimals == null) {
-            Meta.Universe mu = info.getMetaUniverse(coin);
-            szDecimals = mu.getSzDecimals();
-            if (szDecimals != null)
-                szDecimalsCache.put(coin, szDecimals);
-        }
-        if (szDecimals == null)
-            return;
-        int decimals = 6 - szDecimals;
-        if (decimals < 0)
-            decimals = 0;
-        BigDecimal bd = BigDecimal.valueOf(px).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals,
-                RoundingMode.HALF_UP);
-        double newPx = bd.doubleValue();
-        TriggerOrderType oldTrig = req.getOrderType().getTrigger();
-        TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
-        LimitOrderType oldLimit = req.getOrderType().getLimit();
-        req.setOrderType(new OrderType(oldLimit, newTrig));
-    }
 
     /**
      * 设置全局默认滑点比例。

@@ -28,7 +28,7 @@ public class Info {
 
     private final Cache<String, Meta> metaCache = Caffeine.newBuilder()
             .maximumSize(1000)
-            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
             .recordStats()
             .build();
 
@@ -89,8 +89,7 @@ public class Info {
             payload.put("dex", dex);
         }
         JsonNode node = postInfo(payload);
-        return JSONUtil.convertValue(node,
-                TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
+        return JSONUtil.convertValue(node, TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
     }
 
     /**
