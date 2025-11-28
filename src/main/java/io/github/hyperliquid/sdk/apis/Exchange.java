@@ -11,6 +11,7 @@ import lombok.Setter;
 import org.web3j.crypto.Credentials;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -52,7 +53,7 @@ public class Exchange {
     private Long expiresAfter;
 
     private final Map<String, Double> defaultSlippageByCoin = new ConcurrentHashMap<>();
-    
+
     private Double defaultSlippage = 0.05;
 
     /**
@@ -136,8 +137,9 @@ public class Exchange {
      */
     private Order innerOrder(OrderRequest req, Map<String, Object> builder) {
         OrderRequest effective = prepareRequest(req);
-        formatOrderSize(req);
+        formatOrderSize(effective);  // 格式化订单数量精度
         marketOpenTransition(effective);
+        formatOrderPrice(effective);  // 格式化订单价格精度
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
@@ -154,13 +156,51 @@ public class Exchange {
     /**
      * 根据资产精度格式化订单数量
      */
-    public void formatOrderSize(OrderRequest req) {
+    private void formatOrderSize(OrderRequest req) {
+        if (req == null || req.getSz() == null) return;
         Meta.Universe universe = info.getMetaUniverse(req.getCoin());
         Integer szDecimals = universe.getSzDecimals();
         if (szDecimals == null) return;
-        // 使用 BigDecimal 按精度四舍五入 向下取整更安全
+        // 使用 BigDecimal 按精度四舍五入，向下取整更安全
         BigDecimal bd = BigDecimal.valueOf(req.getSz()).setScale(szDecimals, RoundingMode.DOWN);
         req.setSz(bd.doubleValue());
+    }
+
+    /**
+     * 根据资产精度格式化订单价格（限价与触发价）
+     * <p>
+     * 规则与 Python SDK 对齐：
+     * 1. 先按 5 位有效数字四舍五入
+     * 2. 再按小数位四舍五入（永续：6-szDecimals；现货：8-szDecimals）
+     * </p>
+     */
+    private void formatOrderPrice(OrderRequest req) {
+        if (req == null) return;
+        Meta.Universe universe = info.getMetaUniverse(req.getCoin());
+        Integer szDecimals = universe.getSzDecimals();
+        if (szDecimals == null) return;
+        boolean isSpot = req.getInstrumentType() == InstrumentType.SPOT;
+
+        // 计算小数位：现货 8-szDecimals，永续 6-szDecimals
+        int decimals = (isSpot ? 8 : 6) - szDecimals;
+        if (decimals < 0) decimals = 0;
+
+        // 1. 格式化限价（limitPx）
+        if (req.getLimitPx() != null) {
+            BigDecimal bd = BigDecimal.valueOf(req.getLimitPx()).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+            req.setLimitPx(bd.doubleValue());
+        }
+
+        // 2. 格式化触发价（triggerPx）
+        if (req.getOrderType() != null && req.getOrderType().getTrigger() != null) {
+            double triggerPx = req.getOrderType().getTrigger().getTriggerPx();
+            BigDecimal bd = BigDecimal.valueOf(triggerPx).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+            double newPx = bd.doubleValue();
+            TriggerOrderType oldTrig = req.getOrderType().getTrigger();
+            TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
+            LimitOrderType oldLimit = req.getOrderType().getLimit();
+            req.setOrderType(new OrderType(oldLimit, newTrig));
+        }
     }
 
 
