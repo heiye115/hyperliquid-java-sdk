@@ -1,12 +1,9 @@
 package io.github.hyperliquid.sdk.model.info;
 
-import lombok.Data;
-
 /**
  * Retrieve a user's fills
  * 用户最近成交
  **/
-@Data
 public class UserFill {
 
     /** 币种（如 "BTC" 或 Spot 索引 "@107"） */
@@ -59,5 +56,134 @@ public class UserFill {
             return coin.substring(1); // 去掉"@"符号
         }
         return coin;
+    }
+
+    // Getter and Setter methods
+    public String getCoin() {
+        return coin;
+    }
+
+    public void setCoin(String coin) {
+        this.coin = coin;
+    }
+
+    public String getPx() {
+        return px;
+    }
+
+    public void setPx(String px) {
+        this.px = px;
+    }
+
+    public String getSz() {
+        return sz;
+    }
+
+    public void setSz(String sz) {
+        this.sz = sz;
+    }
+
+    public String getSide() {
+        return side;
+    }
+
+    public void setSide(String side) {
+        this.side = side;
+    }
+
+    public Long getTime() {
+        return time;
+    }
+
+    public void setTime(Long time) {
+        this.time = time;
+    }
+
+    public String getStartPosition() {
+        return startPosition;
+    }
+
+    public void setStartPosition(String startPosition) {
+        this.startPosition = startPosition;
+    }
+
+    public String getDir() {
+        return dir;
+    }
+
+    public void setDir(String dir) {
+        this.dir = dir;
+    }
+
+    public String getClosedPnl() {
+        return closedPnl;
+    }
+
+    public void setClosedPnl(String closedPnl) {
+        this.closedPnl = closedPnl;
+    }
+
+    public String getHash() {
+        return hash;
+    }
+
+    public void setHash(String hash) {
+        this.hash = hash;
+    }
+
+    public Long getOid() {
+        return oid;
+    }
+
+    public void setOid(Long oid) {
+        this.oid = oid;
+    }
+
+    public Boolean getCrossed() {
+        return crossed;
+    }
+
+    public void setCrossed(Boolean crossed) {
+        this.crossed = crossed;
+    }
+
+    public String getFee() {
+        return fee;
+    }
+
+    public void setFee(String fee) {
+        this.fee = fee;
+    }
+
+    public Long getTid() {
+        return tid;
+    }
+
+    public void setTid(Long tid) {
+        this.tid = tid;
+    }
+
+    public String getFeeToken() {
+        return feeToken;
+    }
+
+    public void setFeeToken(String feeToken) {
+        this.feeToken = feeToken;
+    }
+
+    public String getTwapId() {
+        return twapId;
+    }
+
+    public void setTwapId(String twapId) {
+        this.twapId = twapId;
+    }
+
+    public String getBuilderFee() {
+        return builderFee;
+    }
+
+    public void setBuilderFee(String builderFee) {
+        this.builderFee = builderFee;
     }
 }

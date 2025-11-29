@@ -1,14 +1,12 @@
 package io.github.hyperliquid.sdk.model.info;
 
 import io.github.hyperliquid.sdk.utils.HypeError;
-import lombok.Getter;
 
 import java.time.Duration;
 
 /**
  * K线时间间隔枚举
  */
-@Getter
 public enum CandleInterval {
 
     // 分钟级别
@@ -36,12 +34,10 @@ public enum CandleInterval {
     MONTH_1("1M", Duration.ofDays(30));
 
     /**
-     * -- GETTER --
      *  获取间隔代码（如 "1m", "1h"）
      */
     private final String code;
     /**
-     * -- GETTER --
      *  获取时间间隔
      */
     private final Duration duration;
@@ -49,6 +45,20 @@ public enum CandleInterval {
     CandleInterval(String code, Duration duration) {
         this.code = code;
         this.duration = duration;
+    }
+
+    /**
+     * 获取间隔代码（如 "1m", "1h"）
+     */
+    public String getCode() {
+        return code;
+    }
+
+    /**
+     * 获取时间间隔
+     */
+    public Duration getDuration() {
+        return duration;
     }
 
     /**

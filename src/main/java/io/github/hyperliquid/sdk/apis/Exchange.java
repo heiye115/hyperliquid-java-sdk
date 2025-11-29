@@ -7,7 +7,6 @@ import io.github.hyperliquid.sdk.model.info.Meta;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.utils.*;
-import lombok.Setter;
 import org.web3j.crypto.Credentials;
 
 import java.math.BigDecimal;
@@ -43,17 +42,34 @@ public class Exchange {
     /**
      * 以太坊地址（0x 前缀）
      */
-    @Setter
     private String vaultAddress;
 
     /**
-     * 过期时间
+     * 获取 vault 地址
+     *
+     * @return vault 地址
      */
-    @Setter
-    private Long expiresAfter;
+    public String getVaultAddress() {
+        return vaultAddress;
+    }
 
+    /**
+     * 设置 vault 地址
+     *
+     * @param vaultAddress vault 地址
+     */
+    public void setVaultAddress(String vaultAddress) {
+        this.vaultAddress = vaultAddress;
+    }
+
+    /**
+     * 默认滑点，用于计算滑点价格
+     */
     private final Map<String, Double> defaultSlippageByCoin = new ConcurrentHashMap<>();
 
+    /**
+     * 默认滑点，用于计算滑点价格
+     */
     private Double defaultSlippage = 0.05;
 
     /**
@@ -116,41 +132,29 @@ public class Exchange {
      * - 例如：当用户想利用某个 Builder 提供的定制化流动性、特定交易策略或支付 Builder 费用时，才需要设置 builder 参数。
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
-        Long prevExpires = this.expiresAfter;
-        if (prevExpires == null) {
-            this.expiresAfter = 120_000L;
-        }
-        try {
-            return innerOrder(req, builder);
-        } finally {
-            this.expiresAfter = prevExpires;
-        }
-    }
-
-    /**
-     * 内部下单实现（统一规范化→签名→提交）。
-     *
-     * @param req     下单请求
-     * @param builder 可选 builder（包含 b/f），为空时走平台默认引擎
-     * @return 服务端返回的订单响应
-     * @throws HypeError 当服务端返回 status=err 时抛出（携带原始响应）
-     */
-    private Order innerOrder(OrderRequest req, Map<String, Object> builder) {
         OrderRequest effective = prepareRequest(req);
-        formatOrderSize(effective);  // 格式化订单数量精度
+        // 格式化订单数量精度
+        formatOrderSize(effective);
         marketOpenTransition(effective);
-        formatOrderPrice(effective);  // 格式化订单价格精度
+        // 格式化订单价格精度
+        formatOrderPrice(effective);
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
-        JsonNode node = postAction(action);
-        if (node != null && node.has("status") && "err".equals(node.get("status").asText())) {
-            JsonNode resp = node.get("response");
-            if (resp != null && resp.isTextual()) {
-                throw new HypeError(resp.asText());
-            }
-        }
+        // 获取订单的 expiresAfter，默认 120 秒
+        Long expiresAfter = effective.getExpiresAfter() != null ? effective.getExpiresAfter() : 120_000L;
+        JsonNode node = postAction(action, expiresAfter);
         return JSONUtil.convertValue(node, Order.class);
+    }
+
+    /**
+     * 单笔下单（普通下单场景）
+     *
+     * @param req 下单请求
+     * @return 交易接口响应 JSON
+     */
+    public Order order(OrderRequest req) {
+        return order(req, null);
     }
 
     /**
@@ -183,7 +187,9 @@ public class Exchange {
 
         // 计算小数位：现货 8-szDecimals，永续 6-szDecimals
         int decimals = (isSpot ? 8 : 6) - szDecimals;
-        if (decimals < 0) decimals = 0;
+        if (decimals < 0) {
+            decimals = 0;
+        }
 
         // 1. 格式化限价（limitPx）
         if (req.getLimitPx() != null) {
@@ -278,15 +284,6 @@ public class Exchange {
         return 0.0;
     }
 
-    /**
-     * 单笔下单（普通下单场景）
-     *
-     * @param req 下单请求
-     * @return 交易接口响应 JSON
-     */
-    public Order order(OrderRequest req) {
-        return order(req, null);
-    }
 
     /**
      * 更新隔离保证金
@@ -306,31 +303,90 @@ public class Exchange {
         return postAction(action);
     }
 
+
     /**
-     * 批量下单（支持 builder）。
+     * 批量下单（支持 grouping 分组）。
      *
      * @param requests 下单请求列表
      * @param builder  可选 builder
+     * @param grouping 分组类型："na" | "normalTpsl" | "positionTpsl"
+     *                 1. "na" - 普通订单（默认值）
+     *                 使用场景：
+     *                 ✅ 单笔普通订单（开仓、平仓、限价、市价等）
+     *                 ✅ 批量下单但订单之间无关联
+     *                 ✅ 不需要 TP/SL 的任何订单
+     *                 2. "normalTpsl" - 普通止盈止损组
+     *                 使用场景：
+     *                 ✅ 同时开仓并设置 TP/SL
+     *                 ✅ 批量下单：1个开仓订单 + 1个或2个止盈止损订单
+     *                 3. "positionTpsl" - 仓位止盈止损组
+     *                 使用场景：
+     *                 ✅ 针对已有仓位设置或修改 TP/SL
+     *                 ✅ 不开新仓，只设置现有仓位的保护
      * @return 响应 JSON
      */
-    public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder) {
+    public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
+        // 格式化订单数量精度
+        requests.forEach(this::formatOrderSize);
+        //处理市价单
+        requests.forEach(this::marketOpenTransition);
+        // 格式化订单价格精度
+        requests.forEach(this::formatOrderPrice);
         List<OrderWire> wires = new ArrayList<>();
         for (OrderRequest r : requests) {
             int assetId = ensureAssetId(r.getCoin());
             wires.add(Signing.orderRequestToOrderWire(assetId, r));
         }
         Map<String, Object> action = buildOrderAction(wires, builder);
+        if (grouping != null && !grouping.isEmpty()) {
+            action.put("grouping", grouping);
+        }
         return postAction(action);
     }
 
+
     /**
-     * 批量下单（无 builder 便捷重载）。
+     * 批量下单（支持 OrderGroup 自动推断 grouping）。
+     * <p>
+     * 通过 OrderGroup 自动识别分组类型，无需手动指定 grouping 参数。
+     * <p>
+     * 使用示例：
+     * <pre>
+     * // 自动推断 grouping="normalTpsl"
+     * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
+     *     .perp("ETH")
+     *     .buy(0.1)
+     *     .entryPrice(3500.0)
+     *     .takeProfit(3600.0)
+     *     .stopLoss(3400.0)
+     *     .buildNormalTpsl();
+     * JsonNode result = exchange.bulkOrders(orderGroup);
      *
-     * @param requests 下单请求列表
+     * // 自动推断 grouping="positionTpsl"
+     * OrderGroup orderGroup2 = OrderRequest.entryWithTpSl()
+     *     .perp("ETH")
+     *     .closePosition(0.5, true)
+     *     .takeProfit(3600.0)
+     *     .buildPositionTpsl();
+     * JsonNode result2 = exchange.bulkOrders(orderGroup2);
+     * </pre>
+     *
+     * @param orderGroup 订单组（包含订单列表和分组类型）
      * @return 响应 JSON
      */
-    public JsonNode bulkOrders(List<OrderRequest> requests) {
-        return bulkOrders(requests, null);
+    public JsonNode bulkOrders(OrderGroup orderGroup) {
+        return bulkOrders(orderGroup.getOrders(), null, orderGroup.getGroupingType().getValue());
+    }
+
+    /**
+     * 批量下单（支持 OrderGroup 和 builder）。
+     *
+     * @param orderGroup 订单组（包含订单列表和分组类型）
+     * @param builder    可选 builder
+     * @return 响应 JSON
+     */
+    public JsonNode bulkOrders(OrderGroup orderGroup, Map<String, Object> builder) {
+        return bulkOrders(orderGroup.getOrders(), builder, orderGroup.getGroupingType().getValue());
     }
 
     /**
@@ -411,7 +467,6 @@ public class Exchange {
     private Map<String, Object> buildOrderAction(List<OrderWire> wires, Map<String, Object> builder) {
         Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
         // 保持 Signing.orderWiresToOrderAction 中的默认分组 "na"，不覆写
-
         if (builder != null && !builder.isEmpty()) {
             // 仅保留官方文档允许的字段：b（地址）与 f（费用）；其余键将被忽略，避免 422 反序列化失败
             Map<String, Object> filtered = new LinkedHashMap<>();
@@ -1096,8 +1151,24 @@ public class Exchange {
      * @return JSON 响应
      */
     public JsonNode postAction(Map<String, Object> action) {
-        long nonce = Signing.getTimestampMs();
+        return postAction(action, null);
+    }
 
+    /**
+     * 发送 L1 动作并签名（支持自定义过期时间）。
+     * <p>
+     * 规则：
+     * - nonce 使用毫秒时间戳（与 Python get_timestamp_ms 一致）；
+     * - usdClassTransfer/sendAsset 类型动作不附带 vaultAddress（保持 Python 行为一致）；
+     * - 其它动作使用已设置的 vaultAddress；
+     * - 使用 Signing.signL1Action 完成 TypedData 构造与签名。
+     *
+     * @param action       L1 动作（Map）
+     * @param expiresAfter 订单过期时间（毫秒），为 null 时使用默认值 120000ms
+     * @return JSON 响应
+     */
+    public JsonNode postAction(Map<String, Object> action, Long expiresAfter) {
+        long nonce = Signing.getTimestampMs();
         String type = String.valueOf(action.getOrDefault("type", ""));
         String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type)) ? null : vaultAddress;
         if (effectiveVault != null) {
@@ -1107,9 +1178,12 @@ public class Exchange {
                 effectiveVault = null;
             }
         }
-
-        Long ea = expiresAfter;
-        if (ea != null && ea < 1_000_000_000_000L) {
+        // 默认 120 秒
+        if (expiresAfter == null) {
+            expiresAfter = 120_000L;
+        }
+        long ea = expiresAfter;
+        if (ea < 1_000_000_000_000L) {
             ea = nonce + ea;
         }
 
@@ -1129,7 +1203,6 @@ public class Exchange {
             payload.put("vaultAddress", effectiveVault);
         }
         payload.put("expiresAfter", ea);
-
         return hypeHttpClient.post("/exchange", payload);
     }
 
@@ -1163,7 +1236,7 @@ public class Exchange {
         payload.put("signature", signature);
         if (!userSigned) {
             payload.put("vaultAddress", effectiveVault);
-            payload.put("expiresAfter", expiresAfter);
+            // userSigned 动作不需要 expiresAfter
         } else {
             payload.put("vaultAddress", effectiveVault);
         }
@@ -1237,9 +1310,10 @@ public class Exchange {
      * @param req 下单请求
      */
     private void marketOpenTransition(OrderRequest req) {
-        if (req == null)
-            return;
-        if (req.getLimitPx() == null && req.getOrderType() != null && req.getOrderType().getLimit() != null &&
+        if (req == null) return;
+        if (req.getLimitPx() == null &&
+                req.getOrderType() != null &&
+                req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
             double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
@@ -1267,10 +1341,8 @@ public class Exchange {
         if (midStr == null) {
             throw new HypeError("Failed to get mid price for coin " + coin + " (allMids returned empty or does not contain the coin)");
         }
-        BigDecimal basePx = new BigDecimal(midStr);
-        double adjusted = basePx.doubleValue() * (isBuy ? (1.0 + slippage) : (1.0 - slippage));
-        BigDecimal bd = BigDecimal.valueOf(adjusted).setScale(basePx.scale(), RoundingMode.HALF_UP);
-        return bd.doubleValue();
+        double basePx = Double.parseDouble(midStr);
+        return basePx * (isBuy ? (1.0 + slippage) : (1.0 - slippage));
     }
 
 

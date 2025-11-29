@@ -54,6 +54,10 @@ public class OrderType {
         return new OrderType(new LimitOrderType(Tif.IOC));
     }
 
+    public static OrderType trigger(TriggerOrderType trigger) {
+        return new OrderType(trigger);
+    }
+
 
     /**
      * 获取限价单类型。

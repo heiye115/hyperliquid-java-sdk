@@ -1,11 +1,8 @@
 package io.github.hyperliquid.sdk.model.order;
 
-import lombok.Getter;
-
 /**
  * TIF 类型枚举
  */
-@Getter
 public enum Tif {
     /**
      * GTC（直到取消前有效）：订单没有特殊行为，会一直留在订单簿中直到成交或被取消。
@@ -26,6 +23,15 @@ public enum Tif {
 
     Tif(String value) {
         this.value = value;
+    }
+
+    /**
+     * 获取TIF值。
+     *
+     * @return TIF值字符串
+     */
+    public String getValue() {
+        return value;
     }
 
     @Override

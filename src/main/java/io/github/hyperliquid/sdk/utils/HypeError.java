@@ -1,7 +1,5 @@
 package io.github.hyperliquid.sdk.utils;
 
-import lombok.Getter;
-
 /**
  * SDK 自定义异常类型定义。
  */
@@ -23,7 +21,6 @@ public class HypeError extends RuntimeException {
     /**
      * 客户端错误（4xx）
      */
-    @Getter
     public static class ClientHypeError extends HypeError {
         /**
          *  获取 HTTP 状态码。
@@ -40,12 +37,20 @@ public class HypeError extends RuntimeException {
             super(message);
             this.statusCode = statusCode;
         }
+
+        /**
+         * 获取 HTTP 状态码。
+         *
+         * @return HTTP 状态码
+         */
+        public int getStatusCode() {
+            return statusCode;
+        }
     }
 
     /**
      * 服务器错误（5xx）
      */
-    @Getter
     public static class ServerHypeError extends HypeError {
         /**
          *  获取 HTTP 状态码。
@@ -61,6 +66,15 @@ public class HypeError extends RuntimeException {
         public ServerHypeError(int statusCode, String message) {
             super(message);
             this.statusCode = statusCode;
+        }
+
+        /**
+         * 获取 HTTP 状态码。
+         *
+         * @return HTTP 状态码
+         */
+        public int getStatusCode() {
+            return statusCode;
         }
     }
 }

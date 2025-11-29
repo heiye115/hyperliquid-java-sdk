@@ -6,7 +6,6 @@ import io.github.hyperliquid.sdk.model.wallet.ApiWallet;
 import io.github.hyperliquid.sdk.utils.Constants;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import io.github.hyperliquid.sdk.utils.HypeHttpClient;
-import lombok.Getter;
 import okhttp3.OkHttpClient;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.ECKeyPair;
@@ -29,19 +28,16 @@ public class HyperliquidClient {
     /**
      * Info 客户端
      **/
-    @Getter
     private final Info info;
 
     /**
      * K:钱包地址 V:Exchange
      **/
-    @Getter
     private final Map<String, Exchange> exchangesByAddress;
 
     /**
      * API钱包列表
      **/
-    @Getter
     private final List<ApiWallet> apiWallets;
 
 
@@ -49,6 +45,33 @@ public class HyperliquidClient {
         this.info = info;
         this.exchangesByAddress = exchangesByAddress;
         this.apiWallets = apiWallets;
+    }
+
+    /**
+     * 获取 Info 客户端
+     *
+     * @return Info 客户端实例
+     */
+    public Info getInfo() {
+        return info;
+    }
+
+    /**
+     * 获取钱包地址到 Exchange 的映射
+     *
+     * @return 钱包地址到 Exchange 的映射
+     */
+    public Map<String, Exchange> getExchangesByAddress() {
+        return exchangesByAddress;
+    }
+
+    /**
+     * 获取 API 钱包列表
+     *
+     * @return API 钱包列表
+     */
+    public List<ApiWallet> getApiWallets() {
+        return apiWallets;
     }
 
     /**

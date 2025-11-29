@@ -83,13 +83,6 @@
             <version>${okio.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.42</version>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- Ethereum crypto & EIP-712 -->
         <dependency>
             <groupId>org.web3j</groupId>

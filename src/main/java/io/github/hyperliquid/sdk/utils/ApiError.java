@@ -1,7 +1,5 @@
 package io.github.hyperliquid.sdk.utils;
 
-import lombok.Getter;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -11,11 +9,8 @@ import java.util.Map;
  */
 public final class ApiError {
 
-    @Getter
     private final String code;
-    @Getter
     private final String message;
-    @Getter
     private final Integer statusCode;
 
     private final Map<String, Object> context;
@@ -33,6 +28,18 @@ public final class ApiError {
         this.message = message;
         this.statusCode = statusCode;
         this.context = context == null ? Collections.emptyMap() : new LinkedHashMap<>(context);
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public Integer getStatusCode() {
+        return statusCode;
     }
 
     public Map<String, Object> getContext() {

@@ -5,11 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * 订单线缆（wire）内部表示，用于构造最终发送给服务端的动作负载。
- *
  * 说明：
  * - 本类使用语义化字段名（coin/isBuy/sz/limitPx/orderType/reduceOnly/cloid）在 Java 内部承载订单数据；
  * - 在实际序列化为 L1 动作时，会被转换为官方线缆键名：
- *   a(资产ID), b(是否买), p(限价), s(数量), r(仅减仓), t(订单类型), c(客户端订单ID)；
+ * a(资产ID), b(是否买), p(限价), s(数量), r(仅减仓), t(订单类型), c(客户端订单ID)；
  * - 转换逻辑见 `io.github.hyperliquid.sdk.utils.Signing.orderWiresToOrderAction` 与 `writeMsgpack`；
  * - `sz` 与 `limitPx` 字段为字符串形式，需通过 `Signing.floatToWire` 规范化以避免不可接受的舍入。
  */

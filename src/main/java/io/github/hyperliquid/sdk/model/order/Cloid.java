@@ -3,7 +3,6 @@ package io.github.hyperliquid.sdk.model.order;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.github.hyperliquid.sdk.utils.HypeError;
-import lombok.Getter;
 import org.web3j.utils.Numeric;
 
 import java.math.BigInteger;
@@ -21,15 +20,21 @@ import java.security.SecureRandom;
  * - from_str(cloid: str) 直接封装；
  * - to_raw() 返回原始字符串。
  */
-@Getter
 public class Cloid {
 
     /**
      * 原始 Cloid 字符串（0x + 32 hex chars）
-     * -- GETTER --
-     * 兼容旧接口：获取原始字符串。
      */
     private final String raw;
+
+    /**
+     * 兼容旧接口：获取原始字符串。
+     *
+     * @return 原始 Cloid 字符串
+     */
+    public String getRaw() {
+        return raw;
+    }
 
     /**
      * 构造函数：校验并保存原始 Cloid 字符串。

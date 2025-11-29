@@ -2,7 +2,6 @@ package io.github.hyperliquid.sdk.websocket;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
-import lombok.Getter;
 import okhttp3.*;
 import okio.ByteString;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +17,6 @@ import java.util.logging.Logger;
  * WebSocket 管理器。
  * 管理连接、订阅、心跳与消息分发。
  */
-@Getter
 public class WebsocketManager {
 
     /**

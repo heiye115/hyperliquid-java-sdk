@@ -1,8 +1,6 @@
 package io.github.hyperliquid.sdk.model.order;
 
-import lombok.Data;
-
-import java.math.BigDecimal;
+import static io.github.hyperliquid.sdk.model.order.TriggerOrderType.TpslType;
 
 /**
  * 下单请求结构（Java 侧语义化表示）。
@@ -12,56 +10,93 @@ import java.math.BigDecimal;
  * - 触发单通过 `orderType.trigger` 承载触发参数；
  * - 最终会被转换为线缆结构并发送（见 `utils.Signing.orderRequestToOrderWire`）。
  */
-@Data
 public class OrderRequest {
 
     /**
-     * 交易品种类型（PERP 永续 / SPOT 现货）
-     **/
+     * 交易品种类型（PERP 永续 / SPOT 现货）。
+     * <p>
+     * - PERP: 永续合约
+     * - SPOT: 现货交易
+     * </p>
+     */
     private InstrumentType instrumentType;
 
     /**
-     * 币种名称（例如 "ETH"、"BTC"）
-     **/
+     * 币种名称（例如 "ETH"、"BTC"）。
+     */
     private String coin;
 
     /**
-     * 是否买入（true=买/做多，false=卖/做空）；市价平仓场景可为空，交由业务层自动推断
-     **/
+     * 是否买入（true=买/做多，false=卖/做空）。
+     * <p>
+     * 市价平仓场景可为空，交由业务层自动推断。
+     * </p>
+     */
     private Boolean isBuy;
 
     /**
-     * 下单数量（浮点）；最终会规范化为字符串（8 位小数内）
-     **/
+     * 下单数量（浮点）。
+     * <p>
+     * 最终会根据资产的 szDecimals 规范化精度。
+     * </p>
+     */
     private Double sz;
 
     /**
-     * 限价价格；
-     * - 可为空（市价单或触发单的市价执行）；
-     * - PERP 价格会在 Exchange 层按“5 位有效数字 + (6 - szDecimals) 小数位”规范化。
-     **/
+     * 限价价格。
+     * <p>
+     * - 可为空（市价单或触发单的市价执行）
+     * - PERP 价格会按"5 位有效数字 + (6 - szDecimals) 小数位"规范化
+     * - SPOT 价格会按"5 位有效数字 + (8 - szDecimals) 小数位"规范化
+     * </p>
+     */
     private Double limitPx;
 
     /**
-     * 订单类型：限价（TIF）或触发（triggerPx/isMarket/tpsl）；可为空表示普通限价/市价默认行为
-     **/
+     * 订单类型：限价（TIF）或触发（triggerPx/isMarket/tpsl）。
+     * <p>
+     * 可为空表示普通限价/市价默认行为。
+     * </p>
+     */
     private OrderType orderType;
 
     /**
-     * 仅减仓标记（true 表示不会增加仓位）；用于平仓或触发减仓
-     **/
+     * 仅减仓标记（true 表示不会增加仓位）。
+     * <p>
+     * 用于平仓或触发减仓，防止反向开仓。
+     * </p>
+     */
     private Boolean reduceOnly;
 
     /**
-     * 客户端订单 ID（Cloid），可为空
-     **/
+     * 客户端订单 ID（Cloid），可为空。
+     * <p>
+     * 用于幂等性保证和后续撤单操作。
+     * </p>
+     */
     private Cloid cloid;
 
     /**
-     * 市价下单滑点比例（例如 0.05 表示 5%）；
-     * 仅用于业务层模拟“市价=带滑点的 IOC 限价”时计算占位价格
-     **/
+     * 市价下单滑点比例（例如 0.05 表示 5%）。
+     * <p>
+     * 仅用于业务层模拟"市价=带滑点的 IOC 限价"时计算占位价格。
+     * 默认值为 0.05（5%）。
+     * </p>
+     */
     private Double slippage = 0.05;
+
+    /**
+     * 订单过期时间（毫秒）。
+     * <p>
+     * - 若 < 1,000,000,000,000（即小于 1e12），则视为相对时间，实际过期时间为 nonce + expiresAfter；
+     * - 否则视为绝对时间戳（UTC）。
+     * - 默认值：120,000ms（120 秒）。
+     * </p>
+     */
+    private Long expiresAfter;
+
+    public OrderRequest() {
+    }
 
     /**
      * 构造下单请求。
@@ -99,401 +134,304 @@ public class OrderRequest {
         this.slippage = slippage;
     }
 
+    // ========================================
+    // Builder 模式：链式调用构建订单
+    // ========================================
+
+    /**
+     * 创建订单构建器（Builder 模式）。
+     * <p>
+     * 使用示例：
+     * <pre>
+     * // 限价开仓
+     * OrderRequest req = OrderRequest.builder()
+     *     .perp("ETH")
+     *     .buy(0.1)
+     *     .limitPrice(3000.0)
+     *     .gtc()
+     *     .build();
+     *
+     * // 市价开仓
+     * OrderRequest req = OrderRequest.builder()
+     *     .perp("ETH")
+     *     .sell(0.1)
+     *     .market()
+     *     .build();
+     *
+     * // 条件单：价格突破 2950 时买入
+     * OrderRequest req = OrderRequest.builder()
+     *     .perp("ETH")
+     *     .buy(0.1)
+     *     .stopPrice(2950.0)  // 向上突破触发
+     *     .limitPrice(3000.0)
+     *     .build();
+     *
+     * // 开仓+止盈止损（需配合 bulkOrders）
+     * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
+     *     .perp("ETH")
+     *     .buy(0.1)
+     *     .entryPrice(3500.0)
+     *     .takeProfit(3600.0)
+     *     .stopLoss(3400.0)
+     *     .buildNormalTpsl();
+     * // 自动推断 grouping="normalTpsl"
+     * JsonNode result = exchange.bulkOrders(orderGroup);
+     * </pre>
+     *
+     * @return OrderBuilder 实例
+     */
+    public static OrderBuilder builder() {
+        return new OrderBuilder();
+    }
+
+    /**
+     * 创建带止盈止损的开仓订单构建器。
+     *
+     * @return OrderWithTpSlBuilder 实例
+     */
+    public static OrderWithTpSlBuilder entryWithTpSl() {
+        return new OrderWithTpSlBuilder();
+    }
+
     /**
      * 永续开仓
      **/
-    public static class Open {
 
-        /**
-         * 永续开仓限价单。
-         *
-         * <p>
-         * 以限价 + 指定 TIF（GTC/ALO/IOC）方式提交开仓订单，reduceOnly 固定为 false。
-         * </p>
-         *
-         * @param tif     TIF 策略，支持 {@link Tif#GTC}、{@link Tif#ALO}、{@link Tif#IOC}
-         * @param coin    币种名称，例如 "ETH"
-         * @param isBuy   是否买入（true=买/做多，false=卖/做空）
-         * @param sz      下单数量（正数）
-         * @param limitPx 限价价格（可为 null，通常仅限价下单填写）
-         * @param cloid   客户端订单 ID（可为 null），用于幂等与后续撤单
-         * @return 构造好的下单请求，可直接传入 {@code Exchange.order}
-         * @throws IllegalArgumentException 当参数不合理时可能抛出（例如 sz 为负）
-         */
-        public static OrderRequest limit(Tif tif, String coin, Boolean isBuy, Double sz, Double limitPx, Cloid cloid) {
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx,
-                    new OrderType(new LimitOrderType(tif)), false, cloid);
-        }
+    // Getter and Setter methods
+    public InstrumentType getInstrumentType() {
+        return instrumentType;
+    }
 
-        /**
-         * 永续开仓限价单（BigDecimal 重载）。
-         *
-         * <p>
-         * 当调用方希望避免双精度舍入误差时，可使用 BigDecimal 版本。
-         * </p>
-         *
-         * @param tif     TIF 策略
-         * @param coin    币种名称
-         * @param isBuy   是否买入
-         * @param sz      下单数量（BigDecimal）
-         * @param limitPx 限价价格（BigDecimal，可为 null）
-         * @param cloid   客户端订单 ID（可为 null）
-         * @return 下单请求对象
-         * 注意：内部会转换为 double，最终精度由 {@code Exchange} 统一处理。
-         */
-        public static OrderRequest limit(Tif tif, String coin, Boolean isBuy, java.math.BigDecimal sz,
-                                         java.math.BigDecimal limitPx, Cloid cloid) {
-            Double s = sz == null ? null : sz.doubleValue();
-            Double p = limitPx == null ? null : limitPx.doubleValue();
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, s, p, new OrderType(new LimitOrderType(tif)),
-                    false, cloid);
-        }
+    public void setInstrumentType(InstrumentType instrumentType) {
+        this.instrumentType = instrumentType;
+    }
 
-        /**
-         * 永续开仓限价单（不传 cloid 的便捷重载）。
-         *
-         * @param tif     TIF 策略
-         * @param coin    币种名称
-         * @param isBuy   是否买入
-         * @param sz      下单数量
-         * @param limitPx 限价价格（可为 null）
-         * @return 下单请求对象
-         */
-        public static OrderRequest limit(Tif tif, String coin, Boolean isBuy, Double sz, Double limitPx) {
-            return limit(tif, coin, isBuy, sz, limitPx, null);
-        }
+    public String getCoin() {
+        return coin;
+    }
 
-        /**
-         * 永续开仓市价单。
-         *
-         * <p>
-         * 以 IOC 限价占位实现市价行为，limitPx 将在提交前根据滑点自动计算。
-         * </p>
-         *
-         * @param coin     币种名称
-         * @param isBuy    是否买入
-         * @param sz       下单数量
-         * @param cloid    客户端订单 ID（可为 null）
-         * @param slippage 滑点比例（例如 0.05 表示 5%），用于计算占位价格
-         * @return 下单请求对象
-         * 使用示例：
-         *
-         * <pre>
-         *         OrderRequest req = OrderRequest.Open.market("ETH", true, 0.02, Cloid.auto(), 0.03);
-         *         Order order = exchange.order(req);
-         *         </pre>
-         */
-        public static OrderRequest market(String coin, Boolean isBuy, Double sz, Cloid cloid, Double slippage) {
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null,
-                    new OrderType(new LimitOrderType(Tif.IOC)), false, cloid, slippage);
-        }
+    public void setCoin(String coin) {
+        this.coin = coin;
+    }
 
-        /**
-         * 永续开仓市价单（使用默认滑点配置）。
-         *
-         * @param coin  币种名称
-         * @param isBuy 是否买入
-         * @param sz    下单数量
-         * @return 下单请求对象
-         * 注意：最终使用 {@code Exchange.setDefaultSlippage(...)} 的配置计算占位价格。
-         */
-        public static OrderRequest market(String coin, Boolean isBuy, Double sz) {
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null,
-                    new OrderType(new LimitOrderType(Tif.IOC)), false, null);
-        }
+    public Boolean getIsBuy() {
+        return isBuy;
+    }
 
-        /**
-         * 永续开仓触发单（支持 TP/SL）。
-         *
-         * @param coin      币种名称
-         * @param isBuy     是否买入
-         * @param sz        下单数量
-         * @param limitPx   触发后限价（可为 null；当 isMarket=true 表示按市价执行）
-         * @param triggerPx 触发价格
-         * @param isMarket  是否以市价执行触发单
-         * @param tpsl      止盈/止损类型，{@link TriggerOrderType.TpslType#TP} 或
-         *                  {@link TriggerOrderType.TpslType#SL}
-         * @param cloid     客户端订单 ID（可为 null）
-         * @return 触发单请求对象
-         */
-        public static OrderRequest trigger(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx,
-                                           Boolean isMarket, TriggerOrderType.TpslType tpsl, Cloid cloid) {
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, limitPx,
-                    new OrderType(new TriggerOrderType(triggerPx, isMarket, tpsl)), false, cloid);
-        }
+    public void setIsBuy(Boolean isBuy) {
+        this.isBuy = isBuy;
+    }
 
-        /**
-         * 永续开仓触发单（BigDecimal 重载）。
-         *
-         * @param coin      币种名称
-         * @param isBuy     是否买入
-         * @param sz        下单数量（BigDecimal）
-         * @param limitPx   触发后限价（BigDecimal，可为 null）
-         * @param triggerPx 触发价格（BigDecimal）
-         * @param isMarket  是否以市价执行触发单
-         * @param tpsl      止盈/止损类型
-         * @param cloid     客户端订单 ID（可为 null）
-         * @return 触发单请求对象
-         */
-        public static OrderRequest trigger(String coin, Boolean isBuy, java.math.BigDecimal sz,
-                                           java.math.BigDecimal limitPx, java.math.BigDecimal triggerPx, Boolean isMarket,
-                                           TriggerOrderType.TpslType tpsl, Cloid cloid) {
-            Double s = sz == null ? null : sz.doubleValue();
-            Double p = limitPx == null ? null : limitPx.doubleValue();
-            Double t = triggerPx == null ? null : triggerPx.doubleValue();
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, s, p,
-                    new OrderType(new TriggerOrderType(t, isMarket, tpsl)), false, cloid);
-        }
+    public Double getSz() {
+        return sz;
+    }
 
-        /**
-         * 永续开仓触发单（不传 cloid 的便捷重载）。
-         */
-        public static OrderRequest trigger(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx,
-                                           Boolean isMarket, TriggerOrderType.TpslType tpsl) {
-            return trigger(coin, isBuy, sz, limitPx, triggerPx, isMarket, tpsl, null);
-        }
+    public void setSz(Double sz) {
+        this.sz = sz;
+    }
 
-        /**
-         * 永续开仓止盈触发单快捷方法。
-         *
-         * @param coin      币种名称
-         * @param isBuy     是否买入
-         * @param sz        下单数量
-         * @param limitPx   触发后限价（可为 null）
-         * @param triggerPx 止盈触发价格
-         * @param isMarket  是否以市价执行
-         * @param cloid     客户端订单 ID（可为 null）
-         * @return 触发单请求对象
-         */
-        public static OrderRequest tp(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx,
-                                      Boolean isMarket, Cloid cloid) {
-            return trigger(coin, isBuy, sz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.TP, cloid);
-        }
+    public Double getLimitPx() {
+        return limitPx;
+    }
 
-        /**
-         * 永续开仓止损触发单快捷方法。
-         */
-        public static OrderRequest sl(String coin, Boolean isBuy, Double sz, Double limitPx, Double triggerPx,
-                                      Boolean isMarket, Cloid cloid) {
-            return trigger(coin, isBuy, sz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.SL, cloid);
-        }
+    public void setLimitPx(Double limitPx) {
+        this.limitPx = limitPx;
+    }
 
-        /**
-         * 永续开仓一键 TP/SL 组合（Bracket）。
-         *
-         * <p>
-         * 返回两个触发单：止盈（TP）与止损（SL），常用于入场后同时挂出 TP/SL。
-         * </p>
-         *
-         * @param coin  币种名称
-         * @param isBuy 是否买入
-         * @param sz    下单数量
-         * @param tpPx  止盈价格
-         * @param slPx  止损价格
-         * @param cloid 客户端订单 ID（可为 null）
-         * @return 两个触发单请求对象列表（TP 与 SL）
-         * 使用示例：
-         *
-         * <pre>
-         *         List<OrderRequest> bracket = OrderRequest.Open.tpslBracket("ETH", true, 0.01, 3600.0, 3200.0, Cloid.auto());
-         *         exchange.bulkOrders(bracket);
-         *         </pre>
-         */
-        public static java.util.List<OrderRequest> tpslBracket(String coin, Boolean isBuy, Double sz, Double tpPx,
-                                                               Double slPx, Cloid cloid) {
-            OrderRequest tp = trigger(coin, isBuy, sz, null, tpPx, Boolean.TRUE, TriggerOrderType.TpslType.TP, cloid);
-            OrderRequest sl = trigger(coin, isBuy, sz, null, slPx, Boolean.TRUE, TriggerOrderType.TpslType.SL, cloid);
-            return java.util.List.of(tp, sl);
-        }
+    public OrderType getOrderType() {
+        return orderType;
+    }
 
+    public void setOrderType(OrderType orderType) {
+        this.orderType = orderType;
+    }
+
+    public Boolean getReduceOnly() {
+        return reduceOnly;
+    }
+
+    public void setReduceOnly(Boolean reduceOnly) {
+        this.reduceOnly = reduceOnly;
+    }
+
+    public Cloid getCloid() {
+        return cloid;
+    }
+
+    public void setCloid(Cloid cloid) {
+        this.cloid = cloid;
+    }
+
+    public Double getSlippage() {
+        return slippage;
+    }
+
+    public void setSlippage(Double slippage) {
+        this.slippage = slippage;
+    }
+
+    public Long getExpiresAfter() {
+        return expiresAfter;
+    }
+
+    public void setExpiresAfter(Long expiresAfter) {
+        this.expiresAfter = expiresAfter;
     }
 
     /**
-     * 永续平仓
-     **/
-    public static class Close {
-
+     * 静态内部类，用于快速创建开仓订单请求。
+     */
+    public static class Open {
         /**
-         * 永续平仓限价单（签名尺寸）。
-         *
-         * <p>
-         * 传入签名尺寸 {@code sz}（多仓为正，空仓为负），内部自动计算方向并仅减仓。
-         * </p>
-         *
-         * @param tif     TIF 策略
-         * @param coin    币种名称
-         * @param sz      签名尺寸（正=多仓，负=空仓，不能为 0）
-         * @param limitPx 限价价格
-         * @param cloid   客户端订单 ID（可为 null）
-         * @return 下单请求对象（reduceOnly=true）
-         * @throws IllegalArgumentException 当 {@code sz} 为 0 时抛出
-         */
-        public static OrderRequest limit(Tif tif, String coin, Double sz, Double limitPx, Cloid cloid) {
-            if (sz == null || sz == 0.0) {
-                throw new IllegalArgumentException("No position to close for coin=" + coin);
-            }
-            boolean isBuy = sz < 0.0;
-            double absSz = Math.abs(sz);
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, limitPx, new OrderType(new LimitOrderType(tif)), true, cloid);
-        }
-
-        /**
-         * 永续平仓限价单（不传 cloid 的便捷重载）。
-         */
-        public static OrderRequest limit(Tif tif, String coin, Double sz, Double limitPx) {
-            return limit(tif, coin, sz, limitPx, null);
-        }
-
-        /**
-         * 永续平仓限价单（BigDecimal 重载，签名尺寸）。
-         *
-         * @param tif     TIF 策略
-         * @param coin    币种名称
-         * @param sz      数量
-         * @param limitPx 限价价格（BigDecimal，可为 null）
-         * @param cloid   客户端订单 ID（可为 null）
-         * @return 下单请求对象（reduceOnly=true）
-         * @throws IllegalArgumentException 当 {@code sz} 为 0 时抛出
-         */
-        public static OrderRequest limit(Tif tif, String coin, BigDecimal sz, BigDecimal limitPx, Cloid cloid) {
-            if (sz == null || sz.doubleValue() == 0.0) {
-                throw new IllegalArgumentException("No position to close for coin=" + coin);
-            }
-            double s = sz.doubleValue();
-            boolean isBuy = s < 0.0;
-            double absSz = Math.abs(s);
-            Double p = limitPx == null ? null : limitPx.doubleValue();
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, p, new OrderType(new LimitOrderType(tif)),
-                    true, cloid);
-        }
-
-        /**
-         * 永续平仓市价单（签名尺寸）。
+         * 创建市价开仓订单。
          *
          * @param coin  币种名称
-         * @param sz    签名尺寸（正=多仓，负=空仓，不能为 0）
-         * @param cloid 客户端订单 ID（可为 null）
-         * @return 下单请求对象（IOC + reduceOnly=true）
-         * @throws IllegalArgumentException 当 {@code sz} 为 0 时抛出
-         */
-        public static OrderRequest market(String coin, Double sz, Cloid cloid) {
-            if (sz == null || sz == 0.0) {
-                throw new IllegalArgumentException("No position to close for coin=" + coin);
-            }
-            boolean isBuy = sz < 0.0;
-            double absSz = Math.abs(sz);
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, null,
-                    new OrderType(new LimitOrderType(Tif.IOC)), true, cloid);
-        }
-
-        /**
-         * 永续平仓市价单（不传 cloid 的便捷重载）。
-         */
-        public static OrderRequest market(String coin, Double sz) {
-            return market(coin, sz, null);
-        }
-
-        /**
-         * 创建永续合约市价单请求。
-         *
-         * @param coin  币种名称（如 "ETH"）
          * @param isBuy 是否买入
          * @param sz    数量
-         * @param cloid 客户端订单 ID（可为 null）
-         * @return 永续合约市价单请求对象
+         * @return OrderRequest 实例
          */
-        public static OrderRequest market(String coin, Boolean isBuy, Double sz, Cloid cloid) {
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, sz, null, new OrderType(new LimitOrderType(Tif.IOC)), true, cloid);
+        public static OrderRequest market(String coin, boolean isBuy, double sz) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(isBuy);
+            req.setSz(sz);
+            req.setReduceOnly(false);
+            // 设置为 IOC 市价单
+            LimitOrderType limitOrderType = new LimitOrderType(Tif.IOC);
+            OrderType orderType = new OrderType(limitOrderType);
+            req.setOrderType(orderType);
+            return req;
         }
 
+        /**
+         * 创建限价开仓订单。
+         *
+         * @param tif     时间生效方式
+         * @param coin    币种名称
+         * @param isBuy   是否买入
+         * @param sz      数量
+         * @param limitPx 限价
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(Tif tif, String coin, boolean isBuy, double sz, double limitPx) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(isBuy);
+            req.setSz(sz);
+            req.setLimitPx(limitPx);
+            req.setReduceOnly(false);
+            // 设置订单类型
+            LimitOrderType limitOrderType = new LimitOrderType(tif);
+            OrderType orderType = new OrderType(limitOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
 
         /**
-         * 永续平仓触发单（签名尺寸）。
+         * 创建触发订单。
          *
          * @param coin      币种名称
-         * @param sz        签名尺寸（正=多仓，负=空仓，不能为 0）
-         * @param limitPx   触发后限价（可为 null）
+         * @param isBuy     是否买入
+         * @param sz        数量
          * @param triggerPx 触发价格
-         * @param isMarket  是否市价执行
-         * @param tpsl      止盈/止损类型
-         * @param cloid     客户端订单 ID（可为 null）
-         * @return 触发单请求对象（reduceOnly=true）
-         * @throws IllegalArgumentException 当 {@code sz} 为 0 时抛出
+         * @param limitPx   限价（若为市价触发则为null）
+         * @param isMarket  是否市价触发
+         * @param tpsl      TP/SL类型
+         * @return OrderRequest 实例
          */
-        public static OrderRequest trigger(String coin, Double sz, Double limitPx, Double triggerPx, Boolean isMarket,
-                                           TriggerOrderType.TpslType tpsl, Cloid cloid) {
-            if (sz == null || sz == 0.0) {
-                throw new IllegalArgumentException("No position to close for coin=" + coin);
-            }
-            boolean isBuy = sz < 0.0;
-            double absSz = Math.abs(sz);
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, limitPx,
-                    new OrderType(new TriggerOrderType(triggerPx, isMarket, tpsl)), true, cloid);
+        public static OrderRequest trigger(String coin, boolean isBuy, double sz, double triggerPx, Double limitPx, boolean isMarket, TpslType tpsl) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(isBuy);
+            req.setSz(sz);
+            req.setLimitPx(limitPx);
+            req.setReduceOnly(false);
+            // 设置订单类型
+            TriggerOrderType triggerOrderType = new TriggerOrderType(triggerPx, isMarket, tpsl);
+            OrderType orderType = new OrderType(triggerOrderType);
+            req.setOrderType(orderType);
+            return req;
         }
-
-        /**
-         * 永续平仓触发单（不传 cloid 的便捷重载）。
-         */
-        public static OrderRequest trigger(String coin, Double sz, Double limitPx, Double triggerPx, Boolean isMarket,
-                                           TriggerOrderType.TpslType tpsl) {
-            return trigger(coin, sz, limitPx, triggerPx, isMarket, tpsl, null);
-        }
-
-        /**
-         * 永续平仓触发单（BigDecimal 重载，签名尺寸）。
-         *
-         * @param coin      币种名称
-         * @param signedSz  签名尺寸（BigDecimal）
-         * @param limitPx   触发后限价（BigDecimal，可为 null）
-         * @param triggerPx 触发价格（BigDecimal）
-         * @param isMarket  是否市价执行
-         * @param tpsl      止盈/止损类型
-         * @param cloid     客户端订单 ID（可为 null）
-         * @return 触发单请求对象（reduceOnly=true）
-         * @throws IllegalArgumentException 当 {@code signedSz} 为 0 时抛出
-         */
-        public static OrderRequest trigger(String coin, java.math.BigDecimal signedSz, java.math.BigDecimal limitPx,
-                                           java.math.BigDecimal triggerPx, Boolean isMarket, TriggerOrderType.TpslType tpsl, Cloid cloid) {
-            if (signedSz == null || signedSz.doubleValue() == 0.0) {
-                throw new IllegalArgumentException("No position to close for coin=" + coin);
-            }
-            double s = signedSz.doubleValue();
-            boolean isBuy = s < 0.0;
-            double absSz = Math.abs(s);
-            Double p = limitPx == null ? null : limitPx.doubleValue();
-            Double t = triggerPx == null ? null : triggerPx.doubleValue();
-            return new OrderRequest(InstrumentType.PERP, coin, isBuy, absSz, p,
-                    new OrderType(new TriggerOrderType(t, isMarket, tpsl)), true, cloid);
-        }
-
-        /**
-         * 永续平仓止盈触发单快捷方法（签名尺寸）。
-         */
-        public static OrderRequest tp(String coin, Double signedSz, Double limitPx, Double triggerPx, Boolean isMarket,
-                                      Cloid cloid) {
-            return trigger(coin, signedSz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.TP, cloid);
-        }
-
-        /**
-         * 永续平仓止损触发单快捷方法（签名尺寸）。
-         */
-        public static OrderRequest sl(String coin, Double signedSz, Double limitPx, Double triggerPx, Boolean isMarket,
-                                      Cloid cloid) {
-            return trigger(coin, signedSz, limitPx, triggerPx, isMarket, TriggerOrderType.TpslType.SL, cloid);
-        }
-
-        /**
-         * 市价平仓（IOC + reduceOnly=true）。
-         * <p>
-         * 说明：不提供方向与数量，提交前由 {@code Exchange.prepareRequest} 根据当前仓位推断并补全。
-         *
-         * @param coin 币种名称（如 "ETH"）
-         * @return 市价平仓的下单请求
-         */
-        public static OrderRequest positionAtMarketAll(String coin) {
-            return new OrderRequest(InstrumentType.PERP, coin, null, null, null, new OrderType(new LimitOrderType(Tif.IOC)), true, null);
-        }
-
     }
 
+    /**
+     * 静态内部类，用于快速创建平仓订单请求。
+     */
+    public static class Close {
+        /**
+         * 创建市价平仓订单（自动推断方向）。
+         *
+         * @param coin  币种名称
+         * @param sz    数量
+         * @param cloid 客户端订单 ID
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest market(String coin, Double sz, Cloid cloid) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setSz(sz);
+            req.setReduceOnly(true);
+            req.setCloid(cloid);
+            // 设置为 IOC 市价单
+            LimitOrderType limitOrderType = new LimitOrderType(Tif.IOC);
+            OrderType orderType = new OrderType(limitOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
+
+        /**
+         * 创建市价平仓订单（指定方向）。
+         *
+         * @param coin  币种名称
+         * @param isBuy 是否买入
+         * @param sz    数量
+         * @param cloid 客户端订单 ID
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest market(String coin, boolean isBuy, double sz, Cloid cloid) {
+            OrderRequest req = market(coin, sz, cloid);
+            req.setIsBuy(isBuy);
+            return req;
+        }
+
+        /**
+         * 创建市价全平订单。
+         *
+         * @param coin 币种名称
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest positionAtMarketAll(String coin) {
+            return market(coin, null, null);
+        }
+
+        /**
+         * 创建限价平仓订单。
+         *
+         * @param tif     时间生效方式
+         * @param coin    币种名称
+         * @param sz      数量
+         * @param limitPx 限价
+         * @param cloid   客户端订单 ID
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(Tif tif, String coin, double sz, double limitPx, Cloid cloid) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(null); // 将在 prepareRequest 中推断
+            req.setSz(sz);
+            req.setLimitPx(limitPx);
+            req.setReduceOnly(true);
+            req.setCloid(cloid);
+            // 设置订单类型
+            LimitOrderType limitOrderType = new LimitOrderType(tif);
+            OrderType orderType = new OrderType(limitOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
+    }
 }

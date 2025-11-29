@@ -1,7 +1,6 @@
 package io.github.hyperliquid.sdk.utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import lombok.Getter;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +11,6 @@ public class HypeHttpClient {
 
     private static final Logger log = LoggerFactory.getLogger(HypeHttpClient.class);
 
-    @Getter
     private final String baseUrl;
 
     private final OkHttpClient client;
@@ -23,6 +21,15 @@ public class HypeHttpClient {
     public HypeHttpClient(String baseUrl, OkHttpClient client) {
         this.baseUrl = baseUrl;
         this.client = client;
+    }
+
+    /**
+     * 获取基础URL。
+     *
+     * @return 基础URL
+     */
+    public String getBaseUrl() {
+        return baseUrl;
     }
 
     /**

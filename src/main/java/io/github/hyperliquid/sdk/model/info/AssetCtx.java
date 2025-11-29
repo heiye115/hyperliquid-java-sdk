@@ -1,14 +1,10 @@
 package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.List;
 
 /** 资产上下文（永续）指标集合 */
-@Data
 public class AssetCtx {
 
     /** 当前资金费率（字符串小数） */
@@ -55,4 +51,84 @@ public class AssetCtx {
     public AssetCtx() {
     }
 
+    // Getter and Setter methods
+    public String getFunding() {
+        return funding;
+    }
+
+    public void setFunding(String funding) {
+        this.funding = funding;
+    }
+
+    public String getOpenInterest() {
+        return openInterest;
+    }
+
+    public void setOpenInterest(String openInterest) {
+        this.openInterest = openInterest;
+    }
+
+    public String getPrevDayPx() {
+        return prevDayPx;
+    }
+
+    public void setPrevDayPx(String prevDayPx) {
+        this.prevDayPx = prevDayPx;
+    }
+
+    public String getDayNtlVlm() {
+        return dayNtlVlm;
+    }
+
+    public void setDayNtlVlm(String dayNtlVlm) {
+        this.dayNtlVlm = dayNtlVlm;
+    }
+
+    public String getPremium() {
+        return premium;
+    }
+
+    public void setPremium(String premium) {
+        this.premium = premium;
+    }
+
+    public String getOraclePx() {
+        return oraclePx;
+    }
+
+    public void setOraclePx(String oraclePx) {
+        this.oraclePx = oraclePx;
+    }
+
+    public String getMarkPx() {
+        return markPx;
+    }
+
+    public void setMarkPx(String markPx) {
+        this.markPx = markPx;
+    }
+
+    public String getMidPx() {
+        return midPx;
+    }
+
+    public void setMidPx(String midPx) {
+        this.midPx = midPx;
+    }
+
+    public List<String> getImpactPxs() {
+        return impactPxs;
+    }
+
+    public void setImpactPxs(List<String> impactPxs) {
+        this.impactPxs = impactPxs;
+    }
+
+    public String getDayBaseVlm() {
+        return dayBaseVlm;
+    }
+
+    public void setDayBaseVlm(String dayBaseVlm) {
+        this.dayBaseVlm = dayBaseVlm;
+    }
 }
