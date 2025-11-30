@@ -1,0 +1,402 @@
+package io.github.hyperliquid.sdk.model.order;
+
+/**
+ * OrderRequest 构建器，提供链式调用的便捷 API。
+ * <p>
+ * 使用示例：
+ * <pre>
+ * // 1. 限价开仓
+ * OrderRequest req = OrderRequest.builder()
+ *     .perp("ETH")
+ *     .buy(0.1)
+ *     .limitPrice(3000.0)
+ *     .gtc()
+ *     .build();
+ *
+ * // 2. 市价开仓
+ * OrderRequest req = OrderRequest.builder()
+ *     .spot("PURR")
+ *     .sell(100.0)
+ *     .market()
+ *     .build();
+ *
+ * // 3. 条件单：价格向上突破 2950 时买入
+ * OrderRequest req = OrderRequest.builder()
+ *     .perp("ETH")
+ *     .buy(0.1)
+ *     .stopAbove(2950.0)  // 向上突破触发
+ *     .limitPrice(3000.0)
+ *     .build();
+ *
+ * // 4. 条件单：价格向下跌破 3100 时卖出
+ * OrderRequest req = OrderRequest.builder()
+ *     .perp("ETH")
+ *     .sell(0.1)
+ *     .stopBelow(3100.0)  // 向下跌破触发
+ *     .limitPrice(3050.0)
+ *     .build();
+ *
+ * // 5. 平仓止盈（需要先有多仓）
+ * OrderRequest req = OrderRequest.builder()
+ *     .perp("ETH")
+ *     .sell(0.5)
+ *     .stopAbove(3600.0)  // 止盈触发价
+ *     .marketTrigger()    // 触发后市价成交
+ *     .reduceOnly()
+ *     .build();
+ * </pre>
+ */
+public class OrderBuilder {
+    /**
+     * 交易品种类型（PERP 或 SPOT）
+     */
+    private InstrumentType instrumentType;
+
+    /**
+     * 币种名称
+     */
+    private String coin;
+
+    /**
+     * 是否买入（true=买/做多，false=卖/做空）
+     */
+    private Boolean isBuy;
+
+    /**
+     * 下单数量
+     */
+    private Double sz;
+
+    /**
+     * 限价价格
+     */
+    private Double limitPx;
+
+    /**
+     * 订单类型（限价或触发）
+     */
+    private OrderType orderType;
+
+    /**
+     * 仅减仓标记（默认 false）
+     */
+    private Boolean reduceOnly = false;
+
+    /**
+     * 客户端订单 ID
+     */
+    private Cloid cloid;
+
+    /**
+     * 市价单滑点比例
+     */
+    private Double slippage;
+
+    // 触发单参数
+    /**
+     * 触发价格
+     */
+    private Double triggerPx;
+
+    /**
+     * 触发后是否以市价执行
+     */
+    private Boolean isMarketTrigger;
+
+    /**
+     * 触发方向类型（TP=向上突破，SL=向下跌破）
+     */
+    private TriggerOrderType.TpslType tpsl;
+
+    /**
+     * 订单过期时间（毫秒）
+     */
+    private Long expiresAfter;
+
+    public OrderBuilder() {
+    }
+
+    // ========================================
+    // 7. 过期时间
+    // ========================================
+
+    /**
+     * 设置订单过期时间。
+     *
+     * @param expiresAfter 过期时间（毫秒）
+     * @return this
+     */
+    public OrderBuilder expiresAfter(Long expiresAfter) {
+        this.expiresAfter = expiresAfter;
+        return this;
+    }
+
+    // ========================================
+    // 1. 交易品种
+    // ========================================
+
+    /**
+     * 设置为永续合约。
+     *
+     * @param coin 币种名称（如 "ETH"）
+     * @return this
+     */
+    public OrderBuilder perp(String coin) {
+        this.instrumentType = InstrumentType.PERP;
+        this.coin = coin;
+        return this;
+    }
+
+    /**
+     * 设置为现货。
+     *
+     * @param coin 币种名称（如 "PURR"）
+     * @return this
+     */
+    public OrderBuilder spot(String coin) {
+        this.instrumentType = InstrumentType.SPOT;
+        this.coin = coin;
+        return this;
+    }
+
+    // ========================================
+    // 2. 方向与数量
+    // ========================================
+
+    /**
+     * 买入指定数量。
+     *
+     * @param sz 数量
+     * @return this
+     */
+    public OrderBuilder buy(Double sz) {
+        this.isBuy = true;
+        this.sz = sz;
+        return this;
+    }
+
+    /**
+     * 卖出指定数量。
+     *
+     * @param sz 数量
+     * @return this
+     */
+    public OrderBuilder sell(Double sz) {
+        this.isBuy = false;
+        this.sz = sz;
+        return this;
+    }
+
+    // ========================================
+    // 3. 价格设置
+    // ========================================
+
+    /**
+     * 设置限价价格。
+     *
+     * @param limitPx 限价
+     * @return this
+     */
+    public OrderBuilder limitPrice(Double limitPx) {
+        this.limitPx = limitPx;
+        return this;
+    }
+
+    /**
+     * 市价单（无需设置限价，内部会自动计算占位价）。
+     *
+     * @return this
+     */
+    public OrderBuilder market() {
+        this.limitPx = null;
+        this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
+        return this;
+    }
+
+    /**
+     * 市价单，自定义滑点。
+     *
+     * @param slippage 滑点比例（例如 0.05 表示 5%）
+     * @return this
+     */
+    public OrderBuilder market(Double slippage) {
+        this.limitPx = null;
+        this.slippage = slippage;
+        this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
+        return this;
+    }
+
+    // ========================================
+    // 4. 触发条件（Trigger）
+    // ========================================
+
+    /**
+     * 价格向上突破时触发（适合止盈或做多突破）。
+     *
+     * @param triggerPx 触发价格
+     * @return this
+     */
+    public OrderBuilder stopAbove(Double triggerPx) {
+        this.triggerPx = triggerPx;
+        this.tpsl = TriggerOrderType.TpslType.TP;
+        this.isMarketTrigger = false; // 默认触发后挂限价单
+        return this;
+    }
+
+    /**
+     * 价格向下跌破时触发（适合止损或做空突破）。
+     *
+     * @param triggerPx 触发价格
+     * @return this
+     */
+    public OrderBuilder stopBelow(Double triggerPx) {
+        this.triggerPx = triggerPx;
+        this.tpsl = TriggerOrderType.TpslType.SL;
+        this.isMarketTrigger = false;
+        return this;
+    }
+
+    /**
+     * 触发后以市价成交（需先调用 stopAbove 或 stopBelow）。
+     *
+     * @return this
+     */
+    public OrderBuilder marketTrigger() {
+        this.isMarketTrigger = true;
+        return this;
+    }
+
+    // ========================================
+    // 5. TIF 策略
+    // ========================================
+
+    /**
+     * Good Til Cancel（GTC）。
+     *
+     * @return this
+     */
+    public OrderBuilder gtc() {
+        if (this.orderType == null || this.orderType.getLimit() == null) {
+            this.orderType = new OrderType(new LimitOrderType(Tif.GTC));
+        }
+        return this;
+    }
+
+    /**
+     * Immediate or Cancel（IOC）。
+     *
+     * @return this
+     */
+    public OrderBuilder ioc() {
+        if (this.orderType == null || this.orderType.getLimit() == null) {
+            this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
+        }
+        return this;
+    }
+
+    /**
+     * Add Liquidity Only（ALO）。
+     *
+     * @return this
+     */
+    public OrderBuilder alo() {
+        if (this.orderType == null || this.orderType.getLimit() == null) {
+            this.orderType = new OrderType(new LimitOrderType(Tif.ALO));
+        }
+        return this;
+    }
+
+    // ========================================
+    // 6. 其他选项
+    // ========================================
+
+    /**
+     * 仅减仓（平仓单）。
+     *
+     * @return this
+     */
+    public OrderBuilder reduceOnly() {
+        this.reduceOnly = true;
+        return this;
+    }
+
+    /**
+     * 设置客户端订单 ID。
+     *
+     * @param cloid Cloid
+     * @return this
+     */
+    public OrderBuilder cloid(Cloid cloid) {
+        this.cloid = cloid;
+        return this;
+    }
+
+    /**
+     * 自动生成客户端订单 ID。
+     *
+     * @return this
+     */
+    public OrderBuilder autoCloid() {
+        this.cloid = Cloid.auto();
+        return this;
+    }
+
+    // ========================================
+    // 7. 构建
+    // ========================================
+
+    /**
+     * 构建 OrderRequest 对象。
+     *
+     * @return OrderRequest 实例
+     * @throws IllegalStateException 当必填字段缺失时抛出
+     */
+    public OrderRequest build() {
+        // 校验必填字段
+        if (coin == null || coin.isEmpty()) {
+            throw new IllegalStateException("coin is required");
+        }
+        if (isBuy == null) {
+            throw new IllegalStateException("direction is required (call buy() or sell())");
+        }
+        if (sz == null || sz <= 0) {
+            throw new IllegalStateException("size must be positive");
+        }
+
+        // 构建 OrderType
+        if (triggerPx != null) {
+            // 触发单
+            if (tpsl == null) {
+                throw new IllegalStateException("tpsl is required for trigger order (call stopAbove() or stopBelow())");
+            }
+            this.orderType = new OrderType(new TriggerOrderType(triggerPx, isMarketTrigger != null && isMarketTrigger, tpsl));
+        } else {
+            // 普通限价/市价单
+            if (this.orderType == null) {
+                // 默认 GTC
+                this.orderType = new OrderType(new LimitOrderType(Tif.GTC));
+            }
+        }
+
+        OrderRequest req = new OrderRequest(
+                instrumentType != null ? instrumentType : InstrumentType.PERP,
+                coin,
+                isBuy,
+                sz,
+                limitPx,
+                orderType,
+                reduceOnly,
+                cloid
+        );
+
+        if (slippage != null) {
+            req.setSlippage(slippage);
+        }
+        
+        if (expiresAfter != null) {
+            req.setExpiresAfter(expiresAfter);
+        }
+
+        return req;
+    }
+}
