@@ -1431,31 +1431,39 @@ public class Exchange {
     }
 
     /**
-     * 一键市价全量平仓（根据账户当前仓位自动推断方向与数量）。
+     * 市价全量平仓指定币种（根据账户当前仓位自动推断方向与数量）。
      *
      * @param coin 币种名称
      * @return 服务端订单响应
      * @throws HypeError 当无仓位可平时抛出
      */
-    public Order closePositionAtMarketAll(String coin) {
+    public Order closePositionMarket(String coin) {
         return order(OrderRequest.Close.positionAtMarketAll(coin));
     }
 
     /**
-     * 市价平仓（与 Python market_close 对齐）。
+     * @deprecated 使用 {@link #closePositionMarket(String)} 代替
+     */
+    @Deprecated
+    public Order closePositionAtMarketAll(String coin) {
+        return closePositionMarket(coin);
+    }
+
+    /**
+     * 市价平仓指定币种（支持部分平仓与自定义滑点）。
      * <p>
      * 自动查询账户仓位，推断平仓方向（多仓卖出/空仓买入），并按市价平仓。
      * <p>
      * 使用示例：
      * <pre>
      * // 完全平仓
-     * Order result = exchange.marketClose("ETH", null, null, null);
+     * Order result = exchange.closePositionMarket("ETH", null, null, null);
      *
      * // 部分平仓
-     * Order result = exchange.marketClose("ETH", 0.5, null, null);
+     * Order result = exchange.closePositionMarket("ETH", 0.5, null, null);
      *
      * // 自定义滑点
-     * Order result = exchange.marketClose("ETH", null, 0.1, null);
+     * Order result = exchange.closePositionMarket("ETH", null, 0.1, null);
      * </pre>
      *
      * @param coin     币种名称
@@ -1465,7 +1473,7 @@ public class Exchange {
      * @return 订单响应
      * @throws HypeError 当无仓位可平时抛出
      */
-    public Order marketClose(String coin, Double sz, Double slippage, Cloid cloid) {
+    public Order closePositionMarket(String coin, Double sz, Double slippage, Cloid cloid) {
         // 查询当前仓位
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
@@ -1490,7 +1498,7 @@ public class Exchange {
     }
 
     /**
-     * 市价平仓（带 builder 支持）。
+     * 市价平仓指定币种（带 builder 支持）。
      *
      * @param coin     币种名称
      * @param sz       平仓数量（可为 null）
@@ -1499,7 +1507,7 @@ public class Exchange {
      * @param builder  builder 信息（可为 null）
      * @return 订单响应
      */
-    public Order marketClose(String coin, Double sz, Double slippage, Cloid cloid, Map<String, Object> builder) {
+    public Order closePositionMarket(String coin, Double sz, Double slippage, Cloid cloid, Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
@@ -1517,7 +1525,23 @@ public class Exchange {
     }
 
     /**
-     * 一键限价全量平仓（根据账户当前仓位自动推断方向与数量）。
+     * @deprecated 使用 {@link #closePositionMarket(String, Double, Double, Cloid)} 代替
+     */
+    @Deprecated
+    public Order marketClose(String coin, Double sz, Double slippage, Cloid cloid) {
+        return closePositionMarket(coin, sz, slippage, cloid);
+    }
+
+    /**
+     * @deprecated 使用 {@link #closePositionMarket(String, Double, Double, Cloid, Map)} 代替
+     */
+    @Deprecated
+    public Order marketClose(String coin, Double sz, Double slippage, Cloid cloid, Map<String, Object> builder) {
+        return closePositionMarket(coin, sz, slippage, cloid, builder);
+    }
+
+    /**
+     * 限价全量平仓指定币种（根据账户当前仓位自动推断方向与数量）。
      *
      * @param tif     TIF 策略
      * @param coin    币种名称
@@ -1526,7 +1550,7 @@ public class Exchange {
      * @return 服务端订单响应
      * @throws HypeError 当无仓位可平时抛出
      */
-    public Order closePositionLimitAll(Tif tif, String coin, double limitPx, Cloid cloid) {
+    public Order closePositionLimit(Tif tif, String coin, double limitPx, Cloid cloid) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
@@ -1537,6 +1561,84 @@ public class Exchange {
         req.setSz(absSz);
         req.setIsBuy(isBuy);
         return order(req);
+    }
+
+    /**
+     * @deprecated 使用 {@link #closePositionLimit(Tif, String, double, Cloid)} 代替
+     */
+    @Deprecated
+    public Order closePositionLimitAll(Tif tif, String coin, double limitPx, Cloid cloid) {
+        return closePositionLimit(tif, coin, limitPx, cloid);
+    }
+
+    /**
+     * 市价平掉所有币种的全部持仓（自动推断多空方向）。
+     * <p>
+     * 查询账户所有持仓，自动推断每个币种的平仓方向和数量，批量下单一次性平仓。
+     * 支持同时平掉多个币种的多空仓位。
+     * </p>
+     * <p>
+     * 使用示例：
+     * <pre>
+     * // 一键平掉所有持仓
+     * JsonNode result = exchange.closeAllPositions();
+     * System.out.println("平仓结果: " + result);
+     * </pre>
+     *
+     * @return 批量订单响应 JSON
+     * @throws HypeError 当没有任何持仓时抛出
+     */
+    public JsonNode closeAllPositions() {
+        // 查询当前账户所有仓位
+        ClearinghouseState state = info.userState(apiWallet.getPrimaryWalletAddress().toLowerCase());
+        if (state == null || state.getAssetPositions() == null || state.getAssetPositions().isEmpty()) {
+            throw new HypeError("No positions to close");
+        }
+
+        // 构建所有平仓订单
+        List<OrderRequest> closeOrders = new ArrayList<>();
+        for (ClearinghouseState.AssetPositions ap : state.getAssetPositions()) {
+            ClearinghouseState.Position pos = ap.getPosition();
+            if (pos == null || pos.getCoin() == null || pos.getSzi() == null) {
+                continue;
+            }
+
+            double szi;
+            try {
+                szi = Double.parseDouble(pos.getSzi());
+            } catch (Exception e) {
+                continue; // 解析失败跳过
+            }
+
+            // 跳过没有仓位的币种
+            if (szi == 0.0) {
+                continue;
+            }
+
+            // 推断平仓方向：持有多仓则卖出，持有空仓则买入
+            boolean isBuy = szi < 0;
+            double closeSz = Math.abs(szi);
+
+            // 构建市价平仓请求
+            OrderRequest req = OrderRequest.Close.market(pos.getCoin(), isBuy, closeSz, null);
+            closeOrders.add(req);
+        }
+
+        // 检查是否有需要平仓的订单
+        if (closeOrders.isEmpty()) {
+            throw new HypeError("No positions to close (all positions are zero)");
+        }
+
+        // 批量下单平仓
+        return bulkOrders(closeOrders);
+    }
+
+    /**
+     * @deprecated 使用 {@link #closeAllPositions()} 代替
+     */
+    @Deprecated
+    public JsonNode closePositionAll() {
+        return closeAllPositions();
     }
 
     /**

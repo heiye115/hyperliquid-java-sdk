@@ -183,9 +183,11 @@ public class Demo {
       `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:100`).
     - Dex Abstraction: `agentEnableDexAbstraction()` and `userDexAbstraction(user, enabled)` (
       `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:386`, `Exchange.java:409`).
-    - `closePositionAtMarketAll(String coin)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1429`).
-    - `closePositionLimitAll(Tif, String coin, double limitPx, Cloid)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1443`).
+    - Close position methods:
+        - `closePositionMarket(String coin)` - Close all position at market price.
+        - `closePositionMarket(String coin, Double sz, Double slippage, Cloid)` - Partial close with custom slippage.
+        - `closePositionLimit(Tif, String coin, double limitPx, Cloid)` - Close position at limit price.
+        - `closeAllPositions()` - Close all positions across all coins in a single batch order.
     - Slippage config: `setDefaultSlippage(double)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1407`)
       and `setDefaultSlippage(String coin, double)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1417`).
     - OrderRequest

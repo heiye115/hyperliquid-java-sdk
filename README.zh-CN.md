@@ -183,9 +183,11 @@ public class QuickStart {
       `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:100`）。
     - Dex Abstraction：`agentEnableDexAbstraction()` / `userDexAbstraction(user, enabled)`（
       `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:386`, `Exchange.java:409`）。
-    - `closePositionAtMarketAll(String coin)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1429`）。
-    - `closePositionLimitAll(Tif, String coin, double limitPx, Cloid)`（
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1443`）。
+    - 平仓方法：
+        - `closePositionMarket(String coin)` - 市价全量平仓指定币种。
+        - `closePositionMarket(String coin, Double sz, Double slippage, Cloid)` - 支持部分平仓与自定义滑点。
+        - `closePositionLimit(Tif, String coin, double limitPx, Cloid)` - 限价全量平仓指定币种。
+        - `closeAllPositions()` - 一键批量平掉所有币种的全部持仓。
     - 滑点配置：`setDefaultSlippage(double)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1407`）与
       `setDefaultSlippage(String coin, double)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1417`）。
     - OrderRequest
