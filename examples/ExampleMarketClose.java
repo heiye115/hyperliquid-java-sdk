@@ -28,7 +28,7 @@ public class ExampleMarketClose {
         Exchange ex = client.getSingleExchange();
         
         // Close position at market: Close 0.01 ETH (using auto-generated Cloid for order tracking)
-        OrderRequest req = OrderRequest.Close.market("ETH", 0.01, Cloid.auto());
+        OrderRequest req = OrderRequest.Close.market("ETH", "0.01", Cloid.auto());
         try {
             Order order = ex.order(req);
             System.out.println("Order status: " + order.getStatus());

@@ -99,8 +99,8 @@ public class OrderTest {
 
     @Test
     public void testTriggerOrderALL() {
-        OrderRequest req = OrderRequest.Open.trigger("ETH", true, "0.01", "4000.0", "4000.0", true,
-                TriggerOrderType.TpslType.TP);
+        // 使用 breakoutAbove 替代已删除的 trigger 方法
+        OrderRequest req = OrderRequest.Open.breakoutAbove("ETH", "0.01", "4000.0");
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }

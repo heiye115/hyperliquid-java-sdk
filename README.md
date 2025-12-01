@@ -126,7 +126,7 @@ public class Demo {
         System.out.println("Best bid: " + book.getLevels().get(0).get(0).getPx());
 
         Exchange ex = client.getSingleExchange();
-        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.001, 3500.0);
+        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.001", "3500.0");
         try {
             Order order = ex.order(req);
             System.out.println("Order status: " + order.getStatus());
@@ -191,14 +191,18 @@ public class Demo {
     - Slippage config: `setDefaultSlippage(double)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1407`)
       and `setDefaultSlippage(String coin, double)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1417`).
     - OrderRequest
-        - `Open.limit(...)` (`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:123`).
-        - `Open.market(...)` (`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:200`).
-        - `Open.trigger(...)` (`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:219`).
-        - `Close.limit(...)` (`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:331`).
-        - `Close.market(String coin, Double sz, Cloid)` (
-          `src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:379`).
-        - `Close.positionAtMarketAll(String coin)` (
-          `src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:493`).
+        - `Open.market(...)` - Market order to open position (no InstrumentType parameter for perps).
+        - `Open.limit(...)` - Limit order to open position (supports TIF strategies).
+        - `Open.breakoutAbove(...)` - Breakout long entry (trigger order when price breaks above).
+        - `Open.breakoutBelow(...)` - Breakout short entry (trigger order when price breaks below).
+        - `Open.spotMarketBuy/Sell(...)` - Spot market orders (prefix with "spot").
+        - `Open.spotLimitBuy/Sell(...)` - Spot limit orders.
+        - `Close.market(...)` - Market order to close position (auto-infer direction).
+        - `Close.limit(...)` - Limit order to close position.
+        - `Close.marketAll(...)` - Close entire position for a coin.
+        - `Close.takeProfit(...)` - Take profit order (trigger when price breaks above).
+        - `Close.stopLoss(...)` - Stop loss order (trigger when price breaks below).
+        - All order methods support optional `cloid` parameter for order tracking.
 - WebsocketManager
     - `MessageCallback` interface (`src/main/java/io/github/hyperliquid/sdk/websocket/WebsocketManager.java:106`).
     - Connection listener and error listener hooks.

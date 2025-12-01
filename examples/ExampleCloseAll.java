@@ -38,7 +38,7 @@ public class ExampleCloseAll {
 
         // Example 2: Close entire ETH position at limit price
         try {
-            Order lmt = ex.closePositionLimit(Tif.GTC, "ETH", 4000.0, Cloid.auto());
+            Order lmt = ex.closePositionLimit(Tif.GTC, "ETH", "4000.0", Cloid.auto());
             System.out.println("Limit close status: " + lmt.getStatus());
         } catch (HypeError e) {
             System.err.println("Limit close failed: " + e.getMessage());

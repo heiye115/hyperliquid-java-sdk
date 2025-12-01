@@ -73,7 +73,7 @@ public class ExampleComprehensive {
         System.out.println("\n--- 3. Limit Order Open Example ---");
         try {
             // Buy 0.01 ETH at 1800.0
-            OrderRequest limitReq = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.01, 1800.0);
+            OrderRequest limitReq = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.01", "1800.0");
             Order limitOrder = exchange.order(limitReq);
             System.out.println("Limit order status: " + limitOrder.getStatus());
         } catch (HypeError e) {
@@ -84,7 +84,7 @@ public class ExampleComprehensive {
         System.out.println("\n--- 4. Market Order Open Example ---");
         try {
             // Buy 0.01 ETH at market price
-            OrderRequest marketReq = OrderRequest.Open.market("ETH", true, 0.01);
+            OrderRequest marketReq = OrderRequest.Open.market("ETH", true, "0.01");
             Order marketOrder = exchange.order(marketReq);
             System.out.println("Market order status: " + marketOrder.getStatus());
         } catch (HypeError e) {
@@ -95,8 +95,8 @@ public class ExampleComprehensive {
         System.out.println("\n--- 5. Bulk Orders Example ---");
         try {
             List<OrderRequest> bulkReqs = Arrays.asList(
-                    OrderRequest.Open.limit(Tif.GTC, "BTC", true, 0.001, 95000.0),
-                    OrderRequest.Open.limit(Tif.GTC, "SOL", true, 1.0, 200.0)
+                    OrderRequest.Open.limit(Tif.GTC, "BTC", true, "0.001", "95000.0"),
+                    OrderRequest.Open.limit(Tif.GTC, "SOL", true, "1.0", "200.0")
             );
             JsonNode bulkResult = exchange.bulkOrders(bulkReqs);
             System.out.println("Bulk orders result: " + JSONUtil.writeValueAsString(bulkResult));
@@ -138,7 +138,7 @@ public class ExampleComprehensive {
         System.out.println("\n--- 9. Limit Close Example ---");
         try {
             // Close BTC position at limit price 96000.0
-            Order limitClose = exchange.closePositionLimit(Tif.GTC, "BTC", 96000.0, Cloid.auto());
+            Order limitClose = exchange.closePositionLimit(Tif.GTC, "BTC", "96000.0", Cloid.auto());
             System.out.println("Limit close order status: " + limitClose.getStatus());
         } catch (HypeError e) {
             System.err.println("Limit close failed: " + e.getMessage());

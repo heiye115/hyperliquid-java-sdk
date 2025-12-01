@@ -28,7 +28,7 @@ public class ExampleLimitOpen {
         Exchange ex = client.getSingleExchange();
         
         // Open long position with limit order: Buy 0.01 ETH at 1800.0 (GTC - Good Till Cancel)
-        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.01, 1800.0);
+        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.01", "1800.0");
         try {
             Order order = ex.order(req);
             System.out.println("Order status: " + order.getStatus());

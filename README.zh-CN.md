@@ -125,7 +125,7 @@ public class QuickStart {
         System.out.println("买一价: " + book.getLevels().get(0).get(0).getPx());
 
         Exchange ex = client.getSingleExchange();
-        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.001, 3500.0);
+        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.001", "3500.0");
         try {
             Order order = ex.order(req);
             System.out.println("下单状态: " + order.getStatus());
@@ -191,14 +191,18 @@ public class QuickStart {
     - 滑点配置：`setDefaultSlippage(double)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1407`）与
       `setDefaultSlippage(String coin, double)`（`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1417`）。
     - OrderRequest
-        - `Open.limit(...)`（`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:123`）。
-        - `Open.market(...)`（`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:200`）。
-        - `Open.trigger(...)`（`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:219`）。
-        - `Close.limit(...)`（`src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:331`）。
-        - `Close.market(String coin, Double sz, Cloid)`（
-          `src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:379`）。
-        - `Close.positionAtMarketAll(String coin)`（
-          `src/main/java/io/github/hyperliquid/sdk/model/order/OrderRequest.java:493`）。
+        - `Open.market(...)` - 永续合约市价开仓（永续合约无需 InstrumentType 参数）。
+        - `Open.limit(...)` - 永续合约限价开仓（支持多种 TIF 策略）。
+        - `Open.breakoutAbove(...)` - 向上突破开多仓（价格突破触发）。
+        - `Open.breakoutBelow(...)` - 向下突破开空仓（价格跌破触发）。
+        - `Open.spotMarketBuy/Sell(...)` - 现货市价订单（以 "spot" 前缀标识）。
+        - `Open.spotLimitBuy/Sell(...)` - 现货限价订单。
+        - `Close.market(...)` - 市价平仓（自动推断方向）。
+        - `Close.limit(...)` - 限价平仓。
+        - `Close.marketAll(...)` - 市价全平指定币种。
+        - `Close.takeProfit(...)` - 止盈平仓（价格向上突破触发）。
+        - `Close.stopLoss(...)` - 止损平仓（价格向下跌破触发）。
+        - 所有订单方法均支持可选的 `cloid` 参数用于订单追踪。
 - WebsocketManager
     - `MessageCallback` 接口（`src/main/java/io/github/hyperliquid/sdk/websocket/WebsocketManager.java:106`）。
     - 支持连接状态监听与回调异常监听。

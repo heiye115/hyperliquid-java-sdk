@@ -1570,7 +1570,7 @@ public class Exchange {
      * @throws HypeError 当无仓位可平时抛出
      */
     public Order closePositionMarket(String coin) {
-        return order(OrderRequest.Close.positionAtMarketAll(coin));
+        return order(OrderRequest.Close.marketAll(coin));
     }
 
     /**

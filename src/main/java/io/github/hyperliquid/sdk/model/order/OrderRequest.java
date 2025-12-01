@@ -283,8 +283,12 @@ public class OrderRequest {
      * 静态内部类，用于快速创建开仓订单请求。
      */
     public static class Open {
+        // ========================================
+        // 永续合约 - 市价开仓
+        // ========================================
+
         /**
-         * 创建市价开仓订单。
+         * 创建永续合约市价开仓订单（无 cloid）。
          *
          * @param coin  币种名称
          * @param isBuy 是否买入
@@ -292,8 +296,294 @@ public class OrderRequest {
          * @return OrderRequest 实例
          */
         public static OrderRequest market(String coin, boolean isBuy, String sz) {
+            return market(coin, isBuy, sz, null);
+        }
+
+        /**
+         * 创建永续合约市价开仓订单。
+         *
+         * @param coin  币种名称
+         * @param isBuy 是否买入
+         * @param sz    数量（字符串）
+         * @param cloid 客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest market(String coin, boolean isBuy, String sz, Cloid cloid) {
+            OrderRequest req = createMarket(InstrumentType.PERP, coin, isBuy, sz);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        // ========================================
+        // 永续合约 - 限价开仓
+        // ========================================
+
+        /**
+         * 创建永续合约限价开仓订单（默认 GTC，无 cloid）。
+         *
+         * @param coin    币种名称
+         * @param isBuy   是否买入
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(String coin, boolean isBuy, String sz, String limitPx) {
+            return limit(Tif.GTC, coin, isBuy, sz, limitPx, null);
+        }
+
+        /**
+         * 创建永续合约限价开仓订单（默认 GTC）。
+         *
+         * @param coin    币种名称
+         * @param isBuy   是否买入
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @param cloid   客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(String coin, boolean isBuy, String sz, String limitPx, Cloid cloid) {
+            return limit(Tif.GTC, coin, isBuy, sz, limitPx, cloid);
+        }
+
+        /**
+         * 创建永续合约限价开仓订单（无 cloid）。
+         *
+         * @param tif     时间生效方式
+         * @param coin    币种名称
+         * @param isBuy   是否买入
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(Tif tif, String coin, boolean isBuy, String sz, String limitPx) {
+            return limit(tif, coin, isBuy, sz, limitPx, null);
+        }
+
+        /**
+         * 创建永续合约限价开仓订单。
+         *
+         * @param tif     时间生效方式
+         * @param coin    币种名称
+         * @param isBuy   是否买入
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @param cloid   客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(Tif tif, String coin, boolean isBuy, String sz, String limitPx, Cloid cloid) {
+            OrderRequest req = createLimit(InstrumentType.PERP, tif, coin, isBuy, sz, limitPx);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        // ========================================
+        // 永续合约 - 触发单（突破开仓）
+        // ========================================
+
+        /**
+         * 创建突破开仓订单（价格向上突破时触发，市价执行，无 cloid）。
+         * <p>
+         * 使用场景：做多突破策略，当价格突破关键阻力位时追涨买入。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest breakoutAbove(String coin, String sz, String triggerPx) {
+            return breakoutAbove(coin, sz, triggerPx, null);
+        }
+
+        /**
+         * 创建突破开仓订单（价格向上突破时触发，市价执行）。
+         * <p>
+         * 使用场景：做多突破策略，当价格突破关键阻力位时追涨买入。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @param cloid     客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest breakoutAbove(String coin, String sz, String triggerPx, Cloid cloid) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(true);
+            req.setSz(sz);
+            req.setLimitPx(null);
+            req.setReduceOnly(false);
+            req.setCloid(cloid);
+            TriggerOrderType triggerOrderType = new TriggerOrderType(triggerPx, true, TpslType.TP);
+            OrderType orderType = new OrderType(triggerOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
+
+        /**
+         * 创建突破开仓订单（价格向下跌破时触发，市价执行，无 cloid）。
+         * <p>
+         * 使用场景：做空突破策略，当价格跌破关键支撑位时追空卖出。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest breakoutBelow(String coin, String sz, String triggerPx) {
+            return breakoutBelow(coin, sz, triggerPx, null);
+        }
+
+        /**
+         * 创建突破开仓订单（价格向下跌破时触发，市价执行）。
+         * <p>
+         * 使用场景：做空突破策略，当价格跌破关键支撑位时追空卖出。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @param cloid     客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest breakoutBelow(String coin, String sz, String triggerPx, Cloid cloid) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(false);
+            req.setSz(sz);
+            req.setLimitPx(null);
+            req.setReduceOnly(false);
+            req.setCloid(cloid);
+            TriggerOrderType triggerOrderType = new TriggerOrderType(triggerPx, true, TpslType.SL);
+            OrderType orderType = new OrderType(triggerOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
+
+        // ========================================
+        // 现货 - 便捷方法
+        // ========================================
+
+        /**
+         * 创建现货市价买入订单（无 cloid）。
+         *
+         * @param coin 币种名称
+         * @param sz   数量（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotMarketBuy(String coin, String sz) {
+            return spotMarketBuy(coin, sz, null);
+        }
+
+        /**
+         * 创建现货市价买入订单。
+         *
+         * @param coin  币种名称
+         * @param sz    数量（字符串）
+         * @param cloid 客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotMarketBuy(String coin, String sz, Cloid cloid) {
+            OrderRequest req = createMarket(InstrumentType.SPOT, coin, true, sz);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        /**
+         * 创建现货市价卖出订单（无 cloid）。
+         *
+         * @param coin 币种名称
+         * @param sz   数量（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotMarketSell(String coin, String sz) {
+            return spotMarketSell(coin, sz, null);
+        }
+
+        /**
+         * 创建现货市价卖出订单。
+         *
+         * @param coin  币种名称
+         * @param sz    数量（字符串）
+         * @param cloid 客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotMarketSell(String coin, String sz, Cloid cloid) {
+            OrderRequest req = createMarket(InstrumentType.SPOT, coin, false, sz);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        /**
+         * 创建现货限价买入订单（无 cloid）。
+         *
+         * @param coin    币种名称
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotLimitBuy(String coin, String sz, String limitPx) {
+            return spotLimitBuy(coin, sz, limitPx, null);
+        }
+
+        /**
+         * 创建现货限价买入订单。
+         *
+         * @param coin    币种名称
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @param cloid   客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotLimitBuy(String coin, String sz, String limitPx, Cloid cloid) {
+            OrderRequest req = createLimit(InstrumentType.SPOT, Tif.GTC, coin, true, sz, limitPx);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        /**
+         * 创建现货限价卖出订单（无 cloid）。
+         *
+         * @param coin    币种名称
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotLimitSell(String coin, String sz, String limitPx) {
+            return spotLimitSell(coin, sz, limitPx, null);
+        }
+
+        /**
+         * 创建现货限价卖出订单。
+         *
+         * @param coin    币种名称
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @param cloid   客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest spotLimitSell(String coin, String sz, String limitPx, Cloid cloid) {
+            OrderRequest req = createLimit(InstrumentType.SPOT, Tif.GTC, coin, false, sz, limitPx);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        // ========================================
+        // 内部工具方法（私有）
+        // ========================================
+
+        /**
+         * 创建市价开仓订单（内部方法）。
+         *
+         * @param instrumentType 交易品种类型
+         * @param coin           币种名称
+         * @param isBuy          是否买入
+         * @param sz             数量（字符串）
+         * @return OrderRequest 实例
+         */
+        private static OrderRequest createMarket(InstrumentType instrumentType, String coin, boolean isBuy, String sz) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(instrumentType);
             req.setCoin(coin);
             req.setIsBuy(isBuy);
             req.setSz(sz);
@@ -306,18 +596,19 @@ public class OrderRequest {
         }
 
         /**
-         * 创建限价开仓订单。
+         * 创建限价开仓订单（内部方法）。
          *
-         * @param tif     时间生效方式
-         * @param coin    币种名称
-         * @param isBuy   是否买入
-         * @param sz      数量（字符串）
-         * @param limitPx 限价（字符串）
+         * @param instrumentType 交易品种类型
+         * @param tif            时间生效方式
+         * @param coin           币种名称
+         * @param isBuy          是否买入
+         * @param sz             数量（字符串）
+         * @param limitPx        限价（字符串）
          * @return OrderRequest 实例
          */
-        public static OrderRequest limit(Tif tif, String coin, boolean isBuy, String sz, String limitPx) {
+        private static OrderRequest createLimit(InstrumentType instrumentType, Tif tif, String coin, boolean isBuy, String sz, String limitPx) {
             OrderRequest req = new OrderRequest();
-            req.setInstrumentType(InstrumentType.PERP);
+            req.setInstrumentType(instrumentType);
             req.setCoin(coin);
             req.setIsBuy(isBuy);
             req.setSz(sz);
@@ -329,45 +620,33 @@ public class OrderRequest {
             req.setOrderType(orderType);
             return req;
         }
-
-        /**
-         * 创建触发订单。
-         *
-         * @param coin      币种名称
-         * @param isBuy     是否买入
-         * @param sz        数量（字符串）
-         * @param triggerPx 触发价格（字符串）
-         * @param limitPx   限价（字符串，若为市价触发则为null）
-         * @param isMarket  是否市价触发
-         * @param tpsl      TP/SL类型
-         * @return OrderRequest 实例
-         */
-        public static OrderRequest trigger(String coin, boolean isBuy, String sz, String triggerPx, String limitPx, boolean isMarket, TpslType tpsl) {
-            OrderRequest req = new OrderRequest();
-            req.setInstrumentType(InstrumentType.PERP);
-            req.setCoin(coin);
-            req.setIsBuy(isBuy);
-            req.setSz(sz);
-            req.setLimitPx(limitPx);
-            req.setReduceOnly(false);
-            // 设置订单类型
-            TriggerOrderType triggerOrderType = new TriggerOrderType(triggerPx, isMarket, tpsl);
-            OrderType orderType = new OrderType(triggerOrderType);
-            req.setOrderType(orderType);
-            return req;
-        }
     }
 
     /**
      * 静态内部类，用于快速创建平仓订单请求。
      */
     public static class Close {
+        // ========================================
+        // 市价平仓
+        // ========================================
+
+        /**
+         * 创建市价平仓订单（自动推断方向，无 cloid）。
+         *
+         * @param coin 币种名称
+         * @param sz   数量（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest market(String coin, String sz) {
+            return market(coin, sz, null);
+        }
+
         /**
          * 创建市价平仓订单（自动推断方向）。
          *
          * @param coin  币种名称
          * @param sz    数量（字符串）
-         * @param cloid 客户端订单 ID
+         * @param cloid 客户端订单 ID（可为 null）
          * @return OrderRequest 实例
          */
         public static OrderRequest market(String coin, String sz, Cloid cloid) {
@@ -385,12 +664,24 @@ public class OrderRequest {
         }
 
         /**
+         * 创建市价平仓订单（指定方向，无 cloid）。
+         *
+         * @param coin  币种名称
+         * @param isBuy 是否买入
+         * @param sz    数量（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest market(String coin, boolean isBuy, String sz) {
+            return market(coin, isBuy, sz, null);
+        }
+
+        /**
          * 创建市价平仓订单（指定方向）。
          *
          * @param coin  币种名称
          * @param isBuy 是否买入
          * @param sz    数量（字符串）
-         * @param cloid 客户端订单 ID
+         * @param cloid 客户端订单 ID（可为 null）
          * @return OrderRequest 实例
          */
         public static OrderRequest market(String coin, boolean isBuy, String sz, Cloid cloid) {
@@ -400,13 +691,53 @@ public class OrderRequest {
         }
 
         /**
-         * 创建市价全平订单。
+         * 创建市价全平订单（无 cloid）。
          *
          * @param coin 币种名称
          * @return OrderRequest 实例
          */
-        public static OrderRequest positionAtMarketAll(String coin) {
-            return market(coin, null, null);
+        public static OrderRequest marketAll(String coin) {
+            return marketAll(coin, null);
+        }
+
+        /**
+         * 创建市价全平订单。
+         *
+         * @param coin  币种名称
+         * @param cloid 客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest marketAll(String coin, Cloid cloid) {
+            return market(coin, null, cloid);
+        }
+
+        // ========================================
+        // 限价平仓
+        // ========================================
+
+        /**
+         * 创建限价平仓订单（默认 GTC，无 cloid）。
+         *
+         * @param coin    币种名称
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(String coin, String sz, String limitPx) {
+            return limit(Tif.GTC, coin, sz, limitPx, null);
+        }
+
+        /**
+         * 创建限价平仓订单（默认 GTC）。
+         *
+         * @param coin    币种名称
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
+         * @param cloid   客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest limit(String coin, String sz, String limitPx, Cloid cloid) {
+            return limit(Tif.GTC, coin, sz, limitPx, cloid);
         }
 
         /**
@@ -416,7 +747,7 @@ public class OrderRequest {
          * @param coin    币种名称
          * @param sz      数量（字符串）
          * @param limitPx 限价（字符串）
-         * @param cloid   客户端订单 ID
+         * @param cloid   客户端订单 ID（可为 null）
          * @return OrderRequest 实例
          */
         public static OrderRequest limit(Tif tif, String coin, String sz, String limitPx, Cloid cloid) {
@@ -431,6 +762,90 @@ public class OrderRequest {
             // 设置订单类型
             LimitOrderType limitOrderType = new LimitOrderType(tif);
             OrderType orderType = new OrderType(limitOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
+
+        // ========================================
+        // 止盈止损平仓（便捷方法）
+        // ========================================
+
+        /**
+         * 创建止盈平仓订单（价格向上突破时触发，市价执行，无 cloid）。
+         * <p>
+         * 使用场景：多仓止盈，当价格达到目标位时自动平仓锁定利润。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 止盈触发价格（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest takeProfit(String coin, String sz, String triggerPx) {
+            return takeProfit(coin, sz, triggerPx, null);
+        }
+
+        /**
+         * 创建止盈平仓订单（价格向上突破时触发，市价执行）。
+         * <p>
+         * 使用场景：多仓止盈，当价格达到目标位时自动平仓锁定利润。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 止盈触发价格（字符串）
+         * @param cloid     客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest takeProfit(String coin, String sz, String triggerPx, Cloid cloid) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(null); // 将在 prepareRequest 中推断
+            req.setSz(sz);
+            req.setLimitPx(null);
+            req.setReduceOnly(true);
+            req.setCloid(cloid);
+            TriggerOrderType triggerOrderType = new TriggerOrderType(triggerPx, true, TpslType.TP);
+            OrderType orderType = new OrderType(triggerOrderType);
+            req.setOrderType(orderType);
+            return req;
+        }
+
+        /**
+         * 创建止损平仓订单（价格向下跌破时触发，市价执行，无 cloid）。
+         * <p>
+         * 使用场景：多仓止损，当价格跌破止损位时自动平仓限制亏损。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 止损触发价格（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest stopLoss(String coin, String sz, String triggerPx) {
+            return stopLoss(coin, sz, triggerPx, null);
+        }
+
+        /**
+         * 创建止损平仓订单（价格向下跌破时触发，市价执行）。
+         * <p>
+         * 使用场景：多仓止损，当价格跌破止损位时自动平仓限制亏损。
+         *
+         * @param coin      币种名称
+         * @param sz        数量（字符串）
+         * @param triggerPx 止损触发价格（字符串）
+         * @param cloid     客户端订单 ID（可为 null）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest stopLoss(String coin, String sz, String triggerPx, Cloid cloid) {
+            OrderRequest req = new OrderRequest();
+            req.setInstrumentType(InstrumentType.PERP);
+            req.setCoin(coin);
+            req.setIsBuy(null); // 将在 prepareRequest 中推断
+            req.setSz(sz);
+            req.setLimitPx(null);
+            req.setReduceOnly(true);
+            req.setCloid(cloid);
+            TriggerOrderType triggerOrderType = new TriggerOrderType(triggerPx, true, TpslType.SL);
+            OrderType orderType = new OrderType(triggerOrderType);
             req.setOrderType(orderType);
             return req;
         }

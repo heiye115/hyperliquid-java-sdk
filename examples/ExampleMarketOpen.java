@@ -27,7 +27,7 @@ public class ExampleMarketOpen {
         Exchange ex = client.getSingleExchange();
         
         // Open long position at market: Buy 0.01 ETH
-        OrderRequest req = OrderRequest.Open.market("ETH", true, 0.01);
+        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.01");
         try {
             Order order = ex.order(req);
             System.out.println("Order status: " + order.getStatus());

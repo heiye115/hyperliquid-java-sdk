@@ -143,7 +143,11 @@ public final class Signing {
         if (orderType.getTrigger() != null) {
             Map<String, Object> trigObj = new LinkedHashMap<>();
             trigObj.put("isMarket", orderType.getTrigger().isMarket());
-            trigObj.put("triggerPx", orderType.getTrigger().getTriggerPx()); // 直接使用字符串
+            // 重要：triggerPx 也必须通过 floatToWire 转换
+            String triggerPx = orderType.getTrigger().getTriggerPx();
+            if (triggerPx != null && !triggerPx.isEmpty()) {
+                trigObj.put("triggerPx", floatToWire(Double.parseDouble(triggerPx)));
+            }
             trigObj.put("tpsl", orderType.getTrigger().getTpsl());
             out.put("trigger", trigObj);
         }
@@ -154,16 +158,18 @@ public final class Signing {
     /**
      * 将下单请求转换为 wire 结构（OrderWire）。
      * <p>
-     * 注意：现在 sz 和 limitPx 已经是字符串类型，直接传递即可。
+     * 注意：sz 和 limitPx 是字符串类型，但签名时必须转换为 floatToWire 规范格式。
      *
      * @param coinId 整数资产 ID
      * @param req    下单请求
      * @return OrderWire
      */
     public static OrderWire orderRequestToOrderWire(int coinId, OrderRequest req) {
-        // 直接使用字符串，不再进行 floatToWire 转换
-        String szStr = req.getSz();
-        String pxStr = req.getLimitPx();
+        // 重要：字符串必须通过 floatToWire 转换，确保签名格式与协议一致
+        // floatToWire 会去除尾随零、避免科学计数法，符合 Hyperliquid 协议要求
+        String szStr = req.getSz() != null ? floatToWire(Double.parseDouble(req.getSz())) : null;
+        String pxStr = req.getLimitPx() != null && !req.getLimitPx().isEmpty() 
+                ? floatToWire(Double.parseDouble(req.getLimitPx())) : null;
         Object orderTypeWire = orderTypeToWire(req.getOrderType());
         return new OrderWire(coinId, req.getIsBuy(), szStr, pxStr, orderTypeWire, req.getReduceOnly(), req.getCloid());
     }

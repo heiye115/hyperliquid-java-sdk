@@ -33,9 +33,9 @@ public class ExampleBulkOrders {
 
         // Example 1: Bulk limit orders to open positions for multiple coins
         List<OrderRequest> openOrders = Arrays.asList(
-                OrderRequest.Open.limit(Tif.GTC, "BTC", true, 0.001, 95000.0),
-                OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.01, 3500.0),
-                OrderRequest.Open.limit(Tif.GTC, "SOL", true, 1.0, 200.0)
+                OrderRequest.Open.limit(Tif.GTC, "BTC", true, "0.001", "95000.0"),
+                OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.01", "3500.0"),
+                OrderRequest.Open.limit(Tif.GTC, "SOL", true, "1.0", "200.0")
         );
 
         try {
@@ -47,9 +47,9 @@ public class ExampleBulkOrders {
 
         // Example 2: Bulk market orders to close positions
         List<OrderRequest> closeOrders = Arrays.asList(
-                OrderRequest.Close.market("BTC", 0.001, null),
-                OrderRequest.Close.market("ETH", 0.01, null),
-                OrderRequest.Close.market("SOL", 1.0, null)
+                OrderRequest.Close.market("BTC", "0.001"),
+                OrderRequest.Close.market("ETH", "0.01"),
+                OrderRequest.Close.market("SOL", "1.0")
         );
 
         try {
