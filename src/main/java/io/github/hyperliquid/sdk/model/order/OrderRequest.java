@@ -35,22 +35,23 @@ public class OrderRequest {
     private Boolean isBuy;
 
     /**
-     * 下单数量（浮点）。
+     * 下单数量（字符串）。
      * <p>
-     * 最终会根据资产的 szDecimals 规范化精度。
+     * 使用字符串表示以避免浮点数精度问题。
+     * 示例："0.1", "0.123456789"
      * </p>
      */
-    private Double sz;
+    private String sz;
 
     /**
-     * 限价价格。
+     * 限价价格（字符串）。
      * <p>
      * - 可为空（市价单或触发单的市价执行）
-     * - PERP 价格会按"5 位有效数字 + (6 - szDecimals) 小数位"规范化
-     * - SPOT 价格会按"5 位有效数字 + (8 - szDecimals) 小数位"规范化
+     * - 使用字符串表示以避免浮点数精度问题
+     * - 示例："3500.0", "3500.123456"
      * </p>
      */
-    private Double limitPx;
+    private String limitPx;
 
     /**
      * 订单类型：限价（TIF）或触发（triggerPx/isMarket/tpsl）。
@@ -77,13 +78,13 @@ public class OrderRequest {
     private Cloid cloid;
 
     /**
-     * 市价下单滑点比例（例如 0.05 表示 5%）。
+     * 市价下单滑点比例（字符串，例如 "0.05" 表示 5%）。
      * <p>
      * 仅用于业务层模拟"市价=带滑点的 IOC 限价"时计算占位价格。
-     * 默认值为 0.05（5%）。
+     * 默认值为 "0.05"（5%）。
      * </p>
      */
-    private Double slippage = 0.05;
+    private String slippage = "0.05";
 
     /**
      * 订单过期时间（毫秒）。
@@ -103,13 +104,13 @@ public class OrderRequest {
      *
      * @param coin       币种名称（如 "ETH"）
      * @param isBuy      是否买入
-     * @param sz         数量
-     * @param limitPx    限价价格（可为 null）
+     * @param sz         数量（字符串）
+     * @param limitPx    限价价格（字符串，可为 null）
      * @param orderType  订单类型（可为 null）
      * @param reduceOnly 是否只减仓
      * @param cloid      客户端订单 ID（可为 null）
      */
-    public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, Double sz, Double limitPx,
+    public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, String sz, String limitPx,
                         OrderType orderType, Boolean reduceOnly, Cloid cloid) {
         this.instrumentType = instrumentType;
         this.coin = coin;
@@ -121,8 +122,8 @@ public class OrderRequest {
         this.cloid = cloid;
     }
 
-    public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, Double sz, Double limitPx,
-                        OrderType orderType, Boolean reduceOnly, Cloid cloid, Double slippage) {
+    public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, String sz, String limitPx,
+                        OrderType orderType, Boolean reduceOnly, Cloid cloid, String slippage) {
         this.instrumentType = instrumentType;
         this.coin = coin;
         this.isBuy = isBuy;
@@ -222,19 +223,19 @@ public class OrderRequest {
         this.isBuy = isBuy;
     }
 
-    public Double getSz() {
+    public String getSz() {
         return sz;
     }
 
-    public void setSz(Double sz) {
+    public void setSz(String sz) {
         this.sz = sz;
     }
 
-    public Double getLimitPx() {
+    public String getLimitPx() {
         return limitPx;
     }
 
-    public void setLimitPx(Double limitPx) {
+    public void setLimitPx(String limitPx) {
         this.limitPx = limitPx;
     }
 
@@ -262,11 +263,11 @@ public class OrderRequest {
         this.cloid = cloid;
     }
 
-    public Double getSlippage() {
+    public String getSlippage() {
         return slippage;
     }
 
-    public void setSlippage(Double slippage) {
+    public void setSlippage(String slippage) {
         this.slippage = slippage;
     }
 
@@ -287,10 +288,10 @@ public class OrderRequest {
          *
          * @param coin  币种名称
          * @param isBuy 是否买入
-         * @param sz    数量
+         * @param sz    数量（字符串）
          * @return OrderRequest 实例
          */
-        public static OrderRequest market(String coin, boolean isBuy, double sz) {
+        public static OrderRequest market(String coin, boolean isBuy, String sz) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);
@@ -310,11 +311,11 @@ public class OrderRequest {
          * @param tif     时间生效方式
          * @param coin    币种名称
          * @param isBuy   是否买入
-         * @param sz      数量
-         * @param limitPx 限价
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
          * @return OrderRequest 实例
          */
-        public static OrderRequest limit(Tif tif, String coin, boolean isBuy, double sz, double limitPx) {
+        public static OrderRequest limit(Tif tif, String coin, boolean isBuy, String sz, String limitPx) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);
@@ -334,14 +335,14 @@ public class OrderRequest {
          *
          * @param coin      币种名称
          * @param isBuy     是否买入
-         * @param sz        数量
-         * @param triggerPx 触发价格
-         * @param limitPx   限价（若为市价触发则为null）
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @param limitPx   限价（字符串，若为市价触发则为null）
          * @param isMarket  是否市价触发
          * @param tpsl      TP/SL类型
          * @return OrderRequest 实例
          */
-        public static OrderRequest trigger(String coin, boolean isBuy, double sz, double triggerPx, Double limitPx, boolean isMarket, TpslType tpsl) {
+        public static OrderRequest trigger(String coin, boolean isBuy, String sz, String triggerPx, String limitPx, boolean isMarket, TpslType tpsl) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);
@@ -365,11 +366,11 @@ public class OrderRequest {
          * 创建市价平仓订单（自动推断方向）。
          *
          * @param coin  币种名称
-         * @param sz    数量
+         * @param sz    数量（字符串）
          * @param cloid 客户端订单 ID
          * @return OrderRequest 实例
          */
-        public static OrderRequest market(String coin, Double sz, Cloid cloid) {
+        public static OrderRequest market(String coin, String sz, Cloid cloid) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);
@@ -388,11 +389,11 @@ public class OrderRequest {
          *
          * @param coin  币种名称
          * @param isBuy 是否买入
-         * @param sz    数量
+         * @param sz    数量（字符串）
          * @param cloid 客户端订单 ID
          * @return OrderRequest 实例
          */
-        public static OrderRequest market(String coin, boolean isBuy, double sz, Cloid cloid) {
+        public static OrderRequest market(String coin, boolean isBuy, String sz, Cloid cloid) {
             OrderRequest req = market(coin, sz, cloid);
             req.setIsBuy(isBuy);
             return req;
@@ -413,12 +414,12 @@ public class OrderRequest {
          *
          * @param tif     时间生效方式
          * @param coin    币种名称
-         * @param sz      数量
-         * @param limitPx 限价
+         * @param sz      数量（字符串）
+         * @param limitPx 限价（字符串）
          * @param cloid   客户端订单 ID
          * @return OrderRequest 实例
          */
-        public static OrderRequest limit(Tif tif, String coin, double sz, double limitPx, Cloid cloid) {
+        public static OrderRequest limit(Tif tif, String coin, String sz, String limitPx, Cloid cloid) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);

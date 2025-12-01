@@ -21,9 +21,9 @@ package io.github.hyperliquid.sdk.model.order;
  */
 public class TriggerOrderType {
     /**
-     * 触发价格（浮点，最终会规范化为字符串）
+     * 触发价格（字符串）
      */
-    private final Double triggerPx;
+    private final String triggerPx;
     /**
      * 触发后是否以市价执行（true=市价触发；false=限价触发）
      */
@@ -66,12 +66,12 @@ public class TriggerOrderType {
      * <p>
      * <b>示例1：无仓位时做多突破（价格向上突破 2950 时买入）</b>
      * <pre>
-     * TriggerOrderType trigger = new TriggerOrderType(2950.0, false, TpslType.TP);
+     * TriggerOrderType trigger = new TriggerOrderType("2950.0", false, TpslType.TP);
      * OrderRequest req = OrderRequest.builder()
      *     .coin("ETH")
      *     .isBuy(true)
-     *     .sz(0.1)
-     *     .limitPx(3000.0)
+     *     .sz("0.1")
+     *     .limitPx("3000.0")
      *     .orderType(OrderType.trigger(trigger))
      *     .reduceOnly(false)  // 开仓单
      *     .build();
@@ -79,18 +79,18 @@ public class TriggerOrderType {
      *
      * <b>示例2：有多仓时止盈（价格向上突破 3600 时平仓）</b>
      * <pre>
-     * TriggerOrderType tpTrigger = new TriggerOrderType(3600.0, true, TpslType.TP);
+     * TriggerOrderType tpTrigger = new TriggerOrderType("3600.0", true, TpslType.TP);
      * OrderRequest tpReq = OrderRequest.builder()
      *     .coin("ETH")
      *     .isBuy(false)
-     *     .sz(0.5)
-     *     .limitPx(3600.0)
+     *     .sz("0.5")
+     *     .limitPx("3600.0")
      *     .orderType(OrderType.trigger(tpTrigger))
      *     .reduceOnly(true)  // 平仓单
      *     .build();
      * </pre>
      *
-     * @param triggerPx 触发价格
+     * @param triggerPx 触发价格（字符串）
      * @param isMarket  是否市价执行（true=触发后市价成交；false=触发后按limitPx挂限价单）
      * @param tpsl      触发方向类型（必填）
      *                  <ul>
@@ -98,7 +98,7 @@ public class TriggerOrderType {
      *                  <li>SL：价格向下跌破 triggerPx 时触发</li>
      *                  </ul>
      */
-    public TriggerOrderType(double triggerPx, boolean isMarket, TpslType tpsl) {
+    public TriggerOrderType(String triggerPx, boolean isMarket, TpslType tpsl) {
         if (tpsl == null) {
             throw new IllegalArgumentException("tpsl cannot be null（必须指定触发方向：TP=向上突破，SL=向下跌破）");
         }
@@ -111,7 +111,7 @@ public class TriggerOrderType {
     /**
      * 获取触发价格
      */
-    public double getTriggerPx() {
+    public String getTriggerPx() {
         return triggerPx;
     }
 

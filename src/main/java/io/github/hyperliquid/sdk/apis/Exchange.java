@@ -59,14 +59,14 @@ public class Exchange {
     }
 
     /**
-     * 默认滑点，用于计算滑点价格
+     * 默认滑点，用于计算滑点价格（字符串）
      */
-    private final Map<String, Double> defaultSlippageByCoin = new ConcurrentHashMap<>();
+    private final Map<String, String> defaultSlippageByCoin = new ConcurrentHashMap<>();
 
     /**
-     * 默认滑点，用于计算滑点价格
+     * 默认滑点，用于计算滑点价格（字符串，例如 "0.05" 表示 5%）
      */
-    private Double defaultSlippage = 0.05;
+    private String defaultSlippage = "0.05";
 
     /**
      * 构造 Exchange 客户端。
@@ -157,13 +157,17 @@ public class Exchange {
      * 根据资产精度格式化订单数量
      */
     private void formatOrderSize(OrderRequest req) {
-        if (req == null || req.getSz() == null) return;
+        if (req == null || req.getSz() == null || req.getSz().isEmpty()) return;
         // 优化：直接从缓存获取 szDecimals，避免每次都获取完整 Universe 对象
         Integer szDecimals = info.getSzDecimals(req.getCoin());
         if (szDecimals == null) return;
-        // 使用 BigDecimal 按精度四舍五入，向下取整更安全
-        BigDecimal bd = BigDecimal.valueOf(req.getSz()).setScale(szDecimals, RoundingMode.DOWN);
-        req.setSz(bd.doubleValue());
+        try {
+            // 使用 BigDecimal 按精度四舍五入，向下取整更安全
+            BigDecimal bd = new BigDecimal(req.getSz()).setScale(szDecimals, RoundingMode.DOWN);
+            req.setSz(bd.toPlainString());
+        } catch (NumberFormatException e) {
+            throw new HypeError("Invalid order size format: " + req.getSz() + ". Must be a valid number.");
+        }
     }
 
     /**
@@ -188,20 +192,30 @@ public class Exchange {
         }
 
         // 1. 格式化限价（limitPx）
-        if (req.getLimitPx() != null) {
-            BigDecimal bd = BigDecimal.valueOf(req.getLimitPx()).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
-            req.setLimitPx(bd.doubleValue());
+        if (req.getLimitPx() != null && !req.getLimitPx().isEmpty()) {
+            try {
+                BigDecimal bd = new BigDecimal(req.getLimitPx()).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+                req.setLimitPx(bd.stripTrailingZeros().toPlainString());
+            } catch (NumberFormatException e) {
+                throw new HypeError("Invalid limit price format: " + req.getLimitPx() + ". Must be a valid number.");
+            }
         }
 
         // 2. 格式化触发价（triggerPx）
         if (req.getOrderType() != null && req.getOrderType().getTrigger() != null) {
-            double triggerPx = req.getOrderType().getTrigger().getTriggerPx();
-            BigDecimal bd = BigDecimal.valueOf(triggerPx).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
-            double newPx = bd.doubleValue();
-            TriggerOrderType oldTrig = req.getOrderType().getTrigger();
-            TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
-            LimitOrderType oldLimit = req.getOrderType().getLimit();
-            req.setOrderType(new OrderType(oldLimit, newTrig));
+            String triggerPx = req.getOrderType().getTrigger().getTriggerPx();
+            if (triggerPx != null && !triggerPx.isEmpty()) {
+                try {
+                    BigDecimal bd = new BigDecimal(triggerPx).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+                    String newPx = bd.stripTrailingZeros().toPlainString();
+                    TriggerOrderType oldTrig = req.getOrderType().getTrigger();
+                    TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
+                    LimitOrderType oldLimit = req.getOrderType().getLimit();
+                    req.setOrderType(new OrderType(oldLimit, newTrig));
+                } catch (NumberFormatException e) {
+                    throw new HypeError("Invalid trigger price format: " + triggerPx + ". Must be a valid number.");
+                }
+            }
         }
     }
 
@@ -231,7 +245,7 @@ public class Exchange {
                 throw new HypeError("No position to close for coin " + req.getCoin());
             }
             boolean isBuy = szi < 0.0;
-            double sz = (req.getSz() != null && req.getSz() > 0.0) ? req.getSz() : Math.abs(szi);
+            String sz = (req.getSz() != null && !req.getSz().isEmpty()) ? req.getSz() : String.valueOf(Math.abs(szi));
             return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
         }
         return req;
@@ -296,20 +310,24 @@ public class Exchange {
         // 获取第一个订单的币种（positionTpsl 所有订单应该是同一个币种）
         OrderRequest firstOrder = orders.getFirst();
         String coin = firstOrder.getCoin();
+    
         // 检查是否需要自动推断（isBuy 或 sz 为 null）
         boolean needsInference = firstOrder.getIsBuy() == null || firstOrder.getSz() == null;
-        if (!needsInference) return;
-
+    
+        if (!needsInference) {
+            return;
+        }
+    
         // 自动查询仓位并推断
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position found for " + coin + ". Cannot auto-infer direction and size for positionTpsl.");
         }
-
+    
         // 推断方向和数量
         boolean isBuy = szi > 0; // 多仓需要卖出平仓，所以 isBuy=true 表示多仓
-        double sz = Math.abs(szi);
-
+        String sz = String.valueOf(Math.abs(szi));
+    
         // 填充所有订单的方向和数量
         for (OrderRequest order : orders) {
             if (order.getIsBuy() == null) {
@@ -330,19 +348,23 @@ public class Exchange {
     /**
      * 更新隔离保证金
      *
-     * @param amount   金额（USD，浮点，内部按微单位转换）
+     * @param amount   金额（USD，字符串，内部按微单位转换）
      * @param coinName 币种名
      * @return JSON 响应
      */
-    public JsonNode updateIsolatedMargin(double amount, String coinName) {
+    public JsonNode updateIsolatedMargin(String amount, String coinName) {
         int assetId = ensureAssetId(coinName);
-        long ntli = Signing.floatToUsdInt(amount);
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "updateIsolatedMargin");
-        action.put("asset", assetId);
-        action.put("isBuy", true);
-        action.put("ntli", ntli);
-        return postAction(action);
+        try {
+            long ntli = Signing.floatToUsdInt(Double.parseDouble(amount));
+            Map<String, Object> action = new LinkedHashMap<>();
+            action.put("type", "updateIsolatedMargin");
+            action.put("asset", assetId);
+            action.put("isBuy", true);
+            action.put("ntli", ntli);
+            return postAction(action);
+        } catch (NumberFormatException e) {
+            throw new HypeError("Invalid amount format: " + amount + ". Must be a valid number.");
+        }
     }
 
 
@@ -723,16 +745,16 @@ public class Exchange {
     /**
      * USD 余额转账（用户签名）。
      *
-     * @param amount      金额（USD，内部转换为微单位字符串）
+     * @param amount      金额（字符串）
      * @param destination 目标地址（0x 前缀）
      * @return JSON 响应
      */
-    public JsonNode usdTransfer(double amount, String destination) {
+    public JsonNode usdTransfer(String amount, String destination) {
         long time = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "usdSend");
         action.put("destination", destination);
-        action.put("amount", String.valueOf(amount));
+        action.put("amount", amount);  // 直接使用字符串
         action.put("time", time);
 
         List<Map<String, Object>> payloadTypes = List.of(
@@ -753,18 +775,18 @@ public class Exchange {
     /**
      * 现货 Token 转账（用户签名）。
      *
-     * @param amount      转账数量
+     * @param amount      转账数量（字符串）
      * @param destination 目标地址（0x 前缀）
      * @param token       Token 名称（如 "HL"）
      * @return JSON 响应
      */
-    public JsonNode spotTransfer(double amount, String destination, String token) {
+    public JsonNode spotTransfer(String amount, String destination, String token) {
         long time = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "spotSend");
         action.put("destination", destination);
         action.put("token", token);
-        action.put("amount", String.valueOf(amount));
+        action.put("amount", amount);  // 直接使用字符串
         action.put("time", time);
 
         List<Map<String, Object>> payloadTypes = List.of(
@@ -790,12 +812,12 @@ public class Exchange {
      * @param destination 目标地址（0x 前缀）
      * @return JSON 响应
      */
-    public JsonNode withdrawFromBridge(double amount, String destination) {
+    public JsonNode withdrawFromBridge(String amount, String destination) {
         long time = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "withdraw3");
         action.put("destination", destination);
-        action.put("amount", String.valueOf(amount));
+        action.put("amount", amount);  // 直接使用字符串
         action.put("time", time);
 
         List<Map<String, Object>> payloadTypes = List.of(
@@ -817,14 +839,14 @@ public class Exchange {
      * USD 类目转移（Spot ⇄ Perp）。
      *
      * @param toPerp true 表示从 Spot 转至 Perp；false 表示从 Perp 转至 Spot
-     * @param amount 金额（USD，内部按微单位转换）
+     * @param amount 金额（字符串）
      * @return JSON 响应
      */
-    public JsonNode usdClassTransfer(boolean toPerp, double amount) {
+    public JsonNode usdClassTransfer(boolean toPerp, String amount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "usdClassTransfer");
-        String strAmount = String.valueOf(amount);
+        String strAmount = amount;  // 已经是字符串
         if (this.vaultAddress != null && !this.vaultAddress.isEmpty()) {
             strAmount = strAmount + " subaccount:" + this.vaultAddress;
         }
@@ -1495,43 +1517,37 @@ public class Exchange {
                 req.getOrderType() != null &&
                 req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            double slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
-            double slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
+            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
     }
 
     /**
-     * 计算带滑点的价格，并进行与 Python SDK 一致的精度处理。
-     * 规则：
-     * - 若未指定 px，则从 allMids 获取中间价；
-     * - 根据 isBuy 调整为进取价：buy 使用 (1+slippage)，sell 使用 (1-slippage)；
-     * - 使用 5 位有效数字进行初步四舍五入；
-     * - 对于永续（perp）价格，最终按 (6 - szDecimals) 小数位进行四舍五入（与 Python 一致）。
-     * 注意：当前实现默认针对永续（perp）资产。Spot 的 (8 - szDecimals) 规则可在后续扩展。
-     *
-     * @param coin     币种名称，例如 "ETH"
-     * @param isBuy    是否买入（用于确定滑点方向）
-     * @param slippage 滑点比例，例如 0.05 代表 5%
-     * @return 处理后的价格（double）
+     * 计算带滑点的价格（字符串版本）
      */
-    public double computeSlippagePrice(String coin, boolean isBuy, double slippage) {
+    public String computeSlippagePrice(String coin, boolean isBuy, String slippage) {
         Map<String, String> mids = info.allMids();
         String midStr = mids.get(coin);
         if (midStr == null) {
             throw new HypeError("Failed to get mid price for coin " + coin + " (allMids returned empty or does not contain the coin)");
         }
-        double basePx = Double.parseDouble(midStr);
-        return basePx * (isBuy ? (1.0 + slippage) : (1.0 - slippage));
+        try {
+            double basePx = Double.parseDouble(midStr);
+            double slippageVal = Double.parseDouble(slippage);
+            double resultPx = basePx * (isBuy ? (1.0 + slippageVal) : (1.0 - slippageVal));
+            return String.valueOf(resultPx);
+        } catch (NumberFormatException e) {
+            throw new HypeError("Invalid number format. midPrice: " + midStr + ", slippage: " + slippage);
+        }
     }
-
 
     /**
      * 设置全局默认滑点比例。
      *
-     * @param slippage 滑点比例（例如 0.05 表示 5%）
+     * @param slippage 滑点比例（字符串，例如 "0.05" 表示 5%）
      */
-    public void setDefaultSlippage(double slippage) {
+    public void setDefaultSlippage(String slippage) {
         this.defaultSlippage = slippage;
     }
 
@@ -1539,9 +1555,9 @@ public class Exchange {
      * 为指定币种设置默认滑点比例（覆盖全局）。
      *
      * @param coin     币种名称
-     * @param slippage 滑点比例
+     * @param slippage 滑点比例（字符串）
      */
-    public void setDefaultSlippage(String coin, double slippage) {
+    public void setDefaultSlippage(String coin, String slippage) {
         if (coin != null)
             this.defaultSlippageByCoin.put(coin, slippage);
     }
@@ -1589,7 +1605,7 @@ public class Exchange {
      * @return 订单响应
      * @throws HypeError 当无仓位可平时抛出
      */
-    public Order closePositionMarket(String coin, Double sz, Double slippage, Cloid cloid) {
+    public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid) {
         // 查询当前仓位
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
@@ -1600,13 +1616,13 @@ public class Exchange {
         boolean isBuy = szi < 0;
 
         // 确定平仓数量
-        double closeSz = (sz != null && sz > 0.0) ? sz : Math.abs(szi);
+        String closeSz = (sz != null && !sz.isEmpty()) ? sz : String.valueOf(Math.abs(szi));
 
         // 构建市价平仓请求
         OrderRequest req = OrderRequest.Close.market(coin, isBuy, closeSz, cloid);
 
         // 设置滑点（如果提供）
-        if (slippage != null) {
+        if (slippage != null && !slippage.isEmpty()) {
             req.setSlippage(slippage);
         }
 
@@ -1623,17 +1639,17 @@ public class Exchange {
      * @param builder  builder 信息（可为 null）
      * @return 订单响应
      */
-    public Order closePositionMarket(String coin, Double sz, Double slippage, Cloid cloid, Map<String, Object> builder) {
+    public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid, Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
         }
 
         boolean isBuy = szi < 0;
-        double closeSz = (sz != null && sz > 0.0) ? sz : Math.abs(szi);
+        String closeSz = (sz != null && !sz.isEmpty()) ? sz : String.valueOf(Math.abs(szi));
         OrderRequest req = OrderRequest.Close.market(coin, isBuy, closeSz, cloid);
 
-        if (slippage != null) {
+        if (slippage != null && !slippage.isEmpty()) {
             req.setSlippage(slippage);
         }
 
@@ -1641,18 +1657,18 @@ public class Exchange {
     }
 
     /**
-     * @deprecated 使用 {@link #closePositionMarket(String, Double, Double, Cloid)} 代替
+     * @deprecated 使用 {@link #closePositionMarket(String, String, String, Cloid)} 代替
      */
     @Deprecated
-    public Order marketClose(String coin, Double sz, Double slippage, Cloid cloid) {
+    public Order marketClose(String coin, String sz, String slippage, Cloid cloid) {
         return closePositionMarket(coin, sz, slippage, cloid);
     }
 
     /**
-     * @deprecated 使用 {@link #closePositionMarket(String, Double, Double, Cloid, Map)} 代替
+     * @deprecated 使用 {@link #closePositionMarket(String, String, String, Cloid, Map)} 代替
      */
     @Deprecated
-    public Order marketClose(String coin, Double sz, Double slippage, Cloid cloid, Map<String, Object> builder) {
+    public Order marketClose(String coin, String sz, String slippage, Cloid cloid, Map<String, Object> builder) {
         return closePositionMarket(coin, sz, slippage, cloid, builder);
     }
 
@@ -1666,26 +1682,24 @@ public class Exchange {
      * @return 服务端订单响应
      * @throws HypeError 当无仓位可平时抛出
      */
-    public Order closePositionLimit(Tif tif, String coin, double limitPx, Cloid cloid) {
+    public Order closePositionLimit(Tif tif, String coin, String limitPx, Cloid cloid) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
         }
-        boolean isBuy = szi < 0.0;
-        double absSz = Math.abs(szi);
-        OrderRequest req = OrderRequest.Close.limit(tif, coin, szi, limitPx, cloid);
-        req.setSz(absSz);
-        req.setIsBuy(isBuy);
+        OrderRequest req = OrderRequest.Close.limit(tif, coin, String.valueOf(Math.abs(szi)), limitPx, cloid);
         return order(req);
     }
 
     /**
-     * @deprecated 使用 {@link #closePositionLimit(Tif, String, double, Cloid)} 代替
+     * @deprecated 使用 {@link #closePositionLimit(Tif, String, String, Cloid)} 代替
      */
     @Deprecated
-    public Order closePositionLimitAll(Tif tif, String coin, double limitPx, Cloid cloid) {
+    public Order closePositionLimitAll(Tif tif, String coin, String limitPx, Cloid cloid) {
         return closePositionLimit(tif, coin, limitPx, cloid);
     }
+
+
 
     /**
      * 市价平掉所有币种的全部持仓（自动推断多空方向）。
@@ -1736,7 +1750,7 @@ public class Exchange {
             double closeSz = Math.abs(szi);
 
             // 构建市价平仓请求
-            OrderRequest req = OrderRequest.Close.market(pos.getCoin(), isBuy, closeSz, null);
+            OrderRequest req = OrderRequest.Close.market(pos.getCoin(), isBuy, String.valueOf(closeSz), null);
             closeOrders.add(req);
         }
 
@@ -1777,16 +1791,16 @@ public class Exchange {
      * @param subAccountUser 子账户用户地址（42 位十六进制格式）
      * @param isDeposit      true 表示从主账户转入子账户，false 表示从子账户转回主账户
      * @param token          代币名称（例如 "USDC"、"ETH" 等）
-     * @param amount         转账数量
+     * @param amount         转账数量（字符串格式）
      * @return JSON 响应
      */
-    public JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, double amount) {
+    public JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount) {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "subAccountSpotTransfer");
-        action.put("subAccountUser", subAccountUser);
+        action.put("subAccountUser", subAccountUser == null ? null : subAccountUser.toLowerCase());
         action.put("isDeposit", isDeposit);
         action.put("token", token);
-        action.put("amount", String.valueOf(amount));
+        action.put("amount", amount);  // 直接使用字符串
 
         return postAction(action);
     }

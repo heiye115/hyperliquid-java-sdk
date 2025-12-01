@@ -143,7 +143,7 @@ public final class Signing {
         if (orderType.getTrigger() != null) {
             Map<String, Object> trigObj = new LinkedHashMap<>();
             trigObj.put("isMarket", orderType.getTrigger().isMarket());
-            trigObj.put("triggerPx", floatToWire(orderType.getTrigger().getTriggerPx()));
+            trigObj.put("triggerPx", orderType.getTrigger().getTriggerPx()); // 直接使用字符串
             trigObj.put("tpsl", orderType.getTrigger().getTpsl());
             out.put("trigger", trigObj);
         }
@@ -152,16 +152,18 @@ public final class Signing {
     }
 
     /**
-     * 将下单请求转换为 wire 结构（OrderWire），其中 coin 需为整数资产 ID，
-     * sz/limitPx 转为字符串，orderType 转为 Map。
+     * 将下单请求转换为 wire 结构（OrderWire）。
+     * <p>
+     * 注意：现在 sz 和 limitPx 已经是字符串类型，直接传递即可。
      *
      * @param coinId 整数资产 ID
      * @param req    下单请求
      * @return OrderWire
      */
     public static OrderWire orderRequestToOrderWire(int coinId, OrderRequest req) {
-        String szStr = floatToWire(req.getSz());
-        String pxStr = req.getLimitPx() == null ? null : floatToWire(req.getLimitPx());
+        // 直接使用字符串，不再进行 floatToWire 转换
+        String szStr = req.getSz();
+        String pxStr = req.getLimitPx();
         Object orderTypeWire = orderTypeToWire(req.getOrderType());
         return new OrderWire(coinId, req.getIsBuy(), szStr, pxStr, orderTypeWire, req.getReduceOnly(), req.getCloid());
     }

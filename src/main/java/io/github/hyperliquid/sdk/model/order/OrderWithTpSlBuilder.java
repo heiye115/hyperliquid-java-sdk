@@ -74,24 +74,24 @@ public class OrderWithTpSlBuilder {
     private Boolean isBuy;
 
     /**
-     * 下单数量
+     * 下单数量（字符串）
      */
-    private Double sz;
+    private String sz;
 
     /**
-     * 开仓限价（buildAll 模式必填）
+     * 开仓限价（字符串，buildAll 模式必填）
      */
-    private Double entryPrice;
+    private String entryPrice;
 
     /**
-     * 止盈价格
+     * 止盈价格（字符串）
      */
-    private Double takeProfitPrice;
+    private String takeProfitPrice;
 
     /**
-     * 止损价格
+     * 止损价格（字符串）
      */
-    private Double stopLossPrice;
+    private String stopLossPrice;
 
     /**
      * 开仓单的 TIF 策略（默认 GTC）
@@ -161,10 +161,10 @@ public class OrderWithTpSlBuilder {
     /**
      * 买入开仓。
      *
-     * @param sz 数量
+     * @param sz 数量（字符串）
      * @return this
      */
-    public OrderWithTpSlBuilder buy(Double sz) {
+    public OrderWithTpSlBuilder buy(String sz) {
         this.isBuy = true;
         this.sz = sz;
         return this;
@@ -173,10 +173,10 @@ public class OrderWithTpSlBuilder {
     /**
      * 卖出开仓。
      *
-     * @param sz 数量
+     * @param sz 数量（字符串）
      * @return this
      */
-    public OrderWithTpSlBuilder sell(Double sz) {
+    public OrderWithTpSlBuilder sell(String sz) {
         this.isBuy = false;
         this.sz = sz;
         return this;
@@ -187,11 +187,11 @@ public class OrderWithTpSlBuilder {
      * <p>
      * 当你已经持有仓位，想为仓位添加止盈止损时使用。
      *
-     * @param sz             仓位数量
+     * @param sz             仓位数量（字符串）
      * @param isLongPosition 是否多仓（true=多仓，false=空仓）
      * @return this
      */
-    public OrderWithTpSlBuilder closePosition(Double sz, boolean isLongPosition) {
+    public OrderWithTpSlBuilder closePosition(String sz, boolean isLongPosition) {
         this.isBuy = isLongPosition; // 多仓需要卖出平仓，空仓需要买入平仓
         this.sz = sz;
         this.entryPrice = null; // 不需要开仓价
@@ -205,10 +205,10 @@ public class OrderWithTpSlBuilder {
     /**
      * 设置开仓限价。
      *
-     * @param entryPrice 开仓价格
+     * @param entryPrice 开仓价格（字符串）
      * @return this
      */
-    public OrderWithTpSlBuilder entryPrice(Double entryPrice) {
+    public OrderWithTpSlBuilder entryPrice(String entryPrice) {
         this.entryPrice = entryPrice;
         return this;
     }
@@ -216,10 +216,10 @@ public class OrderWithTpSlBuilder {
     /**
      * 设置止盈价格。
      *
-     * @param tpPrice 止盈价
+     * @param tpPrice 止盈价（字符串）
      * @return this
      */
-    public OrderWithTpSlBuilder takeProfit(Double tpPrice) {
+    public OrderWithTpSlBuilder takeProfit(String tpPrice) {
         this.takeProfitPrice = tpPrice;
         return this;
     }
@@ -227,10 +227,10 @@ public class OrderWithTpSlBuilder {
     /**
      * 设置止损价格。
      *
-     * @param slPrice 止损价
+     * @param slPrice 止损价（字符串）
      * @return this
      */
-    public OrderWithTpSlBuilder stopLoss(Double slPrice) {
+    public OrderWithTpSlBuilder stopLoss(String slPrice) {
         this.stopLossPrice = slPrice;
         return this;
     }
@@ -397,15 +397,15 @@ public class OrderWithTpSlBuilder {
             if (isBuy == null) {
                 throw new IllegalStateException("direction is required for normalTpsl (call buy() or sell())");
             }
-            if (sz == null || sz <= 0) {
-                throw new IllegalStateException("size must be positive");
+            if (sz == null || sz.isEmpty()) {
+                throw new IllegalStateException("size is required for normalTpsl (call buy() or sell())");
             }
         }
         // positionTpsl 模式：允许 isBuy 和 sz 为 null（由 Exchange 自动推断）
-        // 但如果设置了 sz，则必须 > 0
+        // 但如果设置了 sz，则不能为空字符串
         else {
-            if (sz != null && sz <= 0) {
-                throw new IllegalStateException("size must be positive if specified");
+            if (sz != null && sz.isEmpty()) {
+                throw new IllegalStateException("size cannot be empty if specified");
             }
         }
         

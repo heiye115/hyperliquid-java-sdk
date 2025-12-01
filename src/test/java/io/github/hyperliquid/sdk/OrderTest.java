@@ -28,7 +28,7 @@ public class OrderTest {
      **/
     @Test
     public void testMarketOrder() {
-        OrderRequest req = OrderRequest.Open.market("ETH", true, 0.01);
+        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.01");
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }
@@ -38,7 +38,7 @@ public class OrderTest {
      **/
     @Test
     public void testMarketCloseOrder() {
-        OrderRequest req = OrderRequest.Close.market("ETH", 0.01, Cloid.auto());
+        OrderRequest req = OrderRequest.Close.market("ETH", "0.01", Cloid.auto());
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }
@@ -57,7 +57,7 @@ public class OrderTest {
      **/
     @Test
     public void testLimitOrder() {
-        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, 0.01, 1800.0);
+        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.01", "1800.0");
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }
@@ -67,7 +67,7 @@ public class OrderTest {
      **/
     @Test
     public void testLimitCloseOrder() {
-        OrderRequest req = OrderRequest.Close.limit(Tif.GTC, "ETH", 0.01, 4000.0, Cloid.auto());
+        OrderRequest req = OrderRequest.Close.limit(Tif.GTC, "ETH", "0.01", "4000.0", Cloid.auto());
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }
@@ -77,7 +77,7 @@ public class OrderTest {
      **/
     @Test
     public void testLimitCloseAllOrder() {
-        Order order = client.getSingleExchange().closePositionLimitAll(Tif.GTC, "ETH", 4000.0, Cloid.auto());
+        Order order = client.getSingleExchange().closePositionLimitAll(Tif.GTC, "ETH", "4000.0", Cloid.auto());
         System.out.println(order);
     }
 
@@ -90,7 +90,7 @@ public class OrderTest {
 
     @Test
     public void testMarketOrderALL() {
-        OrderRequest req = OrderRequest.Open.market("ETH", true, 0.01);
+        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.01");
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
         Order closeOrder = client.getSingleExchange().closePositionAtMarketAll("ETH");
@@ -99,7 +99,7 @@ public class OrderTest {
 
     @Test
     public void testTriggerOrderALL() {
-        OrderRequest req = OrderRequest.Open.trigger("ETH", true, 0.01, 4000.0, 4000.0, true,
+        OrderRequest req = OrderRequest.Open.trigger("ETH", true, "0.01", "4000.0", "4000.0", true,
                 TriggerOrderType.TpslType.TP);
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);

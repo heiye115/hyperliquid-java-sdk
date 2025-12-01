@@ -63,14 +63,14 @@ public class OrderBuilder {
     private Boolean isBuy;
 
     /**
-     * 下单数量
+     * 下单数量（字符串）
      */
-    private Double sz;
+    private String sz;
 
     /**
-     * 限价价格
+     * 限价价格（字符串）
      */
-    private Double limitPx;
+    private String limitPx;
 
     /**
      * 订单类型（限价或触发）
@@ -88,15 +88,15 @@ public class OrderBuilder {
     private Cloid cloid;
 
     /**
-     * 市价单滑点比例
+     * 市价单滑点比例（字符串）
      */
-    private Double slippage;
+    private String slippage;
 
     // 触发单参数
     /**
-     * 触发价格
+     * 触发价格（字符串）
      */
-    private Double triggerPx;
+    private String triggerPx;
 
     /**
      * 触发后是否以市价执行
@@ -166,10 +166,10 @@ public class OrderBuilder {
     /**
      * 买入指定数量。
      *
-     * @param sz 数量
+     * @param sz 数量（字符串）
      * @return this
      */
-    public OrderBuilder buy(Double sz) {
+    public OrderBuilder buy(String sz) {
         this.isBuy = true;
         this.sz = sz;
         return this;
@@ -178,10 +178,10 @@ public class OrderBuilder {
     /**
      * 卖出指定数量。
      *
-     * @param sz 数量
+     * @param sz 数量（字符串）
      * @return this
      */
-    public OrderBuilder sell(Double sz) {
+    public OrderBuilder sell(String sz) {
         this.isBuy = false;
         this.sz = sz;
         return this;
@@ -194,10 +194,10 @@ public class OrderBuilder {
     /**
      * 设置限价价格。
      *
-     * @param limitPx 限价
+     * @param limitPx 限价（字符串）
      * @return this
      */
-    public OrderBuilder limitPrice(Double limitPx) {
+    public OrderBuilder limitPrice(String limitPx) {
         this.limitPx = limitPx;
         return this;
     }
@@ -216,10 +216,10 @@ public class OrderBuilder {
     /**
      * 市价单，自定义滑点。
      *
-     * @param slippage 滑点比例（例如 0.05 表示 5%）
+     * @param slippage 滑点比例（字符串，例如 "0.05" 表示 5%）
      * @return this
      */
-    public OrderBuilder market(Double slippage) {
+    public OrderBuilder market(String slippage) {
         this.limitPx = null;
         this.slippage = slippage;
         this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
@@ -233,10 +233,10 @@ public class OrderBuilder {
     /**
      * 价格向上突破时触发（适合止盈或做多突破）。
      *
-     * @param triggerPx 触发价格
+     * @param triggerPx 触发价格（字符串）
      * @return this
      */
-    public OrderBuilder stopAbove(Double triggerPx) {
+    public OrderBuilder stopAbove(String triggerPx) {
         this.triggerPx = triggerPx;
         this.tpsl = TriggerOrderType.TpslType.TP;
         this.isMarketTrigger = false; // 默认触发后挂限价单
@@ -246,10 +246,10 @@ public class OrderBuilder {
     /**
      * 价格向下跌破时触发（适合止损或做空突破）。
      *
-     * @param triggerPx 触发价格
+     * @param triggerPx 触发价格（字符串）
      * @return this
      */
-    public OrderBuilder stopBelow(Double triggerPx) {
+    public OrderBuilder stopBelow(String triggerPx) {
         this.triggerPx = triggerPx;
         this.tpsl = TriggerOrderType.TpslType.SL;
         this.isMarketTrigger = false;
@@ -359,8 +359,8 @@ public class OrderBuilder {
         if (isBuy == null) {
             throw new IllegalStateException("direction is required (call buy() or sell())");
         }
-        if (sz == null || sz <= 0) {
-            throw new IllegalStateException("size must be positive");
+        if (sz == null || sz.isEmpty()) {
+            throw new IllegalStateException("size is required");
         }
 
         // 构建 OrderType
