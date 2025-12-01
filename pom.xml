@@ -6,7 +6,7 @@
 
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.1</version>
+    <version>0.2.2</version>
     <name>Hyperliquid Java SDK</name>
     <description>Pure Java SDK for Hyperliquid: Info queries, WebSocket subscriptions, order placement and signing.</description>
     <url>https://github.com/heiye115/hyperliquid-java-sdk</url>

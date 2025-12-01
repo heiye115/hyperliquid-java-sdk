@@ -34,7 +34,7 @@ import java.util.List;
  * // 提交时自动推断 grouping="normalTpsl"
  * JsonNode result = exchange.bulkOrders(orderGroup);
  *
- * // 3. 仅为已有仓位添加止盈止损（positionTpsl）
+ * // 3. 仅为已有仓位添加止盈止损（positionTpsl - 手动指定）
  * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
  *     .perp("ETH")
  *     .closePosition(0.5, true)  // 平掉 0.5 ETH 多仓
@@ -43,6 +43,17 @@ import java.util.List;
  *     .buildPositionTpsl();
  *
  * // 提交时自动推断 grouping="positionTpsl"
+ * JsonNode result = exchange.bulkOrders(orderGroup);
+ *
+ * // 4. 仅为已有仓位添加止盈止损（positionTpsl - 自动推断）
+ * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
+ *     .perp("ETH")
+ *     // 不调用 closePosition()，Exchange 会自动查询账户持仓并推断方向和数量
+ *     .takeProfit(3600.0)
+ *     .stopLoss(3400.0)
+ *     .buildPositionTpsl();
+ *
+ * // Exchange 会自动调用 API 获取仓位信息并填充方向和数量
  * JsonNode result = exchange.bulkOrders(orderGroup);
  * </pre>
  */
@@ -272,6 +283,12 @@ public class OrderWithTpSlBuilder {
      * <p>
      * 返回的 OrderGroup 会自动携带 grouping="positionTpsl" 类型信息。
      * 用于为已有仓位添加或修改止盈止损。
+     * <p>
+     * <b>自动推断仓位功能：</b>
+     * <ul>
+     *   <li>如果调用了 closePosition(sz, isLong) - 手动指定仓位方向和数量</li>
+     *   <li>如果未调用 closePosition() - Exchange 会自动查询账户持仓并推断方向和数量</li>
+     * </ul>
      *
      * @return OrderGroup 包含订单列表和分组类型
      * @throws IllegalStateException 当必填字段缺失时抛出
@@ -287,7 +304,7 @@ public class OrderWithTpSlBuilder {
      * @return 订单列表
      */
     private List<OrderRequest> buildOrderList(boolean includeEntry) {
-        validate();
+        validate(includeEntry);
         List<OrderRequest> orders = new ArrayList<>();
         
         // 1. 开仓单（仅在 normalTpsl 模式下添加）
@@ -329,7 +346,7 @@ public class OrderWithTpSlBuilder {
             OrderRequest tp = new OrderRequest(
                     instrumentType != null ? instrumentType : InstrumentType.PERP,
                     coin,
-                    !isBuy,  // 反向平仓
+                    isBuy != null ? !isBuy : null,  // 反向平仓（如果 isBuy 为 null，则保持 null）
                     sz,
                     takeProfitPrice,
                     new OrderType(new TriggerOrderType(takeProfitPrice, true, TriggerOrderType.TpslType.TP)),
@@ -348,7 +365,7 @@ public class OrderWithTpSlBuilder {
             OrderRequest sl = new OrderRequest(
                     instrumentType != null ? instrumentType : InstrumentType.PERP,
                     coin,
-                    !isBuy,
+                    isBuy != null ? !isBuy : null,
                     sz,
                     stopLossPrice,
                     new OrderType(new TriggerOrderType(stopLossPrice, true, TriggerOrderType.TpslType.SL)),
@@ -367,17 +384,31 @@ public class OrderWithTpSlBuilder {
 
     /**
      * 校验必填字段。
+     *
+     * @param isNormalTpsl 是否为 normalTpsl 模式（true=normalTpsl，false=positionTpsl）
      */
-    private void validate() {
+    private void validate(boolean isNormalTpsl) {
         if (coin == null || coin.isEmpty()) {
             throw new IllegalStateException("coin is required");
         }
-        if (isBuy == null) {
-            throw new IllegalStateException("direction is required (call buy(), sell(), or closePosition())");
+        
+        // normalTpsl 模式：必须指定方向和数量
+        if (isNormalTpsl) {
+            if (isBuy == null) {
+                throw new IllegalStateException("direction is required for normalTpsl (call buy() or sell())");
+            }
+            if (sz == null || sz <= 0) {
+                throw new IllegalStateException("size must be positive");
+            }
         }
-        if (sz == null || sz <= 0) {
-            throw new IllegalStateException("size must be positive");
+        // positionTpsl 模式：允许 isBuy 和 sz 为 null（由 Exchange 自动推断）
+        // 但如果设置了 sz，则必须 > 0
+        else {
+            if (sz != null && sz <= 0) {
+                throw new IllegalStateException("size must be positive if specified");
+            }
         }
+        
         if (takeProfitPrice == null && stopLossPrice == null) {
             throw new IllegalStateException("at least one of takeProfit or stopLoss is required");
         }

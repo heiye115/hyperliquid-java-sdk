@@ -254,7 +254,7 @@ public class Exchange {
     }
 
     /**
-     * 推断当前账户在指定币种的“签名仓位尺寸”。
+     * 推断当前账户在指定币种的"签名仓位尺寸"。
      *
      * <p>
      * 正数表示多仓，负数表示空仓；当无仓位或解析失败时返回 0.0。
@@ -278,6 +278,52 @@ public class Exchange {
             }
         }
         return 0.0;
+    }
+
+    /**
+     * 为 positionTpsl 订单组自动推断并填充仓位方向和数量。
+     * <p>
+     * 当订单中的 isBuy 或 sz 为 null 时：
+     * - 自动查询账户持仓
+     * - 根据 szi（签名仓位尺寸）推断方向和数量
+     * - 填充所有订单的方向和数量
+     * </p>
+     *
+     * @param orders positionTpsl 订单列表（同一币种）
+     * @throws HypeError 当无持仓时抛出
+     */
+    private void inferAndFillPositionTpslOrders(List<OrderRequest> orders) {
+        // 获取第一个订单的币种（positionTpsl 所有订单应该是同一个币种）
+        OrderRequest firstOrder = orders.getFirst();
+        String coin = firstOrder.getCoin();
+        // 检查是否需要自动推断（isBuy 或 sz 为 null）
+        boolean needsInference = firstOrder.getIsBuy() == null || firstOrder.getSz() == null;
+        if (!needsInference) return;
+
+        // 自动查询仓位并推断
+        double szi = inferSignedPosition(coin);
+        if (szi == 0.0) {
+            throw new HypeError("No position found for " + coin + ". Cannot auto-infer direction and size for positionTpsl.");
+        }
+
+        // 推断方向和数量
+        boolean isBuy = szi > 0; // 多仓需要卖出平仓，所以 isBuy=true 表示多仓
+        double sz = Math.abs(szi);
+
+        // 填充所有订单的方向和数量
+        for (OrderRequest order : orders) {
+            if (order.getIsBuy() == null) {
+                // 对于止盈止损订单，需要反向
+                if (order.getReduceOnly() != null && order.getReduceOnly()) {
+                    order.setIsBuy(!isBuy);  // 反向平仓
+                } else {
+                    order.setIsBuy(isBuy);
+                }
+            }
+            if (order.getSz() == null) {
+                order.setSz(sz);
+            }
+        }
     }
 
 
@@ -371,18 +417,29 @@ public class Exchange {
      * @return 响应 JSON
      */
     public JsonNode bulkOrders(OrderGroup orderGroup) {
-        return bulkOrders(orderGroup.getOrders(), null, orderGroup.getGroupingType().getValue());
+        return bulkOrders(orderGroup, null);
     }
 
     /**
      * 批量下单（支持 OrderGroup 和 builder）。
+     * <p>
+     * 对于 positionTpsl 类型的订单组，如果订单中的 isBuy 或 sz 为 null，
+     * 会自动查询账户持仓并填充方向和数量。
      *
      * @param orderGroup 订单组（包含订单列表和分组类型）
      * @param builder    可选 builder
      * @return 响应 JSON
      */
     public JsonNode bulkOrders(OrderGroup orderGroup, Map<String, Object> builder) {
-        return bulkOrders(orderGroup.getOrders(), builder, orderGroup.getGroupingType().getValue());
+        List<OrderRequest> orders = orderGroup.getOrders();
+        if (orders == null || orders.isEmpty()) {
+            throw new HypeError("No orders found in OrderGroup.");
+        }
+        // 对于 positionTpsl，检查是否需要自动推断仓位
+        if (GroupingType.POSITION_TPSL == orderGroup.getGroupingType()) {
+            inferAndFillPositionTpslOrders(orders);
+        }
+        return bulkOrders(orders, builder, orderGroup.getGroupingType().getValue());
     }
 
     /**
@@ -532,34 +589,56 @@ public class Exchange {
         Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
         // 保持 Signing.orderWiresToOrderAction 中的默认分组 "na"，不覆写
         if (builder != null && !builder.isEmpty()) {
-            // 仅保留官方文档允许的字段：b（地址）与 f（费用）；其余键将被忽略，避免 422 反序列化失败
-            Map<String, Object> filtered = new LinkedHashMap<>();
-            if (builder.containsKey("b")) {
-                Object bVal = builder.get("b");
-                if (bVal instanceof String s) {
-                    filtered.put("b", s.toLowerCase());
-                }
-            }
-            if (builder.containsKey("f")) {
-                Object fVal = builder.get("f");
-                if (!(fVal instanceof Number)) {
-                    throw new HypeError("builder.f 必须是非负整数（数值类型）");
-                }
-                long f = ((Number) fVal).longValue();
-                if (f < 0) {
-                    throw new HypeError("builder.f 不能为负数");
-                }
-                // 限制一个合理上限，避免误传超大数导致后端拒绝（可根据业务调整）
-                if (f > 1_000_000L) {
-                    throw new HypeError("builder.f 过大，请确认单位与取值范围");
-                }
-                filtered.put("f", f);
-            }
+            Map<String, Object> filtered = validateAndFilterBuilder(builder);
             if (!filtered.isEmpty()) {
                 action.put("builder", filtered);
             }
         }
         return action;
+    }
+
+    /**
+     * 验证并过滤 builder 参数。
+     * <p>
+     * 仅保留官方文档允许的字段：
+     * - b（地址）：Builder 地址
+     * - f（费用）：Builder 费用（非负整数）
+     * 其余键将被忽略，避免 422 反序列化失败。
+     * </p>
+     *
+     * @param builder 原始 builder 参数
+     * @return 过滤后的 builder 参数
+     * @throws HypeError 当参数验证失败时抛出
+     */
+    private Map<String, Object> validateAndFilterBuilder(Map<String, Object> builder) {
+        Map<String, Object> filtered = new LinkedHashMap<>();
+
+        // 验证并过滤地址字段 b
+        if (builder.containsKey("b")) {
+            Object bVal = builder.get("b");
+            if (bVal instanceof String s) {
+                filtered.put("b", s.toLowerCase());
+            }
+        }
+
+        // 验证并过滤费用字段 f
+        if (builder.containsKey("f")) {
+            Object fVal = builder.get("f");
+            if (!(fVal instanceof Number)) {
+                throw new HypeError("builder.f 必须是非负整数（数值类型）");
+            }
+            long f = ((Number) fVal).longValue();
+            if (f < 0) {
+                throw new HypeError("builder.f 不能为负数");
+            }
+            // 限制一个合理上限，避免误传超大数导致后端拒绝（可根据业务调整）
+            if (f > 1_000_000L) {
+                throw new HypeError("builder.f 过大，请确认单位与取值范围");
+            }
+            filtered.put("f", f);
+        }
+
+        return filtered;
     }
 
     /**
@@ -1197,7 +1276,7 @@ public class Exchange {
                 "HyperliquidTransaction:ApproveAgent",
                 isMainnet());
 
-        com.fasterxml.jackson.databind.JsonNode resp = postActionWithSignature(action, signature, nonce);
+        JsonNode resp = postActionWithSignature(action, signature, nonce);
         return new ApproveAgentResult(resp, agentPrivateKey, agentAddress);
     }
 
@@ -1234,14 +1313,8 @@ public class Exchange {
     public JsonNode postAction(Map<String, Object> action, Long expiresAfter) {
         long nonce = Signing.getTimestampMs();
         String type = String.valueOf(action.getOrDefault("type", ""));
-        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type)) ? null : vaultAddress;
-        if (effectiveVault != null) {
-            effectiveVault = effectiveVault.toLowerCase();
-            String signerAddr = apiWallet.getPrimaryWalletAddress().toLowerCase();
-            if (effectiveVault.equals(signerAddr)) {
-                effectiveVault = null;
-            }
-        }
+        String effectiveVault = calculateEffectiveVaultAddress(type);
+
         // 默认 120 秒
         if (expiresAfter == null) {
             expiresAfter = 120_000L;
@@ -1281,18 +1354,8 @@ public class Exchange {
      */
     private JsonNode postActionWithSignature(Map<String, Object> action, Map<String, Object> signature, long nonce) {
         String type = String.valueOf(action.getOrDefault("type", ""));
-        boolean userSigned = "approveAgent".equals(type)
-                || "userDexAbstraction".equals(type)
-                || "usdSend".equals(type)
-                || "withdraw3".equals(type)
-                || "spotSend".equals(type)
-                || "usdClassTransfer".equals(type)
-                || "sendAsset".equals(type)
-                || "approveBuilderFee".equals(type)
-                || "setReferrer".equals(type)
-                || "tokenDelegate".equals(type)
-                || "convertToMultiSigUser".equals(type);
-        String effectiveVault = ("usdClassTransfer".equals(type) || "sendAsset".equals(type)) ? null : vaultAddress;
+        boolean userSigned = isUserSignedAction(type);
+        String effectiveVault = calculateEffectiveVaultAddress(type);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("action", action);
@@ -1320,6 +1383,59 @@ public class Exchange {
             throw new HypeError("Unknown coin name: " + coinName);
         }
         return assetId;
+    }
+
+    /**
+     * 计算有效的 vault 地址。
+     * <p>
+     * 规则：
+     * - usdClassTransfer 和 sendAsset 类型不使用 vaultAddress
+     * - 如果 vaultAddress 与签名者地址相同，返回 null
+     * - 否则返回小写化的 vaultAddress
+     * </p>
+     *
+     * @param actionType 动作类型
+     * @return 有效的 vault 地址，或 null
+     */
+    private String calculateEffectiveVaultAddress(String actionType) {
+        // usdClassTransfer 和 sendAsset 不使用 vaultAddress
+        if ("usdClassTransfer".equals(actionType) || "sendAsset".equals(actionType)) {
+            return null;
+        }
+        if (vaultAddress == null) {
+            return null;
+        }
+        String effectiveVault = vaultAddress.toLowerCase();
+        String signerAddr = apiWallet.getPrimaryWalletAddress().toLowerCase();
+
+        // 如果 vault 地址与签名者地址相同，返回 null
+        if (effectiveVault.equals(signerAddr)) {
+            return null;
+        }
+        return effectiveVault;
+    }
+
+    /**
+     * 判断动作是否为用户签名类型。
+     * <p>
+     * 用户签名动作使用 EIP-712 TypedData 签名，区别于 L1 动作签名。
+     * </p>
+     *
+     * @param actionType 动作类型
+     * @return 是用户签名动作返回 true，否则返回 false
+     */
+    private boolean isUserSignedAction(String actionType) {
+        return "approveAgent".equals(actionType)
+                || "userDexAbstraction".equals(actionType)
+                || "usdSend".equals(actionType)
+                || "withdraw3".equals(actionType)
+                || "spotSend".equals(actionType)
+                || "usdClassTransfer".equals(actionType)
+                || "sendAsset".equals(actionType)
+                || "approveBuilderFee".equals(actionType)
+                || "setReferrer".equals(actionType)
+                || "tokenDelegate".equals(actionType)
+                || "convertToMultiSigUser".equals(actionType);
     }
 
 
