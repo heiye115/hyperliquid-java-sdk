@@ -647,15 +647,15 @@ public class Exchange {
         if (builder.containsKey("f")) {
             Object fVal = builder.get("f");
             if (!(fVal instanceof Number)) {
-                throw new HypeError("builder.f 必须是非负整数（数值类型）");
+                throw new HypeError("builder.f must be a non-negative integer (numeric type)");
             }
             long f = ((Number) fVal).longValue();
             if (f < 0) {
-                throw new HypeError("builder.f 不能为负数");
+                throw new HypeError("builder.f cannot be negative");
             }
             // 限制一个合理上限，避免误传超大数导致后端拒绝（可根据业务调整）
             if (f > 1_000_000L) {
-                throw new HypeError("builder.f 过大，请确认单位与取值范围");
+                throw new HypeError("builder.f is too large, please verify the unit and value range");
             }
             filtered.put("f", f);
         }

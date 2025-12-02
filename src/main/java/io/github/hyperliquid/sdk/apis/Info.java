@@ -507,8 +507,26 @@ public class Info {
      * @param startTime 起始毫秒
      * @param endTime   结束毫秒
      * @return Candle 列表
+     * @throws HypeError 当参数不合法时抛出
      */
     public List<Candle> candleSnapshot(String coin, CandleInterval interval, Long startTime, Long endTime) {
+        // 参数校验
+        if (coin == null || coin.trim().isEmpty()) {
+            throw new HypeError("Coin name cannot be null or empty");
+        }
+        if (interval == null) {
+            throw new HypeError("Interval cannot be null");
+        }
+        if (startTime == null || startTime < 0) {
+            throw new HypeError("Invalid start time: " + startTime);
+        }
+        if (endTime == null || endTime < 0) {
+            throw new HypeError("Invalid end time: " + endTime);
+        }
+        if (endTime < startTime) {
+            throw new HypeError("End time cannot be earlier than start time");
+        }
+        
         Map<String, Object> req = new LinkedHashMap<>();
         req.put("coin", coin);
         req.put("interval", interval.getCode());
@@ -521,36 +539,139 @@ public class Info {
     }
 
     /**
-     * 获取最近一个间隔周期的最新 K 线。
+     * 获取最近一根已完成的 K 线。
+     * <p>
+     * 查询最近 2 个周期的时间范围，确保至少获取到上一根已完成的 K 线。
+     * 如果当前 K 线尚未完成，返回上一根；如果当前 K 线已完成，返回当前根。
+     * </p>
      *
      * @param coin     币种名称
      * @param interval 间隔枚举
-     * @return 最近一根 K 线；若无数据返回 null
+     * @return 最近一根已完成的 K 线；若无数据返回 null
      */
     public Candle candleSnapshotLatest(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
-        long startTime = endTime - interval.toMillis();
+        // 查询最近 2 个周期，确保获取到已完成的 K 线
+        long startTime = endTime - (interval.toMillis() * 2);
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
         return !candles.isEmpty() ? candles.getLast() : null;
     }
 
     /**
      * 按数量获取最近的 K 线列表。
-     * 仅提供最新的 5000 根 K 线。
+     * <p>
+     * 查询时会增加额外的缓冲时间（count + 2 个周期），确保获取足够数据后再截取。
+     * 注意：Hyperliquid API 仅提供最新的 5000 根 K 线。
+     * </p>
      *
      * @param coin     币种名称
      * @param interval 间隔枚举
-     * @param count    需要的数量（>0）
-     * @return 最近的 K 线列表
+     * @param count    需要的数量（>0，建议 ≤5000）
+     * @return 最近的 K 线列表（按时间升序，最后一根是最新的）
+     * @throws HypeError 当 count <= 0 或 count > 5000 时抛出
      */
     public List<Candle> candleSnapshotByCount(String coin, CandleInterval interval, int count) {
         if (count <= 0) {
-            throw new HypeError("count必须大于0");
+            throw new HypeError("count must be greater than 0");
         }
+        if (count > 5000) {
+            throw new HypeError("count cannot exceed 5000 (API limit)");
+        }
+        
         long endTime = System.currentTimeMillis();
-        long startTime = endTime - interval.toMillis() * count;
+        // 增加 2 个周期的缓冲时间，确保数据完整性
+        long startTime = endTime - (interval.toMillis() * (count + 2));
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
-        return candles.size() > count ? candles.subList(candles.size() - count, candles.size()) : candles;
+        
+        // 如果返回的数据多于请求数量，截取最后 count 根
+        if (candles.size() > count) {
+            return candles.subList(candles.size() - count, candles.size());
+        }
+        return candles;
+    }
+
+    /**
+     * 获取最近 N 天的 K 线数据。
+     * <p>
+     * 根据指定的周期和天数计算时间范围，查询该时间段内的所有 K 线。
+     * 例如：查询最近 7 天的 1 小时 K 线，将返回约 168 根 K 线。
+     * </p>
+     *
+     * @param coin     币种名称
+     * @param interval 间隔枚举
+     * @param days     天数（>0，建议 ≤30）
+     * @return K 线列表（按时间升序）
+     * @throws HypeError 当 days <= 0 时抛出
+     */
+    public List<Candle> candleSnapshotByDays(String coin, CandleInterval interval, int days) {
+        if (days <= 0) {
+            throw new HypeError("days must be greater than 0");
+        }
+        
+        long endTime = System.currentTimeMillis();
+        long startTime = endTime - (days * 24 * 60 * 60 * 1000L);  // days * 毫秒数
+        return candleSnapshot(coin, interval, startTime, endTime);
+    }
+
+    /**
+     * 获取指定日期（UTC 时区）的所有 K 线数据。
+     * <p>
+     * 查询从指定日期 00:00:00 到 23:59:59 之间的所有 K 线。
+     * 注意：时间基于 UTC 时区，如需其他时区请自行转换。
+     * </p>
+     *
+     * @param coin     币种名称
+     * @param interval 间隔枚举
+     * @param year     年份（如 2024）
+     * @param month    月份（1-12）
+     * @param day      日期（1-31）
+     * @return K 线列表（按时间升序）
+     * @throws HypeError 当日期参数不合法时抛出
+     */
+    public List<Candle> candleSnapshotByDate(String coin, CandleInterval interval, int year, int month, int day) {
+        if (year < 2000 || year > 2100) {
+            throw new HypeError("Invalid year: " + year);
+        }
+        if (month < 1 || month > 12) {
+            throw new HypeError("Invalid month: " + month);
+        }
+        if (day < 1 || day > 31) {
+            throw new HypeError("Invalid day: " + day);
+        }
+        
+        // 构造 UTC 时区的起始和结束时间
+        long startTime = java.time.LocalDate.of(year, month, day)
+                .atStartOfDay(java.time.ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli();
+        
+        long endTime = java.time.LocalDate.of(year, month, day)
+                .atTime(23, 59, 59, 999_999_999)
+                .toInstant(java.time.ZoneOffset.UTC)
+                .toEpochMilli();
+        
+        return candleSnapshot(coin, interval, startTime, endTime);
+    }
+
+    /**
+     * 获取当前正在生成的 K 线（未完成的 K 线）。
+     * <p>
+     * 查询当前周期的 K 线数据，该 K 线可能尚未完成（仍在实时更新）。
+     * 例如：如果是 1 小时 K 线，当前时间 14:35，则返回 14:00-15:00 这根正在生成的 K 线。
+     * </p>
+     *
+     * @param coin     币种名称
+     * @param interval 间隔枚举
+     * @return 当前正在生成的 K 线；若无数据返回 null
+     */
+    public Candle candleSnapshotCurrent(String coin, CandleInterval interval) {
+        long endTime = System.currentTimeMillis();
+        // 查询当前周期和上一个周期，确保能获取到数据
+        long startTime = endTime - (interval.toMillis() * 2);
+        List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
+        
+        // 返回最后一根（当前正在生成的 K 线）
+        return !candles.isEmpty() ? candles.getLast() : null;
     }
 
     /**

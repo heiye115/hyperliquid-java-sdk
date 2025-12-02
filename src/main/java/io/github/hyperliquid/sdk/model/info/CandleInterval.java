@@ -91,7 +91,7 @@ public enum CandleInterval {
      */
     public static CandleInterval fromCode(String code) {
         if (code == null) {
-            throw new HypeError("间隔代码不能为空");
+            throw new HypeError("Interval code cannot be null");
         }
 
         for (CandleInterval interval : values()) {
@@ -100,7 +100,7 @@ public enum CandleInterval {
             }
         }
 
-        throw new HypeError("不支持的间隔代码：" + code);
+        throw new HypeError("Unsupported interval code: " + code);
     }
 
     /**
