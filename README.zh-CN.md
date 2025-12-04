@@ -108,21 +108,29 @@ classDiagram
 
 SDK 采用四层架构设计：
 
-**客户端层**：`HyperliquidClient` 作为统一入口，采用构建器模式进行配置。它管理多个钱包凭证（`ApiWallet`），并提供对 Info 和 Exchange API 的无缝访问。多钱包设计允许开发者在不同交易账户间切换，无需重新创建客户端实例。
+**客户端层**：`HyperliquidClient` 作为统一入口，采用构建器模式进行配置。它管理多个钱包凭证（`ApiWallet`），并提供对 Info 和
+Exchange API 的无缝访问。多钱包设计允许开发者在不同交易账户间切换，无需重新创建客户端实例。
 
-**API 层**：`Info` 负责通过 REST 进行行情查询和 WebSocket 实时订阅。`Exchange` 管理所有交易操作，包括下单、撤单、杠杆调整等。`OrderRequest` 提供静态工厂方法（Open/Close 便捷方法），通过类型安全的构建器简化订单创建。
+**API 层**：`Info` 负责通过 REST 进行行情查询和 WebSocket 实时订阅。`Exchange` 管理所有交易操作，包括下单、撤单、杠杆调整等。
+`OrderRequest` 提供静态工厂方法（Open/Close 便捷方法），通过类型安全的构建器简化订单创建。
 
-**网络层**：`HypeHttpClient` 封装 HTTP 通信，具备智能错误分类能力（4xx/5xx）。`WebsocketManager` 实现健壮的连接管理，支持自动重连、指数退避以及网络可用性监控。
+**网络层**：`HypeHttpClient` 封装 HTTP 通信，具备智能错误分类能力（4xx/5xx）。`WebsocketManager`
+实现健壮的连接管理，支持自动重连、指数退避以及网络可用性监控。
 
-**安全层**：`Signing` 是核心安全组件,实现了 Hyperliquid 动作的 EIP-712 类型化数据签名。它使用基于 MessagePack 的哈希算法生成动作签名，支持 L1 动作（交易操作）和用户签名动作（资金转账、授权）两种模式。
+**安全层**：`Signing` 是核心安全组件,实现了 Hyperliquid 动作的 EIP-712 类型化数据签名。它使用基于 MessagePack
+的哈希算法生成动作签名，支持 L1 动作（交易操作）和用户签名动作（资金转账、授权）两种模式。
 
 ### 关键流程
 
-**交易流程**：开发者使用 `OrderRequest.Open.limit(...)` 等工厂方法创建订单。调用 `Exchange.order(req)` 时，Exchange 会校验请求并调用 `Signing.signL1Action` 生成 EIP-712 签名。签名后的载荷通过 `HypeHttpClient.post` 发送至 `/exchange` 端点，返回包含执行状态和订单号的 `Order` 对象。
+**交易流程**：开发者使用 `OrderRequest.Open.limit(...)` 等工厂方法创建订单。调用 `Exchange.order(req)` 时，Exchange
+会校验请求并调用 `Signing.signL1Action` 生成 EIP-712 签名。签名后的载荷通过 `HypeHttpClient.post` 发送至 `/exchange`
+端点，返回包含执行状态和订单号的 `Order` 对象。
 
-**WebSocket 流程**：实时数据订阅从 `Info.subscribe(subscription, callback)` 开始。`WebsocketManager` 维护持久连接，定期执行 ping/pong 心跳检测。连接断开时触发指数退避重试，同时监控网络可用性。成功重连后，所有活跃订阅会自动重新建立，确保关键行情数据零丢失。
+**WebSocket 流程**：实时数据订阅从 `Info.subscribe(subscription, callback)` 开始。`WebsocketManager` 维护持久连接，定期执行
+ping/pong 心跳检测。连接断开时触发指数退避重试，同时监控网络可用性。成功重连后，所有活跃订阅会自动重新建立，确保关键行情数据零丢失。
 
-**多钱包管理**：`HyperliquidClient` 存储多个按地址索引的 `ApiWallet` 实例。开发者可使用 `useExchange(address)` 切换上下文，从不同账户执行交易。每个 Exchange 实例绑定到特定钱包的凭证，由 `Signing` 模块处理每个钱包的签名生成。
+**多钱包管理**：`HyperliquidClient` 存储多个按地址索引的 `ApiWallet` 实例。开发者可使用 `useExchange(address)`
+切换上下文，从不同账户执行交易。每个 Exchange 实例绑定到特定钱包的凭证，由 `Signing` 模块处理每个钱包的签名生成。
 
 ## 功能特性
 
@@ -142,14 +150,14 @@ SDK 采用四层架构设计：
 <dependency>
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.1</version>
+    <version>0.2.2</version>
 </dependency>
 ```
 
 - Gradle（Groovy）：
 
 ```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.1'
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.2'
 ```
 
 ## 5分钟快速开始
