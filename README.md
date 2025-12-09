@@ -190,11 +190,8 @@ public class Demo {
         // Recommended: Use API Wallet for better security
         // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
         // Main Private Key: Direct use of main wallet private key, full control, higher risk
-        String primaryWalletAddress = System.getenv("PRIMARY_WALLET_ADDRESS");  // Primary wallet address
-        String apiWalletPrivateKey = System.getenv("API_WALLET_PRIVATE_KEY");   // API wallet private key
-        if (primaryWalletAddress == null || apiWalletPrivateKey == null) {
-            throw new IllegalStateException("Set PRIMARY_WALLET_ADDRESS and API_WALLET_PRIVATE_KEY");
-        }
+        String primaryWalletAddress = "";  // Primary wallet address
+        String apiWalletPrivateKey = "";   // API wallet private key
 
         // Build client with API Wallet (Recommended)
         // First parameter: Primary wallet address (for querying account state)
@@ -203,7 +200,7 @@ public class Demo {
                 .testNetUrl()
                 .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
                 .build();
-        
+
         // Alternative: Build client with main private key (Not recommended for production)
         // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
         // HyperliquidClient client = HyperliquidClient.builder()
@@ -302,8 +299,6 @@ public class Demo {
 ## Contribution
 
 - Fork the repo and create feature branches.
-- Follow Java naming and Clean Code practices; keep Controllers thin in integrations and put business logic in Services
-  when embedding this SDK in MVC systems.
 - Run `mvn -q -DskipTests package` locally; ensure Java 21.
 - Add unit tests for critical logic where applicable.
 - Open a Pull Request with a clear description and references.
