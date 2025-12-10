@@ -7,28 +7,28 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * WebSocket 类型安全订阅示例
+ * WebSocket Type-Safe Subscription Example
  * <p>
- * 演示功能：
- * 1. 使用类型安全的 Subscription 实体类替代 JsonNode
- * 2. 订阅多种类型的行情数据（L2订单簿、逐笔成交、K线、BBO、中间价）
- * 3. 享受编译期类型检查和更好的代码可读性
+ * Features:
+ * 1. Use type-safe Subscription entity classes instead of JsonNode
+ * 2. Subscribe to multiple types of market data (L2 order book, trades, candles, BBO, all mids)
+ * 3. Enjoy compile-time type checking and better code readability
  * </p>
  */
 public class ExampleWebsocketTypeSafe {
 
     public static void main(String[] args) throws InterruptedException {
-        // ==================== 1. 初始化客户端 ====================
+        // ==================== 1. Initialize Client ====================
         HyperliquidClient client = HyperliquidClient.builder()
-                .testNetUrl()  // 使用测试网
+                .testNetUrl()  // Use testnet
                 .build();
 
         Info info = client.getInfo();
 
-        System.out.println("=== Hyperliquid WebSocket 类型安全订阅示例 ===\n");
+        System.out.println("=== Hyperliquid WebSocket Type-Safe Subscription Example ===\n");
 
-        // ==================== 2. 订阅 BTC L2 订单簿 ====================
-        System.out.println("--- 订阅 BTC L2 订单簿 ---");
+        // ==================== 2. Subscribe to BTC L2 Order Book ====================
+        System.out.println("--- Subscribe to BTC L2 Order Book ---");
         L2BookSubscription btcL2Book = L2BookSubscription.of("BTC");
 
         info.subscribe(btcL2Book, msg -> {
@@ -41,14 +41,14 @@ public class ExampleWebsocketTypeSafe {
                     if (bids.isArray() && !bids.isEmpty() && asks.isArray() && !asks.isEmpty()) {
                         String bestBid = bids.get(0).get("px").asText();
                         String bestAsk = asks.get(0).get("px").asText();
-                        System.out.printf("[L2订单簿] BTC 买一: %s, 卖一: %s%n", bestBid, bestAsk);
+                        System.out.printf("[L2 Book] BTC Best Bid: %s, Best Ask: %s%n", bestBid, bestAsk);
                     }
                 }
             }
         });
 
-        // ==================== 3. 订阅 ETH 逐笔成交 ====================
-        System.out.println("--- 订阅 ETH 逐笔成交 ---");
+        // ==================== 3. Subscribe to ETH Trades ====================
+        System.out.println("--- Subscribe to ETH Trades ---");
         TradesSubscription ethTrades = TradesSubscription.of("ETH");
 
         info.subscribe(ethTrades, msg -> {
@@ -59,14 +59,14 @@ public class ExampleWebsocketTypeSafe {
                     String price = trade.path("px").asText();
                     String size = trade.path("sz").asText();
                     String side = trade.path("side").asText();
-                    System.out.printf("[逐笔成交] %s %s - 价格: %s, 数量: %s%n",
-                            coin, side.equals("A") ? "卖出" : "买入", price, size);
+                    System.out.printf("[Trades] %s %s - Price: %s, Size: %s%n",
+                            coin, side.equals("A") ? "Sell" : "Buy", price, size);
                 }
             }
         });
 
-        // ==================== 4. 订阅 BTC 1分钟 K线 ====================
-        System.out.println("--- 订阅 BTC 1分钟 K线 ---");
+        // ==================== 4. Subscribe to BTC 1-Minute Candle ====================
+        System.out.println("--- Subscribe to BTC 1-Minute Candle ---");
         CandleSubscription btcCandle = CandleSubscription.of("BTC", "1m");
 
         info.subscribe(btcCandle, msg -> {
@@ -77,13 +77,13 @@ public class ExampleWebsocketTypeSafe {
                 String low = data.path("l").asText();
                 String close = data.path("c").asText();
                 String volume = data.path("v").asText();
-                System.out.printf("[K线] BTC 1m - 开: %s, 高: %s, 低: %s, 收: %s, 量: %s%n",
+                System.out.printf("[Candle] BTC 1m - O: %s, H: %s, L: %s, C: %s, V: %s%n",
                         open, high, low, close, volume);
             }
         });
 
-        // ==================== 5. 订阅 ETH 最佳买卖价 ====================
-        System.out.println("--- 订阅 ETH 最佳买卖价 ---");
+        // ==================== 5. Subscribe to ETH Best Bid/Offer ====================
+        System.out.println("--- Subscribe to ETH Best Bid/Offer ---");
         BboSubscription ethBbo = BboSubscription.of("ETH");
 
         info.subscribe(ethBbo, msg -> {
@@ -93,13 +93,13 @@ public class ExampleWebsocketTypeSafe {
                 String bidSize = data.path("bid").path("sz").asText();
                 String askPrice = data.path("ask").path("px").asText();
                 String askSize = data.path("ask").path("sz").asText();
-                System.out.printf("[BBO] ETH 买一: %s@%s, 卖一: %s@%s%n",
+                System.out.printf("[BBO] ETH Bid: %s@%s, Ask: %s@%s%n",
                         bidPrice, bidSize, askPrice, askSize);
             }
         });
 
-        // ==================== 6. 订阅所有币种中间价 ====================
-        System.out.println("--- 订阅所有币种中间价 ---");
+        // ==================== 6. Subscribe to All Coins Mid Prices ====================
+        System.out.println("--- Subscribe to All Coins Mid Prices ---");
         AllMidsSubscription allMids = AllMidsSubscription.create();
 
         info.subscribe(allMids, msg -> {
@@ -107,10 +107,10 @@ public class ExampleWebsocketTypeSafe {
             if (data != null && data.has("mids")) {
                 JsonNode mids = data.get("mids");
                 if (mids != null && mids.isObject()) {
-                    // 只打印前3个币种的中间价（避免输出过多）
+                    // Only print first 3 coins to avoid too much output
                     int count = 0;
                     var iter = mids.fields();
-                    System.out.print("[中间价] ");
+                    System.out.print("[Mids] ");
                     while (iter.hasNext() && count < 3) {
                         var entry = iter.next();
                         System.out.printf("%s: %s  ", entry.getKey(), entry.getValue().asText());
@@ -121,16 +121,16 @@ public class ExampleWebsocketTypeSafe {
             }
         });
 
-        // ==================== 7. 保持运行并接收消息 ====================
-        System.out.println("\n正在接收实时行情数据，运行 60 秒后自动退出...\n");
+        // ==================== 7. Keep Running to Receive Messages ====================
+        System.out.println("\nReceiving real-time market data, will exit after 60 seconds...\n");
 
-        // 使用 CountDownLatch 等待 60 秒
+        // Use CountDownLatch to wait for 60 seconds
         CountDownLatch latch = new CountDownLatch(1);
         latch.await(60, TimeUnit.SECONDS);
 
-        // ==================== 8. 优雅关闭 WebSocket ====================
-        System.out.println("\n正在关闭 WebSocket 连接...");
+        // ==================== 8. Gracefully Close WebSocket ====================
+        System.out.println("\nClosing WebSocket connection...");
         info.closeWs();
-        System.out.println("WebSocket 已关闭，程序退出。");
+        System.out.println("WebSocket closed, program exiting.");
     }
 }

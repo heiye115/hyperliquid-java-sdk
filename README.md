@@ -187,13 +187,26 @@ import io.github.hyperliquid.sdk.utils.JSONUtil;
 
 public class Demo {
     public static void main(String[] args) {
-        String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        if (pk == null || pk.isBlank()) throw new IllegalStateException("Set HYPERLIQUID_PRIVATE_KEY");
+        // Recommended: Use API Wallet for better security
+        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
+        // Main Private Key: Direct use of main wallet private key, full control, higher risk
+        String primaryWalletAddress = "";  // Primary wallet address
+        String apiWalletPrivateKey = "";   // API wallet private key
 
+        // Build client with API Wallet (Recommended)
+        // First parameter: Primary wallet address (for querying account state)
+        // Second parameter: API wallet private key (for signing trading requests)
         HyperliquidClient client = HyperliquidClient.builder()
                 .testNetUrl()
-                .addPrivateKey(pk)
+                .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
                 .build();
+
+        // Alternative: Build client with main private key (Not recommended for production)
+        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
+        // HyperliquidClient client = HyperliquidClient.builder()
+        //         .testNetUrl()
+        //         .addPrivateKey(pk)
+        //         .build();
 
         Info info = client.getInfo();
         L2Book book = info.l2Book("ETH");
@@ -286,8 +299,6 @@ public class Demo {
 ## Contribution
 
 - Fork the repo and create feature branches.
-- Follow Java naming and Clean Code practices; keep Controllers thin in integrations and put business logic in Services
-  when embedding this SDK in MVC systems.
 - Run `mvn -q -DskipTests package` locally; ensure Java 21.
 - Add unit tests for critical logic where applicable.
 - Open a Pull Request with a clear description and references.

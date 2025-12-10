@@ -30,16 +30,29 @@ public class ExampleComprehensive {
     
     public static void main(String[] args) throws JsonProcessingException {
         // ==================== 1. Client Initialization ====================
-        String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        if (pk == null || pk.isBlank()) {
-            throw new IllegalStateException("Please set HYPERLIQUID_PRIVATE_KEY environment variable");
+        // Recommended: Use API Wallet for better security
+        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
+        // Main Private Key: Direct use of main wallet private key, full control, higher risk
+        String primaryWalletAddress = System.getenv("PRIMARY_WALLET_ADDRESS");  // Primary wallet address
+        String apiWalletPrivateKey = System.getenv("API_WALLET_PRIVATE_KEY");   // API wallet private key
+        if (primaryWalletAddress == null || apiWalletPrivateKey == null) {
+            throw new IllegalStateException("Please set PRIMARY_WALLET_ADDRESS and API_WALLET_PRIVATE_KEY environment variables");
         }
 
+        // Build client with API Wallet (Recommended)
         HyperliquidClient client = HyperliquidClient.builder()
                 .testNetUrl()  // Use testnet
-                .addPrivateKey(pk)
+                .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
                 .timeout(15)   // Set timeout to 15 seconds
                 .build();
+        
+        // Alternative: Build client with main private key (Not recommended for production)
+        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
+        // HyperliquidClient client = HyperliquidClient.builder()
+        //         .testNetUrl()
+        //         .addPrivateKey(pk)
+        //         .timeout(15)
+        //         .build();
 
         Info info = client.getInfo();
         Exchange exchange = client.getSingleExchange();

@@ -7,32 +7,32 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * WebSocket 同时订阅多个币种的逐笔成交示例
+ * WebSocket Multi-Coin Trades Subscription Example
  * <p>
- * 演示功能：
- * 1. 同时订阅 BTC 和 ETH 的逐笔成交数据
- * 2. 每个币种使用独立的回调函数处理消息
- * 3. 展示 Hyperliquid 官方支持的多订阅能力
+ * Features:
+ * 1. Subscribe to BTC and ETH trades simultaneously
+ * 2. Each coin uses independent callback function to handle messages
+ * 3. Demonstrates Hyperliquid's official multi-subscription capability
  * </p>
  */
 public class ExampleWebsocketMultiTrades {
 
     public static void main(String[] args) throws InterruptedException {
-        // ==================== 1. 初始化客户端 ====================
+        // ==================== 1. Initialize Client ====================
         HyperliquidClient client = HyperliquidClient.builder()
-                .testNetUrl()  // 使用测试网
+                .testNetUrl()  // Use testnet
                 .build();
 
         Info info = client.getInfo();
 
-        System.out.println("=== Hyperliquid WebSocket 多币种逐笔成交订阅示例 ===\n");
+        System.out.println("=== Hyperliquid WebSocket Multi-Coin Trades Subscription Example ===\n");
 
-        // ==================== 2. 订阅 BTC 逐笔成交（使用类型安全的实体类）====================
-        System.out.println("--- 订阅 BTC 逐笔成交 ---");
+        // ==================== 2. Subscribe to BTC Trades (Using type-safe entity) ====================
+        System.out.println("--- Subscribe to BTC Trades ---");
         TradesSubscription btcTrades = TradesSubscription.of("BTC");
 
         info.subscribe(btcTrades, msg -> {
-            // 解析 BTC 成交数据
+            // Parse BTC trade data
             JsonNode data = msg.get("data");
             if (data != null && data.isArray()) {
                 for (JsonNode trade : data) {
@@ -42,18 +42,18 @@ public class ExampleWebsocketMultiTrades {
                     String side = trade.path("side").asText();
                     long time = trade.path("time").asLong();
                     
-                    System.out.printf("[BTC 成交] %s %s - 价格: %s, 数量: %s, 时间: %d%n",
-                            coin, side.equals("A") ? "卖出" : "买入", price, size, time);
+                    System.out.printf("[BTC Trade] %s %s - Price: %s, Size: %s, Time: %d%n",
+                            coin, side.equals("A") ? "Sell" : "Buy", price, size, time);
                 }
             }
         });
 
-        // ==================== 3. 订阅 ETH 逐笔成交（使用类型安全的实体类）====================
-        System.out.println("--- 订阅 ETH 逐笔成交 ---");
+        // ==================== 3. Subscribe to ETH Trades (Using type-safe entity) ====================
+        System.out.println("--- Subscribe to ETH Trades ---");
         TradesSubscription ethTrades = TradesSubscription.of("ETH");
 
         info.subscribe(ethTrades, msg -> {
-            // 解析 ETH 成交数据
+            // Parse ETH trade data
             JsonNode data = msg.get("data");
             if (data != null && data.isArray()) {
                 for (JsonNode trade : data) {
@@ -63,31 +63,31 @@ public class ExampleWebsocketMultiTrades {
                     String side = trade.path("side").asText();
                     long time = trade.path("time").asLong();
                     
-                    System.out.printf("[ETH 成交] %s %s - 价格: %s, 数量: %s, 时间: %d%n",
-                            coin, side.equals("A") ? "卖出" : "买入", price, size, time);
+                    System.out.printf("[ETH Trade] %s %s - Price: %s, Size: %s, Time: %d%n",
+                            coin, side.equals("A") ? "Sell" : "Buy", price, size, time);
                 }
             }
         });
 
-        // ==================== 4. 可选：订阅更多币种 ====================
-        // 你可以继续添加更多币种的订阅，例如：
+        // ==================== 4. Optional: Subscribe to More Coins ====================
+        // You can continue adding subscriptions for more coins, for example:
         /*
         TradesSubscription solTrades = TradesSubscription.of("SOL");
         info.subscribe(solTrades, msg -> {
-            // 处理 SOL 成交数据
+            // Handle SOL trade data
         });
         */
 
-        // ==================== 5. 保持运行并接收消息 ====================
-        System.out.println("\n正在接收 BTC 和 ETH 的实时成交数据，运行 60 秒后自动退出...\n");
+        // ==================== 5. Keep Running to Receive Messages ====================
+        System.out.println("\nReceiving BTC and ETH real-time trades, will exit after 60 seconds...\n");
 
-        // 使用 CountDownLatch 等待 60 秒
+        // Use CountDownLatch to wait for 60 seconds
         CountDownLatch latch = new CountDownLatch(1);
         latch.await(60, TimeUnit.SECONDS);
 
-        // ==================== 6. 优雅关闭 WebSocket ====================
-        System.out.println("\n正在关闭 WebSocket 连接...");
+        // ==================== 6. Gracefully Close WebSocket ====================
+        System.out.println("\nClosing WebSocket connection...");
         info.closeWs();
-        System.out.println("WebSocket 已关闭，程序退出。");
+        System.out.println("WebSocket closed, program exiting.");
     }
 }

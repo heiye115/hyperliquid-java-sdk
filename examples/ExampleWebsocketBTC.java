@@ -9,106 +9,106 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * WebSocket 订阅 BTC 行情示例
+ * WebSocket BTC Market Data Subscription Example
  * <p>
- * 演示功能：
- * 1. 订阅 BTC L2 订单簿（实时盘口数据）
- * 2. 订阅 BTC 实时成交（Trades）
- * 3. 订阅 BTC K线数据（1分钟周期）
- * 4. 添加连接状态监听器
- * 5. 优雅关闭 WebSocket 连接
+ * Features:
+ * 1. Subscribe to BTC L2 order book (real-time depth data)
+ * 2. Subscribe to BTC real-time trades
+ * 3. Subscribe to BTC candle data (1-minute interval)
+ * 4. Add connection state listener
+ * 5. Gracefully close WebSocket connection
  * </p>
  */
 public class ExampleWebsocketBTC {
 
     public static void main(String[] args) throws InterruptedException {
-        // ==================== 1. 初始化客户端 ====================
-        // 注意：WebSocket 订阅不需要私钥，只订阅公开行情数据
+        // ==================== 1. Initialize Client ====================
+        // Note: WebSocket subscription doesn't require private key, only public market data
         HyperliquidClient client = HyperliquidClient.builder()
-                .testNetUrl()  // 使用测试网
+                .testNetUrl()  // Use testnet
                 .build();
 
         Info info = client.getInfo();
 
-        System.out.println("=== Hyperliquid WebSocket 订阅 BTC 行情示例 ===\n");
+        System.out.println("=== Hyperliquid WebSocket BTC Market Data Subscription Example ===\n");
 
-        // ==================== 2. 添加连接状态监听器（可选）====================
-        // 注意：连接状态监听器是【完全可选的】，不添加也能正常使用 WebSocket
-        // 添加监听器仅用于观察连接状态，方便调试和日志记录
+        // ==================== 2. Add Connection Listener (Optional) ====================
+        // Note: Connection listener is COMPLETELY OPTIONAL, WebSocket works without it
+        // Add listener only for observing connection state, useful for debugging and logging
         info.addConnectionListener(new WebsocketManager.ConnectionListener() {
             @Override
             public void onConnecting(String url) {
-                System.out.println("[连接中] WebSocket 正在连接: " + url);
+                System.out.println("[Connecting] WebSocket connecting: " + url);
             }
 
             @Override
             public void onConnected(String url) {
-                System.out.println("[已连接] WebSocket 连接成功: " + url);
+                System.out.println("[Connected] WebSocket connected successfully: " + url);
             }
 
             @Override
             public void onDisconnected(String url, int code, String reason, Throwable cause) {
-                System.out.println("[已断开] WebSocket 断开连接 - 代码: " + code + ", 原因: " + reason);
+                System.out.println("[Disconnected] WebSocket disconnected - Code: " + code + ", Reason: " + reason);
                 if (cause != null) {
-                    System.out.println("[错误] 断开原因: " + cause.getMessage());
+                    System.out.println("[Error] Disconnect cause: " + cause.getMessage());
                 }
             }
 
             @Override
             public void onReconnecting(String url, int attempt, long nextDelayMs) {
-                System.out.println("[重连中] 第 " + attempt + " 次重连，延迟 " + nextDelayMs + " ms");
+                System.out.println("[Reconnecting] Attempt " + attempt + ", delay " + nextDelayMs + " ms");
             }
 
             @Override
             public void onReconnectFailed(String url, int attempted, Throwable lastError) {
-                System.out.println("[重连失败] 已尝试 " + attempted + " 次重连");
+                System.out.println("[Reconnect Failed] Attempted " + attempted + " times");
             }
 
             @Override
             public void onNetworkUnavailable(String url) {
-                System.out.println("[网络不可用] 网络探测失败");
+                System.out.println("[Network Unavailable] Network probe failed");
             }
 
             @Override
             public void onNetworkAvailable(String url) {
-                System.out.println("[网络可用] 网络已恢复");
+                System.out.println("[Network Available] Network restored");
             }
         });
 
-        // ==================== 3. 订阅 BTC L2 订单簿 ====================
-        // WebSocket 连接在构造时已自动建立，直接订阅即可
-        System.out.println("\n--- 订阅 BTC L2 订单簿 ---");
+        // ==================== 3. Subscribe to BTC L2 Order Book ====================
+        // WebSocket connection is automatically established, just subscribe directly
+        System.out.println("\n--- Subscribe to BTC L2 Order Book ---");
         JsonNode l2BookSub = JSONUtil.convertValue(
                 Map.of("type", "l2Book", "coin", "BTC"),
                 JsonNode.class
         );
 
         info.subscribe(l2BookSub, msg -> {
-            // 解析订单簿数据
+            // Parse order book data
             JsonNode data = msg.get("data");
             if (data != null && data.has("levels")) {
                 JsonNode levels = data.get("levels");
                 if (levels.isArray() && levels.size() >= 2) {
-                    JsonNode bids = levels.get(0); // 买盘
-                    JsonNode asks = levels.get(1); // 卖盘
+                    JsonNode bids = levels.get(0); // Bids
+                    JsonNode asks = levels.get(1); // Asks
                     if (bids.isArray() && !bids.isEmpty() && asks.isArray() && !asks.isEmpty()) {
                         String bestBid = bids.get(0).get("px").asText();
                         String bestAsk = asks.get(0).get("px").asText();
-                        System.out.printf("[L2订单簿] BTC 买一: %s, 卖一: %s%n", bestBid, bestAsk);
+                        System.out.printf("[L2 Book] BTC Best Bid: %s, Best Ask: %s%n", bestBid, bestAsk);
                     }
                 }
             }
         });
 
-        // ==================== 4. 订阅 BTC 实时成交 ====================
-        System.out.println("--- 订阅 BTC 实时成交 ---");
+        // ==================== 4. Subscribe to BTC Real-time Trades ====================
+        System.out.println("--- Subscribe to BTC Real-time Trades ---");
         JsonNode tradesSub = JSONUtil.convertValue(
                 Map.of("type", "trades", "coin", "BTC"),
                 JsonNode.class
         );
 
         info.subscribe(tradesSub, msg -> {
-            // 解析成交数据
+            // Parse trade data
             JsonNode data = msg.get("data");
             if (data != null && data.isArray()) {
                 for (JsonNode trade : data) {
@@ -116,21 +116,21 @@ public class ExampleWebsocketBTC {
                     String size = trade.path("sz").asText();
                     String side = trade.path("side").asText();
                     long time = trade.path("time").asLong();
-                    System.out.printf("[实时成交] BTC %s 成交 - 价格: %s, 数量: %s, 时间: %d%n",
+                    System.out.printf("[Trade] BTC %s - Price: %s, Size: %s, Time: %d%n",
                             side, price, size, time);
                 }
             }
         });
 
-        // ==================== 5. 订阅 BTC 1分钟 K线 ====================
-        System.out.println("--- 订阅 BTC 1分钟 K线 ---");
+        // ==================== 5. Subscribe to BTC 1-Minute Candle ====================
+        System.out.println("--- Subscribe to BTC 1-Minute Candle ---");
         JsonNode candleSub = JSONUtil.convertValue(
                 Map.of("type", "candle", "coin", "BTC", "interval", "1m"),
                 JsonNode.class
         );
 
         info.subscribe(candleSub, msg -> {
-            // 解析 K线数据
+            // Parse candle data
             JsonNode data = msg.get("data");
             if (data != null) {
                 String open = data.path("o").asText();
@@ -139,13 +139,13 @@ public class ExampleWebsocketBTC {
                 String close = data.path("c").asText();
                 String volume = data.path("v").asText();
                 long timestamp = data.path("t").asLong();
-                System.out.printf("[K线数据] BTC 1分钟 - 开: %s, 高: %s, 低: %s, 收: %s, 量: %s, 时间: %d%n",
+                System.out.printf("[Candle] BTC 1m - O: %s, H: %s, L: %s, C: %s, V: %s, T: %d%n",
                         open, high, low, close, volume, timestamp);
             }
         });
 
-        // ==================== 6. 订阅 BTC 最佳买卖价 (BBO) ====================
-        System.out.println("--- 订阅 BTC 最佳买卖价 ---");
+        // ==================== 6. Subscribe to BTC Best Bid/Offer (BBO) ====================
+        System.out.println("--- Subscribe to BTC Best Bid/Offer ---");
         JsonNode bboSub = JSONUtil.convertValue(
                 Map.of("type", "bbo", "coin", "BTC"),
                 JsonNode.class
@@ -158,21 +158,21 @@ public class ExampleWebsocketBTC {
                 String bidSize = data.path("bid").path("sz").asText();
                 String askPrice = data.path("ask").path("px").asText();
                 String askSize = data.path("ask").path("sz").asText();
-                System.out.printf("[BBO] BTC 买一: %s@%s, 卖一: %s@%s%n",
+                System.out.printf("[BBO] BTC Bid: %s@%s, Ask: %s@%s%n",
                         bidPrice, bidSize, askPrice, askSize);
             }
         });
 
-        // ==================== 7. 保持运行并接收消息 ====================
-        System.out.println("\n正在接收 BTC 实时行情数据，运行 60 秒后自动退出...\n");
+        // ==================== 7. Keep Running to Receive Messages ====================
+        System.out.println("\nReceiving BTC real-time market data, will exit after 60 seconds...\n");
 
-        // 使用 CountDownLatch 等待 60 秒
+        // Use CountDownLatch to wait for 60 seconds
         CountDownLatch latch = new CountDownLatch(1);
         latch.await(60, TimeUnit.SECONDS);
 
-        // ==================== 8. 优雅关闭 WebSocket ====================
-        System.out.println("\n正在关闭 WebSocket 连接...");
+        // ==================== 8. Gracefully Close WebSocket ====================
+        System.out.println("\nClosing WebSocket connection...");
         info.closeWs();
-        System.out.println("WebSocket 已关闭，程序退出。");
+        System.out.println("WebSocket closed, program exiting.");
     }
 }
