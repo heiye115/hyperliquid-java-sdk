@@ -248,6 +248,15 @@ public class Exchange {
             String sz = (req.getSz() != null && !req.getSz().isEmpty()) ? req.getSz() : String.valueOf(Math.abs(szi));
             return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
         }
+        if (isClosePositionLimit(req)) {
+            double signedPosition = inferSignedPosition(req.getCoin());
+            if (signedPosition == 0.0) {
+                throw new HypeError("No position to close for coin " + req.getCoin());
+            }
+            boolean isBuy = signedPosition < 0.0;
+            //推断仓位方向 设置isBuy
+            req.setIsBuy(isBuy);
+        }
         return req;
     }
 
@@ -265,6 +274,23 @@ public class Exchange {
                 && req.getOrderType().getLimit().getTif() == Tif.IOC
                 && Boolean.TRUE.equals(req.getReduceOnly())
                 && req.getLimitPx() == null;
+    }
+
+    /**
+     * 判定是否为“限价平仓占位”请求。
+     *
+     * @param req 下单请求
+     * @return 是则返回 true，否则 false
+     */
+    private boolean isClosePositionLimit(OrderRequest req) {
+        return req != null
+                && req.getInstrumentType() == InstrumentType.PERP
+                && req.getOrderType() != null
+                && req.getOrderType().getLimit() != null
+                && req.getOrderType().getLimit().getTif() == Tif.GTC
+                && Boolean.TRUE.equals(req.getReduceOnly())
+                && req.getLimitPx() != null
+                && req.getIsBuy() == null;
     }
 
     /**

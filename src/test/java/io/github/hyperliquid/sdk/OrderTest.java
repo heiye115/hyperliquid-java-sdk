@@ -30,7 +30,7 @@ public class OrderTest {
      **/
     @Test
     public void testMarketOrder() {
-        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.01");
+        OrderRequest req = OrderRequest.Open.market("ETH", false, "0.02");
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }
@@ -69,7 +69,7 @@ public class OrderTest {
      **/
     @Test
     public void testLimitCloseOrder() {
-        OrderRequest req = OrderRequest.Close.limit(Tif.GTC, "ETH", "0.01", "4000.0", Cloid.auto());
+        OrderRequest req = OrderRequest.Close.limit("ETH", "0.01", "2000.0", Cloid.auto());
         Order order = client.getSingleExchange().order(req);
         System.out.println(order);
     }
