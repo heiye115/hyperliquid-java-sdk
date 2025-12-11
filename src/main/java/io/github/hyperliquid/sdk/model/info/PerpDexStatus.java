@@ -9,11 +9,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * PerpDexStatus 类型化模型。
+ * PerpDexStatus typed model.
  *
  * <p>
- * 文档示例：{"totalNetDeposit": "4103492112.4478230476"}
- * 该模型保留扩展字段以兼容未来返回结构。
+ * Documentation example: {"totalNetDeposit": "4103492112.4478230476"}
+ * This model preserves extension fields to be compatible with future return structures.
  * </p>
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -21,12 +21,12 @@ import java.util.Map;
 public class PerpDexStatus {
 
     /**
-     * 总净充值/提现（字符串）
+     * Total net deposit/withdrawal (string)
      */
     private String totalNetDeposit;
 
     /**
-     * 其他未知/扩展字段
+     * Other unknown/extension fields
      */
     private Map<String, Object> extensions = new LinkedHashMap<>();
 
@@ -48,7 +48,7 @@ public class PerpDexStatus {
     }
 
     /**
-     * 获取扩展字段
+     * Get extension fields
      */
     @JsonAnyGetter
     public Map<String, Object> any() {
@@ -56,7 +56,7 @@ public class PerpDexStatus {
     }
 
     /**
-     * 设置扩展字段
+     * Set extension fields
      */
     @JsonAnySetter
     public void setExtensions(String key, Object value) {

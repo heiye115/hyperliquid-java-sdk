@@ -1,44 +1,44 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * 触发单类型：承载触发价、是否按市价执行、触发方向（tp/sl）。
+ * Trigger order type: carries trigger price, whether to execute at market price, and trigger direction (tp/sl).
  * <p>
- * 与 Python `TriggerOrderType` 对齐（triggerPx/isMarket/tpsl）。
+ * Aligned with Python `TriggerOrderType` (triggerPx/isMarket/tpsl).
  * <p>
- * <b>重要说明：</b>
+ * <b>Important note:</b>
  * <ul>
- * <li>`tpsl` 字段决定的是<b>触发方向</b>，而非是否平仓！</li>
- * <li>`tpsl="tp"`：价格<b>向上突破</b> triggerPx 时触发（适合止盈或做多突破）</li>
- * <li>`tpsl="sl"`：价格<b>向下跌破</b> triggerPx 时触发（适合止损或做空突破）</li>
- * <li>`reduceOnly` 字段才决定是开仓还是平仓：</li>
+ * <li>The `tpsl` field determines the <b>trigger direction</b>, not whether to close position!</li>
+ * <li>`tpsl="tp"`: triggers when price <b>breaks above</b> triggerPx (suitable for take-profit or long breakout)</li>
+ * <li>`tpsl="sl"`: triggers when price <b>breaks below</b> triggerPx (suitable for stop-loss or short breakout)</li>
+ * <li>The `reduceOnly` field determines whether to open or close position:</li>
  *   <ul>
- *   <li>`reduceOnly=false` + `tpsl="tp"` = 价格突破时开仓（做多）</li>
- *   <li>`reduceOnly=false` + `tpsl="sl"` = 价格跌破时开仓（做空）</li>
- *   <li>`reduceOnly=true` + `tpsl="tp"` = 价格突破时平仓（止盈）</li>
- *   <li>`reduceOnly=true` + `tpsl="sl"` = 价格跌破时平仓（止损）</li>
+ *   <li>`reduceOnly=false` + `tpsl="tp"` = open position when price breaks out (go long)</li>
+ *   <li>`reduceOnly=false` + `tpsl="sl"` = open position when price breaks down (go short)</li>
+ *   <li>`reduceOnly=true` + `tpsl="tp"` = close position when price breaks out (take-profit)</li>
+ *   <li>`reduceOnly=true` + `tpsl="sl"` = close position when price breaks down (stop-loss)</li>
  *   </ul>
  * </ul>
  */
 public class TriggerOrderType {
     /**
-     * 触发价格（字符串）
+     * Trigger price (string)
      */
     private final String triggerPx;
     /**
-     * 触发后是否以市价执行（true=市价触发；false=限价触发）
+     * Whether to execute at market price after trigger (true=market trigger; false=limit trigger)
      */
     private final Boolean isMarket;
     /**
-     * 触发方向类型（必填，决定向上突破还是向下跌破时触发）
+     * Trigger direction type (required, determines whether to trigger on upward breakout or downward breakdown)
      */
     private final TpslType tpsl;
 
     /**
-     * 触发方向类型枚举
+     * Trigger direction type enum
      */
     public enum TpslType {
-        TP("tp"), // 向上突破触发（Take Profit / 止盈 / 做多突破）
-        SL("sl"); // 向下跌破触发（Stop Loss / 止损 / 做空突破）
+        TP("tp"), // Trigger on upward breakout (Take Profit / take-profit / long breakout)
+        SL("sl"); // Trigger on downward breakdown (Stop Loss / stop-loss / short breakout)
 
         private final String value;
 
@@ -47,9 +47,9 @@ public class TriggerOrderType {
         }
 
         /**
-         * 获取TPSL值。
+         * Get TPSL value.
          *
-         * @return TPSL值字符串
+         * @return TPSL value string
          */
         public String getValue() {
             return value;
@@ -62,9 +62,9 @@ public class TriggerOrderType {
     }
 
     /**
-     * 构造触发单类型。
+     * Construct trigger order type.
      * <p>
-     * <b>示例1：无仓位时做多突破（价格向上突破 2950 时买入）</b>
+     * <b>Example 1: Long breakout when no position (buy when price breaks above 2950)</b>
      * <pre>
      * TriggerOrderType trigger = new TriggerOrderType("2950.0", false, TpslType.TP);
      * OrderRequest req = OrderRequest.builder()
@@ -73,11 +73,11 @@ public class TriggerOrderType {
      *     .sz("0.1")
      *     .limitPx("3000.0")
      *     .orderType(OrderType.trigger(trigger))
-     *     .reduceOnly(false)  // 开仓单
+     *     .reduceOnly(false)  // Open position order
      *     .build();
      * </pre>
      *
-     * <b>示例2：有多仓时止盈（价格向上突破 3600 时平仓）</b>
+     * <b>Example 2: Take-profit when having long position (close position when price breaks above 3600)</b>
      * <pre>
      * TriggerOrderType tpTrigger = new TriggerOrderType("3600.0", true, TpslType.TP);
      * OrderRequest tpReq = OrderRequest.builder()
@@ -86,21 +86,21 @@ public class TriggerOrderType {
      *     .sz("0.5")
      *     .limitPx("3600.0")
      *     .orderType(OrderType.trigger(tpTrigger))
-     *     .reduceOnly(true)  // 平仓单
+     *     .reduceOnly(true)  // Close position order
      *     .build();
      * </pre>
      *
-     * @param triggerPx 触发价格（字符串）
-     * @param isMarket  是否市价执行（true=触发后市价成交；false=触发后按limitPx挂限价单）
-     * @param tpsl      触发方向类型（必填）
+     * @param triggerPx trigger price (string)
+     * @param isMarket  whether to execute at market price (true=execute at market price after trigger; false=place limit order at limitPx after trigger)
+     * @param tpsl      trigger direction type (required)
      *                  <ul>
-     *                  <li>TP：价格向上突破 triggerPx 时触发</li>
-     *                  <li>SL：价格向下跌破 triggerPx 时触发</li>
+     *                  <li>TP: triggers when price breaks above triggerPx</li>
+     *                  <li>SL: triggers when price breaks below triggerPx</li>
      *                  </ul>
      */
     public TriggerOrderType(String triggerPx, boolean isMarket, TpslType tpsl) {
         if (tpsl == null) {
-            throw new IllegalArgumentException("tpsl cannot be null（必须指定触发方向：TP=向上突破，SL=向下跌破）");
+            throw new IllegalArgumentException("tpsl cannot be null (must specify trigger direction: TP=break above, SL=break below)");
         }
         this.triggerPx = triggerPx;
         this.isMarket = isMarket;
@@ -109,32 +109,32 @@ public class TriggerOrderType {
 
 
     /**
-     * 获取触发价格
+     * Get trigger price
      */
     public String getTriggerPx() {
         return triggerPx;
     }
 
     /**
-     * 是否以市价触发执行
+     * Whether to trigger execution at market price
      */
     public boolean isMarket() {
         return isMarket;
     }
 
     /**
-     * 获取触发方向类型字符串值。
+     * Get trigger direction type string value.
      *
-     * @return "tp"（向上突破） 或 "sl"（向下跌破）
+     * @return "tp" (break above) or "sl" (break below)
      */
     public String getTpsl() {
         return tpsl.getValue();
     }
 
     /**
-     * 获取触发方向枚举类型。
+     * Get trigger direction enum type.
      *
-     * @return TpslType 枚举
+     * @return TpslType enum
      */
     public TpslType getTpslEnum() {
         return tpsl;

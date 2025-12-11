@@ -2,26 +2,26 @@ package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** 资产元素（名称、精度、杠杆与保证金表绑定） */
+/** Asset element (name, precision, leverage and margin table binding) */
 public class UniverseElement {
     
-    /** 数量精度（小数位） */
+    /** Quantity precision (decimal places) */
     @JsonProperty("szDecimals")
     private Integer szDecimals;
 
-    /** 资产名称（如 "BTC"） */
+    /** Asset name (e.g., "BTC") */
     @JsonProperty("name")
     private String name;
 
-    /** 最大杠杆倍数 */
+    /** Maximum leverage multiple */
     @JsonProperty("maxLeverage")
     private Integer maxLeverage;
 
-    /** 绑定的保证金表 ID */
+    /** Bound margin table ID */
     @JsonProperty("marginTableId")
     private Integer marginTableId;
 
-    /** 无参构造函数 */
+    /** No-argument constructor */
     public UniverseElement() {
     }
 

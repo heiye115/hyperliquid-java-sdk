@@ -1,21 +1,21 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * TIF 类型枚举
+ * TIF type enum
  */
 public enum Tif {
     /**
-     * GTC（直到取消前有效）：订单没有特殊行为，会一直留在订单簿中直到成交或被取消。
+     * GTC (Good Till Cancel): order has no special behavior, will remain in order book until executed or canceled.
      **/
     GTC("Gtc"),
 
     /**
-     * ALO（仅添加流动性，即"仅做市"）：如果订单会立即成交，则将被取消，而不是立即匹配。
+     * ALO (Add Liquidity Only): if order would execute immediately, it will be canceled instead of matching.
      **/
     ALO("Alo"),
 
     /**
-     * IOC（立即成交或取消）：未成交部分将被取消，而不是留在订单簿中等待。
+     * IOC (Immediate Or Cancel): unexecuted portion will be canceled instead of remaining in order book.
      **/
     IOC("Ioc");
 
@@ -26,9 +26,9 @@ public enum Tif {
     }
 
     /**
-     * 获取TIF值。
+     * Get TIF value.
      *
-     * @return TIF值字符串
+     * @return TIF value string
      */
     public String getValue() {
         return value;

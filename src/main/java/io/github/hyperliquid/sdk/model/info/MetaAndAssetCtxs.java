@@ -5,22 +5,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/** 元数据与资产上下文数组（形如 [meta, assetCtxs]） */
+/** Metadata and asset contexts array (in the form of [meta, assetCtxs]) */
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
 public class MetaAndAssetCtxs {
-    /** 索引 0：市场元数据 */
+    /** Index 0: market metadata */
     @JsonProperty(index = 0)
     private MetaInfo metaInfo;
 
-    /** 索引 1：各资产上下文列表 */
+    /** Index 1: list of asset contexts */
     @JsonProperty(index = 1)
     private List<AssetCtx> assetCtxs;
 
-    /** 无参构造函数 */
+    /** No-argument constructor */
     public MetaAndAssetCtxs() {
     }
 
-    /** 全参构造函数 */
+    /** Full-parameter constructor */
     public MetaAndAssetCtxs(MetaInfo metaInfo, List<AssetCtx> assetCtxs) {
         this.metaInfo = metaInfo;
         this.assetCtxs = assetCtxs;

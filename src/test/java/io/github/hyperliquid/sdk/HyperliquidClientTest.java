@@ -18,34 +18,34 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * HyperliquidClient 测试类
- * 使用 JUnit 5 对 client.getInfo() 下的所有方法进行完整测试。
- * 包含：成功调用验证、返回结构断言、错误处理与日志输出校验。
+ * HyperliquidClient test class
+ * Uses JUnit 5 to comprehensively test all methods under client.getInfo().
+ * Includes: successful call validation, return structure assertions, error handling, and log output verification.
  */
 public class HyperliquidClientTest {
 
     /**
-     * 测试网私钥（仅用于测试）
+     * Testnet private key (for testing only)
      */
     private static final String TESTNET_PRIVATE_KEY = "your_testnet_private_key_here";
 
     /**
-     * 被测客户端
+     * Client under test
      */
     private HyperliquidClient client;
 
     /**
-     * 当前测试地址
+     * Current test address
      */
     private String address;
 
     /**
-     * 捕获 slf4j-simple 的标准错误输出以验证日志
+     * Capture slf4j-simple's standard error output for log verification
      */
     private ByteArrayOutputStream errContent;
 
     /**
-     * 备份原始 System.err
+     * Backup original System.err
      */
     private PrintStream originalErr;
 
@@ -98,10 +98,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 验证账户信息获取功能：清算所状态与用户状态。
+     * Verify account information retrieval functionality: clearinghouse state and user state.
      */
     @Test
-    @DisplayName("账户信息：clearinghouseState/userState 返回结构与日志")
+    @DisplayName("Account info: clearinghouseState/userState return structure and logs")
     void testGetAccountInfo() {
         resetLogs();
         Info info = client.getInfo();
@@ -118,10 +118,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 验证市场数据获取功能：meta、allMids、l2Book、candleSnapshotLatest。
+     * Verify market data retrieval functionality: meta, allMids, l2Book, candleSnapshotLatest.
      */
     @Test
-    @DisplayName("市场数据：meta/allMids/l2Book/candleSnapshotLatest")
+    @DisplayName("Market data: meta/allMids/l2Book/candleSnapshotLatest")
     void testGetMarketData() {
         Info info = client.getInfo();
 
@@ -154,10 +154,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 验证未成交订单查询功能：openOrders 与 frontendOpenOrders。
+     * Verify open orders query functionality: openOrders and frontendOpenOrders.
      */
     @Test
-    @DisplayName("未成交订单：openOrders/frontendOpenOrders 列表结构")
+    @DisplayName("Open orders: openOrders/frontendOpenOrders list structure")
     void testGetOpenOrders() {
         Info info = client.getInfo();
 
@@ -173,10 +173,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 验证持仓信息查询功能：ClearinghouseState.assetPositions 字段。
+     * Verify position information query functionality: ClearinghouseState.assetPositions field.
      */
     @Test
-    @DisplayName("持仓信息：ClearinghouseState.assetPositions 字段校验")
+    @DisplayName("Position info: ClearinghouseState.assetPositions field validation")
     void testGetPositions() {
         Info info = client.getInfo();
         resetLogs();
@@ -192,10 +192,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 元数据与缓存：meta(String)、loadMetaCache
+     * Metadata and cache: meta(String), loadMetaCache
      */
     @Test
-    @DisplayName("元数据：meta(dex)/loadMetaCache 缓存生效")
+    @DisplayName("Metadata: meta(dex)/loadMetaCache cache effectiveness")
     void testMetaAndCache() {
         Info info = client.getInfo();
         resetLogs();
@@ -210,10 +210,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 元数据与资产上下文：JSON 与类型化一致性
+     * Metadata and asset contexts: JSON and typed consistency
      */
     @Test
-    @DisplayName("元数据：metaAndAssetCtxs JSON/typed 一致性")
+    @DisplayName("Metadata: metaAndAssetCtxs JSON/typed consistency")
     void testMetaAndAssetCtxs() {
         Info info = client.getInfo();
 
@@ -230,10 +230,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 现货元数据：spotMeta 与 spotMetaAndAssetCtxs
+     * Spot metadata: spotMeta and spotMetaAndAssetCtxs
      */
     @Test
-    @DisplayName("现货元数据：spotMeta/spotMetaAndAssetCtxs")
+    @DisplayName("Spot metadata: spotMeta/spotMetaAndAssetCtxs")
     void testSpotMeta() {
         Info info = client.getInfo();
 
@@ -249,10 +249,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * perpDexs：JSON 与类型化
+     * perpDexs: JSON and typed
      */
     @Test
-    @DisplayName("永续 DEX 列表：perpDexs/perpDexsTyped")
+    @DisplayName("Perpetual DEX list: perpDexs/perpDexsTyped")
     void testPerpDexs() {
         Info info = client.getInfo();
 
@@ -269,10 +269,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * perpDexStatus：JSON 与类型化
+     * perpDexStatus: JSON and typed
      */
     @Test
-    @DisplayName("永续 DEX 状态：perpDexStatus/perpDexStatusTyped")
+    @DisplayName("Perpetual DEX status: perpDexStatus/perpDexStatusTyped")
     void testPerpDexStatus() {
         Info info = client.getInfo();
 
@@ -289,10 +289,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * openOrders：dex 变体
+     * openOrders: dex variant
      */
     @Test
-    @DisplayName("未成交订单：openOrders(dex)")
+    @DisplayName("Open orders: openOrders(dex)")
     void testOpenOrdersWithDex() {
         Info info = client.getInfo();
         resetLogs();
@@ -302,10 +302,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * allMids：默认与指定 dex
+     * allMids: default and specified dex
      */
     @Test
-    @DisplayName("中间价：allMids 默认与指定 dex")
+    @DisplayName("Mid prices: allMids default and specified dex")
     void testAllMids() {
         Info info = client.getInfo();
 
@@ -321,10 +321,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * L2 订单簿：聚合参数
+     * L2 order book: aggregation parameters
      */
     @Test
-    @DisplayName("订单簿：l2Book 聚合参数有效性")
+    @DisplayName("Order book: l2Book aggregation parameters validity")
     void testL2BookAggregations() {
         Info info = client.getInfo();
         resetLogs();
@@ -344,10 +344,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * K 线：范围与数量
+     * Candles: range and count
      */
     @Test
-    @DisplayName("K线：candleSnapshot 范围与数量")
+    @DisplayName("Candles: candleSnapshot range and count")
     void testCandles() {
         Info info = client.getInfo();
         long end = Instant.now().toEpochMilli();
@@ -366,20 +366,20 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * K 线：非法数量应抛异常
+     * Candles: invalid count should throw exception
      */
     @Test
-    @DisplayName("K线错误：count<=0 抛出 HypeError")
+    @DisplayName("Candle error: count<=0 throws HypeError")
     void testCandleSnapshotByCountInvalid() {
         Info info = client.getInfo();
         assertThrows(HypeError.class, () -> info.candleSnapshotByCount("BTC", CandleInterval.MINUTE_1, 0));
     }
 
     /**
-     * 名称到资产 ID 映射：未知名称应抛异常
+     * Name to asset ID mapping: unknown name should throw exception
      */
     @Test
-    @DisplayName("名称映射错误：未知币种抛出 HypeError")
+    @DisplayName("Name mapping error: unknown coin throws HypeError")
     void testNameToAssetUnknown() {
         Info info = client.getInfo();
         info.loadMetaCache();
@@ -387,10 +387,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 资金费率历史：按资产 ID 与名称
+     * Funding rate history: by asset ID and name
      */
     @Test
-    @DisplayName("资金费率：fundingHistory(id/name)")
+    @DisplayName("Funding rates: fundingHistory(id/name)")
     void testFundingHistory() {
         Info info = client.getInfo();
         long start = 1763136000000L;
@@ -407,10 +407,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 用户资金费率历史：多重载一致性
+     * User funding rate history: multiple overload consistency
      */
     @Test
-    @DisplayName("用户资金费率：userFundingHistory 多重载")
+    @DisplayName("User funding rates: userFundingHistory multiple overloads")
     void testUserFundingHistoryVariants() {
         Info info = client.getInfo();
         long end = Instant.now().toEpochMilli();
@@ -435,10 +435,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 用户非资金账本更新
+     * User non-funding ledger updates
      */
     @Test
-    @DisplayName("账本：userNonFundingLedgerUpdates JSON 结构")
+    @DisplayName("Ledger: userNonFundingLedgerUpdates JSON structure")
     void testUserNonFundingLedgerUpdates() {
         Info info = client.getInfo();
         long end = Instant.now().toEpochMilli();
@@ -451,10 +451,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 历史订单与 TWAP 切片成交
+     * Historical orders and TWAP slice fills
      */
     @Test
-    @DisplayName("订单历史：historicalOrders/userTwapSliceFills")
+    @DisplayName("Order history: historicalOrders/userTwapSliceFills")
     void testHistoricalAndTwap() {
         Info info = client.getInfo();
         long end = Instant.now().toEpochMilli();
@@ -472,20 +472,20 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 订单状态：无效 OID 触发错误处理
+     * Order status: invalid OID triggers error handling
      */
     @Test
-    @DisplayName("订单状态错误：无效 OID 抛出 HypeError.ClientHypeError")
+    @DisplayName("Order status error: invalid OID throws HypeError.ClientHypeError")
     void testOrderStatusInvalidOid() {
         Info info = client.getInfo();
         assertThrows(HypeError.ClientHypeError.class, () -> info.orderStatus(address, -1L));
     }
 
     /**
-     * 前端未成交订单（带 dex）
+     * Frontend open orders (with dex)
      */
     @Test
-    @DisplayName("未成交订单：frontendOpenOrders(dex)")
+    @DisplayName("Open orders: frontendOpenOrders(dex)")
     void testFrontendOpenOrdersWithDex() {
         Info info = client.getInfo();
         resetLogs();
@@ -495,10 +495,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 用户成交：最近与时间范围
+     * User fills: recent and time range
      */
     @Test
-    @DisplayName("成交：userFills 与 userFillsByTime")
+    @DisplayName("Fills: userFills and userFillsByTime")
     void testUserFillsVariants() {
         Info info = client.getInfo();
         long end = Instant.now().toEpochMilli();
@@ -526,10 +526,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 用户费用（返现/手续费）
+     * User fees (rebates/commissions)
      */
     @Test
-    @DisplayName("费用：userFees JSON 结构")
+    @DisplayName("Fees: userFees JSON structure")
     void testUserFees() {
         Info info = client.getInfo();
         resetLogs();
@@ -539,10 +539,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * clearinghouseState：dex 变体
+     * clearinghouseState: dex variant
      */
     @Test
-    @DisplayName("账户状态：clearinghouseState(dex)")
+    @DisplayName("Account state: clearinghouseState(dex)")
     void testClearinghouseStateWithDex() {
         Info info = client.getInfo();
         resetLogs();
@@ -552,20 +552,20 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * Vault 详情：给定无效地址期望 4xx
+     * Vault details: invalid address expected to trigger 4xx
      */
     @Test
-    @DisplayName("Vault 详情错误：无效地址触发 4xx")
+    @DisplayName("Vault details error: invalid address triggers 4xx")
     void testVaultDetailsInvalid() {
         Info info = client.getInfo();
         assertThrows(HypeError.class, () -> info.vaultDetails("0x0000000000000000000000000000000000000000", address));
     }
 
     /**
-     * Spot Deploy 状态与组合/角色/速率限制
+     * Spot Deploy status and portfolio/role/rate limit
      */
     @Test
-    @DisplayName("用户信息：spotDeployState/portfolio/userRole/userRateLimit")
+    @DisplayName("User info: spotDeployState/portfolio/userRole/userRateLimit")
     void testUserInfoMisc() {
         Info info = client.getInfo();
 
@@ -591,10 +591,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 推荐、子账户与多签签名者映射
+     * Referral, sub-accounts and multi-sig signer mappings
      */
     @Test
-    @DisplayName("用户映射：queryReferralState/querySubAccounts/queryUserToMultiSigSigners")
+    @DisplayName("User mappings: queryReferralState/querySubAccounts/queryUserToMultiSigSigners")
     void testUserMappings() {
         Info info = client.getInfo();
 
@@ -615,10 +615,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 部署拍卖状态与 DEX 抽象状态
+     * Deployment auction status and DEX abstraction state
      */
     @Test
-    @DisplayName("部署状态：queryPerpDeployAuctionStatus/querySpotDeployAuctionStatus/DEX 抽象状态")
+    @DisplayName("Deployment status: queryPerpDeployAuctionStatus/querySpotDeployAuctionStatus/DEX abstraction state")
     void testDeployAndAbstraction() {
         Info info = client.getInfo();
 
@@ -639,10 +639,10 @@ public class HyperliquidClientTest {
     }
 
     /**
-     * 用户 Vault 权益与额外代理
+     * User Vault equities and extra agents
      */
     @Test
-    @DisplayName("权益与代理：userVaultEquities/extraAgents")
+    @DisplayName("Equities and agents: userVaultEquities/extraAgents")
     void testVaultEquitiesAndExtraAgents() {
         Info info = client.getInfo();
 

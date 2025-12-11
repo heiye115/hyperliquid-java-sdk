@@ -3,19 +3,19 @@ package io.github.hyperliquid.sdk.model.info;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** 保证金表条目（形如 [id, detail]） */
+/** Margin table entry (in the form of [id, detail]) */
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
 public class MarginTableEntry {
 
-    /** 保证金表 ID（索引 0） */
+    /** Margin table ID (index 0) */
     @JsonProperty(index = 0)
     private Integer id;
 
-    /** 保证金表详情（索引 1） */
+    /** Margin table details (index 1) */
     @JsonProperty(index = 1)
     private MarginTableDetail detail;
 
-    /** 无参构造函数 */
+    /** No-argument constructor */
     public MarginTableEntry() {
     }
 

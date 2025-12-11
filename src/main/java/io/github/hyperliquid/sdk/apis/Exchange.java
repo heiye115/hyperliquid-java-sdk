@@ -15,65 +15,65 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ExchangeClient 客户端，负责下单、撤单、转账等 L1/L2 操作。
- * 当前版本实现核心下单与批量下单，其他 L1 操作将在后续补充。
+ * ExchangeClient client, responsible for order placement, cancellation, transfers, and other L1/L2 operations.
+ * The current version implements core order placement and batch orders, with other L1 operations to be added later.
  */
 public class Exchange {
 
     /**
-     * 用户API钱包
+     * User API wallet
      */
     private final ApiWallet apiWallet;
 
     /**
-     * HTTP 客户端
+     * HTTP client
      */
     private final HypeHttpClient hypeHttpClient;
 
     /**
-     * Info 客户端实例
+     * Info client instance
      */
     private final Info info;
 
     /**
-     * 以太坊地址（0x 前缀）
+     * Ethereum address (0x prefix)
      */
     private String vaultAddress;
 
     /**
-     * 获取 vault 地址
+     * Get vault address
      *
-     * @return vault 地址
+     * @return vault address
      */
     public String getVaultAddress() {
         return vaultAddress;
     }
 
     /**
-     * 设置 vault 地址
+     * Set vault address
      *
-     * @param vaultAddress vault 地址
+     * @param vaultAddress vault address
      */
     public void setVaultAddress(String vaultAddress) {
         this.vaultAddress = vaultAddress;
     }
 
     /**
-     * 默认滑点，用于计算滑点价格（字符串）
+     * Default slippage, used to calculate slippage price (string)
      */
     private final Map<String, String> defaultSlippageByCoin = new ConcurrentHashMap<>();
 
     /**
-     * 默认滑点，用于计算滑点价格（字符串，例如 "0.05" 表示 5%）
+     * Default slippage, used to calculate slippage price (string, e.g., "0.05" for 5%)
      */
     private String defaultSlippage = "0.05";
 
     /**
-     * 构造 Exchange 客户端。
+     * Construct Exchange client.
      *
-     * @param hypeHttpClient HTTP 客户端实例
-     * @param wallet         用户钱包凭证
-     * @param info           Info 客户端实例
+     * @param hypeHttpClient HTTP client instance
+     * @param wallet         User wallet credentials
+     * @param info           Info client instance
      */
     public Exchange(HypeHttpClient hypeHttpClient, ApiWallet wallet, Info info) {
         this.hypeHttpClient = hypeHttpClient;
@@ -83,10 +83,10 @@ public class Exchange {
     }
 
     /**
-     * 计划撤单（scheduleCancel）。
+     * Schedule cancellation (scheduleCancel).
      *
-     * @param timeMs 指定撤单执行的毫秒时间戳；null 表示立即执行
-     * @return JSON 响应
+     * @param timeMs Millisecond timestamp for cancellation execution; null means immediate execution
+     * @return JSON response
      */
     public JsonNode scheduleCancel(Long timeMs) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -98,11 +98,11 @@ public class Exchange {
     }
 
     /**
-     * 更改杠杆
+     * Change leverage
      *
-     * @param coinName 币种名
-     * @param crossed  是否全仓
-     * @param leverage 杠杆倍数
+     * @param coinName Coin name
+     * @param crossed  Whether cross margin
+     * @param leverage Leverage multiple
      * @return UpdateLeverage
      *
      */
@@ -121,22 +121,24 @@ public class Exchange {
 
 
     /**
-     * 单笔下单（普通下单场景）
+     * Single order placement (normal order scenario)
      *
-     * @param req 下单请求
-     * @return 交易接口响应 JSON
+     * @param req Order request
+     * @return Trading interface response JSON
      */
     public Order order(OrderRequest req) {
         return order(req, null);
     }
 
     /**
-     * 单笔下单（支持 builder）。
+     * Single order placement (with builder support).
      * <p>
-     * - 普通下单场景 ：当用户不指定 builder 参数时，订单会默认使用 Hyperliquid 平台的核心撮合引擎进行交易处理。
-     * - Builder 参数的专用用途 ：仅在用户希望将订单路由到特定的 Builder-deployed perp
-     * dex（由第三方开发者部署的永续合约去中心化交易所）时才需要传递该参数。
-     * - 例如：当用户想利用某个 Builder 提供的定制化流动性、特定交易策略或支付 Builder 费用时，才需要设置 builder 参数。
+     * - Normal order scenario: When the user does not specify the builder parameter, the order will default to using
+     * Hyperliquid platform's core matching engine for trade processing.
+     * - Special purpose of builder parameter: Only needed when the user wants to route the order to a specific
+     * Builder-deployed perp dex (perpetual contract decentralized exchange deployed by third-party developers).
+     * - For example: When the user wants to utilize a specific Builder's customized liquidity, specific trading strategies,
+     * or pay Builder fees, then the builder parameter needs to be set.
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
         OrderRequest effective = prepareRequest(req);
@@ -154,7 +156,7 @@ public class Exchange {
     }
 
     /**
-     * 根据资产精度格式化订单数量
+     * Format order quantity based on asset precision
      */
     private void formatOrderSize(OrderRequest req) {
         if (req == null || req.getSz() == null || req.getSz().isEmpty()) return;
@@ -171,11 +173,11 @@ public class Exchange {
     }
 
     /**
-     * 根据资产精度格式化订单价格（限价与触发价）
+     * Format order price (limit and trigger price) based on asset precision
      * <p>
-     * 规则与 Python SDK 对齐：
-     * 1. 先按 5 位有效数字四舍五入
-     * 2. 再按小数位四舍五入（永续：6-szDecimals；现货：8-szDecimals）
+     * Rules aligned with Python SDK:
+     * 1. First round to 5 significant digits
+     * 2. Then round to decimal places (perpetual: 6-szDecimals; spot: 8-szDecimals)
      * </p>
      */
     private void formatOrderPrice(OrderRequest req) {
@@ -221,10 +223,10 @@ public class Exchange {
 
 
     /**
-     * 准备下单请求：
-     * 1.推断市价平仓方数量。
-     * 2.推断限价平仓方向。
-     * 3.推断条件单限价
+     * Prepare order request:
+     * 1. Infer market close position quantity.
+     * 2. Infer limit close position direction.
+     * 3. Infer conditional order limit price
      */
     private OrderRequest prepareRequest(OrderRequest req) {
         //推断市价开仓价 带滑点
@@ -277,10 +279,10 @@ public class Exchange {
     }
 
     /**
-     * 判定是否为“市价平仓占位”请求。
+     * Determine if it's a "market close position placeholder" request.
      *
-     * @param req 下单请求
-     * @return 是则返回 true，否则 false
+     * @param req Order request
+     * @return Returns true if yes, false otherwise
      */
     private boolean isClosePositionMarket(OrderRequest req) {
         return req != null
@@ -293,10 +295,10 @@ public class Exchange {
     }
 
     /**
-     * 判定是否为“限价平仓占位”请求。
+     * Determine if it's a "limit close position placeholder" request.
      *
-     * @param req 下单请求
-     * @return 是则返回 true，否则 false
+     * @param req Order request
+     * @return Returns true if yes, false otherwise
      */
     private boolean isClosePositionLimit(OrderRequest req) {
         return req != null
@@ -310,10 +312,10 @@ public class Exchange {
     }
 
     /**
-     * 判定是否为“条件单”请求。
+     * Determine if it's a "conditional order" request.
      *
-     * @param req 下单请求
-     * @return 是则返回 true，否则 false
+     * @param req Order request
+     * @return Returns true if yes, false otherwise
      */
     private boolean isTriggerOrder(OrderRequest req) {
         return req != null
@@ -323,14 +325,15 @@ public class Exchange {
     }
 
     /**
-     * 推断当前账户在指定币种的"签名仓位尺寸"。
+     * Infer the current account's "signed position size" for the specified coin.
      *
      * <p>
-     * 正数表示多仓，负数表示空仓；当无仓位或解析失败时返回 0.0。
+     * Positive numbers indicate long positions, negative numbers indicate short positions;
+     * returns 0.0 when there is no position or parsing fails.
      * </p>
      *
-     * @param coin 币种名称
-     * @return 签名尺寸（double）
+     * @param coin Coin name
+     * @return Signed size (double)
      */
     private double inferSignedPosition(String coin) {
         ClearinghouseState state = info.userState(apiWallet.getPrimaryWalletAddress().toLowerCase());
@@ -350,16 +353,16 @@ public class Exchange {
     }
 
     /**
-     * 为 positionTpsl 订单组自动推断并填充仓位方向和数量。
+     * Automatically infer and fill position direction and quantity for positionTpsl order groups.
      * <p>
-     * 当订单中的 isBuy 或 sz 为 null 时：
-     * - 自动查询账户持仓
-     * - 根据 szi（签名仓位尺寸）推断方向和数量
-     * - 填充所有订单的方向和数量
+     * When isBuy or sz in the order is null:
+     * - Automatically query account positions
+     * - Infer direction and quantity based on szi (signed position size)
+     * - Fill direction and quantity for all orders
      * </p>
      *
-     * @param orders positionTpsl 订单列表（同一币种）
-     * @throws HypeError 当无持仓时抛出
+     * @param orders positionTpsl order list (same coin)
+     * @throws HypeError Thrown when there is no position
      */
     private void inferAndFillPositionTpslOrders(List<OrderRequest> orders) {
         // 获取第一个订单的币种（positionTpsl 所有订单应该是同一个币种）
@@ -401,11 +404,11 @@ public class Exchange {
 
 
     /**
-     * 更新隔离保证金
+     * Update isolated margin
      *
-     * @param amount   金额（USD，字符串，内部按微单位转换）
-     * @param coinName 币种名
-     * @return JSON 响应
+     * @param amount   Amount (USD, string, internally converted to micro units)
+     * @param coinName Coin name
+     * @return JSON response
      */
     public JsonNode updateIsolatedMargin(String amount, String coinName) {
         int assetId = ensureAssetId(coinName);
@@ -424,25 +427,25 @@ public class Exchange {
 
 
     /**
-     * 批量下单（支持 grouping 分组）。
+     * Batch order placement (with grouping support).
      *
-     * @param requests 下单请求列表
-     * @param builder  可选 builder
-     * @param grouping 分组类型："na" | "normalTpsl" | "positionTpsl"
-     *                 1. "na" - 普通订单（默认值）
-     *                 使用场景：
-     *                 ✅ 单笔普通订单（开仓、平仓、限价、市价等）
-     *                 ✅ 批量下单但订单之间无关联
-     *                 ✅ 不需要 TP/SL 的任何订单
-     *                 2. "normalTpsl" - 普通止盈止损组
-     *                 使用场景：
-     *                 ✅ 同时开仓并设置 TP/SL
-     *                 ✅ 批量下单：1个开仓订单 + 1个或2个止盈止损订单
-     *                 3. "positionTpsl" - 仓位止盈止损组
-     *                 使用场景：
-     *                 ✅ 针对已有仓位设置或修改 TP/SL
-     *                 ✅ 不开新仓，只设置现有仓位的保护
-     * @return 响应 JSON
+     * @param requests Order request list
+     * @param builder  Optional builder
+     * @param grouping Grouping type: "na" | "normalTpsl" | "positionTpsl"
+     *                 1. "na" - Normal orders (default)
+     *                 Usage scenarios:
+     *                 ✅ Single normal orders (open, close, limit, market, etc.)
+     *                 ✅ Batch orders with no correlation between orders
+     *                 ✅ Any orders that don't need TP/SL
+     *                 2. "normalTpsl" - Normal take-profit/stop-loss group
+     *                 Usage scenarios:
+     *                 ✅ Open position and set TP/SL simultaneously
+     *                 ✅ Batch orders: 1 opening order + 1 or 2 TP/SL orders
+     *                 3. "positionTpsl" - Position take-profit/stop-loss group
+     *                 Usage scenarios:
+     *                 ✅ Set or modify TP/SL for existing positions
+     *                 ✅ Don't open new positions, only set protection for existing positions
+     * @return Response JSON
      */
     public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
         // 格式化订单数量精度
@@ -465,13 +468,13 @@ public class Exchange {
 
 
     /**
-     * 批量下单（支持 OrderGroup 自动推断 grouping）。
+     * Batch order placement (with OrderGroup automatic grouping inference).
      * <p>
-     * 通过 OrderGroup 自动识别分组类型，无需手动指定 grouping 参数。
+     * Automatically identifies grouping type through OrderGroup, no need to manually specify grouping parameter.
      * <p>
-     * 使用示例：
+     * Usage examples:
      * <pre>
-     * // 自动推断 grouping="normalTpsl"
+     * // Automatically infer grouping="normalTpsl"
      * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
      *     .perp("ETH")
      *     .buy(0.1)
@@ -481,7 +484,7 @@ public class Exchange {
      *     .buildNormalTpsl();
      * JsonNode result = exchange.bulkOrders(orderGroup);
      *
-     * // 自动推断 grouping="positionTpsl"
+     * // Automatically infer grouping="positionTpsl"
      * OrderGroup orderGroup2 = OrderRequest.entryWithTpSl()
      *     .perp("ETH")
      *     .closePosition(0.5, true)
@@ -490,22 +493,22 @@ public class Exchange {
      * JsonNode result2 = exchange.bulkOrders(orderGroup2);
      * </pre>
      *
-     * @param orderGroup 订单组（包含订单列表和分组类型）
-     * @return 响应 JSON
+     * @param orderGroup Order group (contains order list and grouping type)
+     * @return Response JSON
      */
     public JsonNode bulkOrders(OrderGroup orderGroup) {
         return bulkOrders(orderGroup, null);
     }
 
     /**
-     * 批量下单（支持 OrderGroup 和 builder）。
+     * Batch order placement (with OrderGroup and builder support).
      * <p>
-     * 对于 positionTpsl 类型的订单组，如果订单中的 isBuy 或 sz 为 null，
-     * 会自动查询账户持仓并填充方向和数量。
+     * For positionTpsl type order groups, if isBuy or sz in the order is null,
+     * it will automatically query account positions and fill in direction and quantity.
      *
-     * @param orderGroup 订单组（包含订单列表和分组类型）
-     * @param builder    可选 builder
-     * @return 响应 JSON
+     * @param orderGroup Order group (contains order list and grouping type)
+     * @param builder    Optional builder
+     * @return Response JSON
      */
     public JsonNode bulkOrders(OrderGroup orderGroup, Map<String, Object> builder) {
         List<OrderRequest> orders = orderGroup.getOrders();
@@ -520,13 +523,13 @@ public class Exchange {
     }
 
     /**
-     * 批量下单（普通订单，默认 grouping="na"）。
+     * Batch order placement (normal orders, default grouping="na").
      * <p>
-     * 用于批量提交多个普通订单，订单之间无关联关系。
+     * Used to submit multiple normal orders in batch, with no correlation between orders.
      * <p>
-     * 使用示例：
+     * Usage example:
      * <pre>
-     * // 批量下多个币种的订单
+     * // Batch orders for multiple coins
      * List<OrderRequest> orders = Arrays.asList(
      *     OrderRequest.builder().perp("BTC").buy(0.01).limitPrice(95000.0).build(),
      *     OrderRequest.builder().perp("ETH").buy(0.1).limitPrice(3500.0).build()
@@ -534,19 +537,19 @@ public class Exchange {
      * JsonNode result = exchange.bulkOrders(orders);
      * </pre>
      *
-     * @param requests 订单列表
-     * @return 响应 JSON
+     * @param requests Order list
+     * @return Response JSON
      */
     public JsonNode bulkOrders(List<OrderRequest> requests) {
         return bulkOrders(requests, null, null);
     }
 
     /**
-     * 根据 OID 撤单（保持与 Python cancel 行为一致）。
+     * Cancel order by OID (maintain consistency with Python cancel behavior).
      *
-     * @param coinName 币种名
-     * @param oid      订单 OID
-     * @return 响应 JSON
+     * @param coinName Coin name
+     * @param oid      Order OID
+     * @return Response JSON
      */
     public JsonNode cancel(String coinName, long oid) {
         int assetId = ensureAssetId(coinName);
@@ -560,11 +563,11 @@ public class Exchange {
     }
 
     /**
-     * 根据 Cloid 撤单（保持与 Python cancel_by_cloid 行为一致）。
+     * Cancel order by Cloid (maintain consistency with Python cancel_by_cloid behavior).
      *
-     * @param coinName 币种名
-     * @param cloid    客户端订单 ID
-     * @return 响应 JSON
+     * @param coinName Coin name
+     * @param cloid    Client order ID
+     * @return Response JSON
      */
     public JsonNode cancelByCloid(String coinName, Cloid cloid) {
         int assetId = ensureAssetId(coinName);
@@ -578,12 +581,12 @@ public class Exchange {
     }
 
     /**
-     * 修改订单（通过 OID）。
+     * Modify order (by OID).
      *
-     * @param coinName 币种名
-     * @param oid      原订单 OID
-     * @param newReq   新订单请求（价格/数量/类型等）
-     * @return 响应 JSON
+     * @param coinName Coin name
+     * @param oid      Original order OID
+     * @param newReq   New order request (price/quantity/type, etc.)
+     * @return Response JSON
      */
     public JsonNode modifyOrder(String coinName, long oid, OrderRequest newReq) {
         int assetId = ensureAssetId(coinName);
@@ -610,11 +613,11 @@ public class Exchange {
     }
 
     /**
-     * 批量修改订单（与 Python bulk_modify_orders_new 对齐）。
+     * Batch modify orders (aligned with Python bulk_modify_orders_new).
      * <p>
-     * 使用示例：
+     * Usage example:
      * <pre>
-     * // 修改多个订单
+     * // Modify multiple orders
      * List<ModifyRequest> modifies = Arrays.asList(
      *     ModifyRequest.byOid("ETH", 123456L, newReq1),
      *     ModifyRequest.byCloid("BTC", cloid, newReq2)
@@ -622,8 +625,8 @@ public class Exchange {
      * JsonNode result = exchange.bulkModifyOrders(modifies);
      * </pre>
      *
-     * @param modifyRequests 批量修改请求列表
-     * @return 响应 JSON
+     * @param modifyRequests Batch modify request list
+     * @return Response JSON
      */
     public JsonNode bulkModifyOrders(List<ModifyRequest> modifyRequests) {
         if (modifyRequests == null || modifyRequests.isEmpty()) {
@@ -656,11 +659,11 @@ public class Exchange {
     }
 
     /**
-     * 构建下单动作（包含 grouping:"na" 与可选 builder）。
+     * Build order action (includes grouping:"na" and optional builder).
      *
-     * @param wires   订单 wire 列表
-     * @param builder 可选 builder
-     * @return L1 动作 Map
+     * @param wires   Order wire list
+     * @param builder Optional builder
+     * @return L1 action Map
      */
     private Map<String, Object> buildOrderAction(List<OrderWire> wires, Map<String, Object> builder) {
         Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
@@ -675,17 +678,17 @@ public class Exchange {
     }
 
     /**
-     * 验证并过滤 builder 参数。
+     * Validate and filter builder parameters.
      * <p>
-     * 仅保留官方文档允许的字段：
-     * - b（地址）：Builder 地址
-     * - f（费用）：Builder 费用（非负整数）
-     * 其余键将被忽略，避免 422 反序列化失败。
+     * Only retain fields allowed by official documentation:
+     * - b (address): Builder address
+     * - f (fee): Builder fee (non-negative integer)
+     * Other keys will be ignored to avoid 422 deserialization failure.
      * </p>
      *
-     * @param builder 原始 builder 参数
-     * @return 过滤后的 builder 参数
-     * @throws HypeError 当参数验证失败时抛出
+     * @param builder Original builder parameters
+     * @return Filtered builder parameters
+     * @throws HypeError Thrown when parameter validation fails
      */
     private Map<String, Object> validateAndFilterBuilder(Map<String, Object> builder) {
         Map<String, Object> filtered = new LinkedHashMap<>();
@@ -719,13 +722,12 @@ public class Exchange {
     }
 
     /**
-     * 启用 Agent 侧 Dex Abstraction（与 Python exchange.agent_enable_dex_abstraction
-     * 一致）。
-     * 说明：
-     * - 服务端会基于该动作创建/启用 API Wallet（Agent），以用于 L1 下单等操作。
-     * - 此为 L1 动作，直接使用 signL1Action 进行签名与提交。
+     * Enable Agent-side Dex Abstraction (consistent with Python exchange.agent_enable_dex_abstraction).
+     * Description:
+     * - The server will create/enable an API Wallet (Agent) based on this action for L1 order placement and other operations.
+     * - This is an L1 action, directly using signL1Action for signing and submission.
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode agentEnableDexAbstraction() {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -735,11 +737,11 @@ public class Exchange {
     }
 
     /**
-     * 用户侧 Dex Abstraction 开关（与 Python exchange.user_dex_abstraction 一致）。
+     * User-side Dex Abstraction switch (consistent with Python exchange.user_dex_abstraction).
      *
-     * @param user    用户地址（0x 前缀）
-     * @param enabled 是否启用
-     * @return JSON 响应
+     * @param user    User address (0x prefix)
+     * @param enabled Whether to enable
+     * @return JSON response
      */
     public JsonNode userDexAbstraction(String user, boolean enabled) {
         long nonce = Signing.getTimestampMs();
@@ -768,10 +770,10 @@ public class Exchange {
     }
 
     /**
-     * 创建子账户。
+     * Create sub-account.
      *
-     * @param name 子账户名称
-     * @return JSON 响应
+     * @param name Sub-account name
+     * @return JSON response
      */
     public JsonNode createSubAccount(String name) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -781,12 +783,12 @@ public class Exchange {
     }
 
     /**
-     * 子账户资金划转。
+     * Sub-account fund transfer.
      *
-     * @param subAccountUser 子账户地址（0x 前缀）
-     * @param isDeposit      true 表示存入；false 表示取出
-     * @param usd            金额（微 USDC 单位）
-     * @return JSON 响应
+     * @param subAccountUser Sub-account address (0x prefix)
+     * @param isDeposit      true means deposit; false means withdraw
+     * @param usd            Amount (micro USDC units)
+     * @return JSON response
      */
     public JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -798,11 +800,11 @@ public class Exchange {
     }
 
     /**
-     * USD 余额转账（用户签名）。
+     * USD balance transfer (user signed).
      *
-     * @param amount      金额（字符串）
-     * @param destination 目标地址（0x 前缀）
-     * @return JSON 响应
+     * @param amount      Amount (string)
+     * @param destination Destination address (0x prefix)
+     * @return JSON response
      */
     public JsonNode usdTransfer(String amount, String destination) {
         long time = Signing.getTimestampMs();
@@ -828,12 +830,12 @@ public class Exchange {
     }
 
     /**
-     * 现货 Token 转账（用户签名）。
+     * Spot token transfer (user signed).
      *
-     * @param amount      转账数量（字符串）
-     * @param destination 目标地址（0x 前缀）
-     * @param token       Token 名称（如 "HL"）
-     * @return JSON 响应
+     * @param amount      Transfer quantity (string)
+     * @param destination Destination address (0x prefix)
+     * @param token       Token name (e.g., "HL")
+     * @return JSON response
      */
     public JsonNode spotTransfer(String amount, String destination, String token) {
         long time = Signing.getTimestampMs();
@@ -861,11 +863,11 @@ public class Exchange {
     }
 
     /**
-     * 从桥合约提现（withdraw3，用户签名）。
+     * Withdraw from bridge contract (withdraw3, user signed).
      *
-     * @param amount      金额（字符串）
-     * @param destination 目标地址（0x 前缀）
-     * @return JSON 响应
+     * @param amount      Amount (string)
+     * @param destination Destination address (0x prefix)
+     * @return JSON response
      */
     public JsonNode withdrawFromBridge(String amount, String destination) {
         long time = Signing.getTimestampMs();
@@ -891,11 +893,11 @@ public class Exchange {
     }
 
     /**
-     * USD 类目转移（Spot ⇄ Perp）。
+     * USD category transfer (Spot ⇄ Perp).
      *
-     * @param toPerp true 表示从 Spot 转至 Perp；false 表示从 Perp 转至 Spot
-     * @param amount 金额（字符串）
-     * @return JSON 响应
+     * @param toPerp true means transfer from Spot to Perp; false means transfer from Perp to Spot
+     * @param amount Amount (string)
+     * @return JSON response
      */
     public JsonNode usdClassTransfer(boolean toPerp, String amount) {
         long nonce = Signing.getTimestampMs();
@@ -925,15 +927,15 @@ public class Exchange {
     }
 
     /**
-     * 资产跨 DEX 发送（sendAsset，用户签名）。
+     * Cross-DEX asset transfer (sendAsset, user signed).
      *
-     * @param destination    目标地址（0x 前缀）
-     * @param sourceDex      源 DEX 名称
-     * @param destinationDex 目标 DEX 名称
-     * @param token          Token 名称
-     * @param amount         数量（字符串）
-     * @param fromSubAccount 源子账户地址（可选）
-     * @return JSON 响应
+     * @param destination    Destination address (0x prefix)
+     * @param sourceDex      Source DEX name
+     * @param destinationDex Destination DEX name
+     * @param token          Token name
+     * @param amount         Quantity (string)
+     * @param fromSubAccount Source sub-account address (optional)
+     * @return JSON response
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
                               String fromSubAccount) {
@@ -969,11 +971,11 @@ public class Exchange {
     }
 
     /**
-     * 授权 Builder 费用率（用户签名）。
+     * Authorize Builder fee rate (user signed).
      *
-     * @param builder    Builder 地址（0x 前缀）
-     * @param maxFeeRate 允许的最大费用率（字符串小数）
-     * @return JSON 响应
+     * @param builder    Builder address (0x prefix)
+     * @param maxFeeRate Allowed maximum fee rate (string decimal)
+     * @return JSON response
      */
     public JsonNode approveBuilderFee(String builder, String maxFeeRate) {
         long nonce = Signing.getTimestampMs();
@@ -999,10 +1001,10 @@ public class Exchange {
     }
 
     /**
-     * 绑定推荐码（用户签名）。
+     * Bind referral code (user signed).
      *
-     * @param code 推荐码字符串
-     * @return JSON 响应
+     * @param code Referral code string
+     * @return JSON response
      */
     public JsonNode setReferrer(String code) {
         long nonce = Signing.getTimestampMs();
@@ -1026,12 +1028,12 @@ public class Exchange {
     }
 
     /**
-     * Token 委托/取消委托（用户签名）。
+     * Token delegation/undelegation (user signed).
      *
-     * @param validator    验证者地址（0x 前缀）
-     * @param wei          委托数量（Wei 单位）
-     * @param isUndelegate true 表示取消委托；false 表示委托
-     * @return JSON 响应
+     * @param validator    Validator address (0x prefix)
+     * @param wei          Delegation amount (Wei units)
+     * @param isUndelegate true means undelegate; false means delegate
+     * @return JSON response
      */
     public JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate) {
         long nonce = Signing.getTimestampMs();
@@ -1059,10 +1061,10 @@ public class Exchange {
     }
 
     /**
-     * 转换为多签用户（用户签名）。
+     * Convert to multi-signature user (user signed).
      *
-     * @param signersJson 签名者配置 JSON 字符串
-     * @return JSON 响应
+     * @param signersJson Signer configuration JSON string
+     * @return JSON response
      */
     public JsonNode convertToMultiSigUser(String signersJson) {
         long nonce = Signing.getTimestampMs();
@@ -1086,12 +1088,12 @@ public class Exchange {
     }
 
     /**
-     * Vault 资金转移（存入/取出）
+     * Vault fund transfer (deposit/withdraw)
      *
-     * @param vaultAddress Vault 地址
-     * @param isDeposit    是否存入
-     * @param usd          金额（微 USDC 单位）
-     * @return JSON 响应
+     * @param vaultAddress Vault address
+     * @param isDeposit    Whether to deposit
+     * @param usd          Amount (micro USDC units)
+     * @return JSON response
      */
     public JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -1103,7 +1105,7 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 注册 Token（registerToken2）
+     * SpotDeploy: Register Token (registerToken2)
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
                                             String fullName) {
@@ -1122,13 +1124,13 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 用户创世分配（userGenesis）。
+     * SpotDeploy: User genesis allocation (userGenesis).
      *
      * @param token               Token ID
-     * @param userAndWei          用户与 Wei 金额列表，形如 [[user,addressLower],[wei,string]]
-     * @param existingTokenAndWei 既有 Token 与 Wei 金额列表，形如
+     * @param userAndWei          User and Wei amount list, in the form [[user,addressLower],[wei,string]]
+     * @param existingTokenAndWei Existing token and Wei amount list, in the form
      *                            [[tokenId,int],[wei,string]]
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode spotDeployUserGenesis(int token, List<String[]> userAndWei, List<Object[]> existingTokenAndWei) {
         List<List<Object>> userAndWeiWire = new ArrayList<>();
@@ -1165,32 +1167,32 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 启用冻结权限。
+     * SpotDeploy: Enable freeze privilege.
      *
      * @param token Token ID
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode spotDeployEnableFreezePrivilege(int token) {
         return spotDeployTokenActionInner("enableFreezePrivilege", token);
     }
 
     /**
-     * SpotDeploy: 撤销冻结权限。
+     * SpotDeploy: Revoke freeze privilege.
      *
      * @param token Token ID
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode spotDeployRevokeFreezePrivilege(int token) {
         return spotDeployTokenActionInner("revokeFreezePrivilege", token);
     }
 
     /**
-     * SpotDeploy: 冻结/解冻用户。
+     * SpotDeploy: Freeze/unfreeze user.
      *
      * @param token  Token ID
-     * @param user   用户地址（0x 前缀）
-     * @param freeze true 为冻结；false 为解冻
-     * @return JSON 响应
+     * @param user   User address (0x prefix)
+     * @param freeze true to freeze; false to unfreeze
+     * @return JSON response
      */
     public JsonNode spotDeployFreezeUser(int token, String user, boolean freeze) {
         Map<String, Object> freezeUser = new LinkedHashMap<>();
@@ -1204,17 +1206,17 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 启用报价 Token。
+     * SpotDeploy: Enable quote token.
      *
      * @param token Token ID
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode spotDeployEnableQuoteToken(int token) {
         return spotDeployTokenActionInner("enableQuoteToken", token);
     }
 
     /**
-     * SpotDeploy: 通用 Token 操作内部封装
+     * SpotDeploy: Generic token operation internal wrapper
      */
     private JsonNode spotDeployTokenActionInner(String variant, int token) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -1226,12 +1228,12 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 创世（genesis）。
+     * SpotDeploy: Genesis.
      *
      * @param token            Token ID
-     * @param maxSupply        最大供应量（字符串）
-     * @param noHyperliquidity 是否不启用 Hyperliquidity
-     * @return JSON 响应
+     * @param maxSupply        Maximum supply (string)
+     * @param noHyperliquidity Whether to disable Hyperliquidity
+     * @return JSON response
      */
     public JsonNode spotDeployGenesis(int token, String maxSupply, boolean noHyperliquidity) {
         Map<String, Object> genesis = new LinkedHashMap<>();
@@ -1247,11 +1249,11 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 注册现货交易对（registerSpot）。
+     * SpotDeploy: Register spot trading pair (registerSpot).
      *
-     * @param baseToken  基础 Token ID
-     * @param quoteToken 报价 Token ID
-     * @return JSON 响应
+     * @param baseToken  Base token ID
+     * @param quoteToken Quote token ID
+     * @return JSON response
      */
     public JsonNode spotDeployRegisterSpot(int baseToken, int quoteToken) {
         Map<String, Object> register = new LinkedHashMap<>();
@@ -1266,14 +1268,14 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 注册 Hyperliquidity 做市。
+     * SpotDeploy: Register Hyperliquidity market making.
      *
-     * @param spot          现货交易对 ID
-     * @param startPx       起始价格
-     * @param orderSz       每档订单数量
-     * @param nOrders       订单档数
-     * @param nSeededLevels 预置档位数（可选）
-     * @return JSON 响应
+     * @param spot          Spot trading pair ID
+     * @param startPx       Starting price
+     * @param orderSz       Order size per level
+     * @param nOrders       Number of order levels
+     * @param nSeededLevels Number of seeded levels (optional)
+     * @return JSON response
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
                                                      Integer nSeededLevels) {
@@ -1292,11 +1294,11 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: 设置部署者交易费分成。
+     * SpotDeploy: Set deployer trading fee share.
      *
      * @param token Token ID
-     * @param share 分成比例（字符串小数）
-     * @return JSON 响应
+     * @param share Share ratio (string decimal)
+     * @return JSON response
      */
     public JsonNode spotDeploySetDeployerTradingFeeShare(int token, String share) {
         Map<String, Object> setShare = new LinkedHashMap<>();
@@ -1309,18 +1311,17 @@ public class Exchange {
     }
 
     /**
-     * 用户授权并创建新的 Agent（API Wallet）。
-     * 与 Python Exchange.approve_agent 一致：
-     * - 随机生成 32 字节私钥，得到 agentAddress；
-     * - 构造 {type:"approveAgent", agentAddress, agentName?, nonce} 用户签名动作；
-     * - 使用 signUserSignedAction(primaryType="HyperliquidTransaction:ApproveAgent")
-     * 签名；
-     * - 发送到 /exchange 并返回服务端响应与新私钥。
+     * User authorization and creation of new Agent (API Wallet).
+     * Consistent with Python Exchange.approve_agent:
+     * - Randomly generate 32-byte private key to get agentAddress;
+     * - Construct {type:"approveAgent", agentAddress, agentName?, nonce} user signed action;
+     * - Sign using signUserSignedAction(primaryType="HyperliquidTransaction:ApproveAgent");
+     * - Send to /exchange and return server response with new private key.
      * <p>
-     * 注意：当 name 为 null 时，不在 action 中包含 agentName 字段（与 Python 对齐）。
+     * Note: When name is null, the agentName field is not included in the action (aligned with Python).
      *
-     * @param name 可选的 Agent 名称（显示用途），可为 null
-     * @return 服务端响应与生成的 Agent 私钥/地址
+     * @param name Optional Agent name (for display purposes), can be null
+     * @return Server response and generated Agent private key/address
      */
     public ApproveAgentResult approveAgent(String name) {
         // 生成 32 字节随机私钥（0x 前缀）
@@ -1358,34 +1359,34 @@ public class Exchange {
     }
 
     /**
-     * 统一 L1 动作发送封装（签名并 POST 到 /exchange）。
+     * Unified L1 action sending wrapper (sign and POST to /exchange).
      *
      * <p>
-     * 规则：
-     * - nonce 使用毫秒时间戳（与 Python get_timestamp_ms 一致）；
-     * - usdClassTransfer/sendAsset 类型动作不附带 vaultAddress（保持 Python 行为一致）；
-     * - 其它动作使用已设置的 vaultAddress 与 expiresAfter；
-     * - 使用 Signing.signL1Action 完成 TypedData 构造与签名。
+     * Rules:
+     * - nonce uses millisecond timestamp (consistent with Python get_timestamp_ms);
+     * - usdClassTransfer/sendAsset type actions do not include vaultAddress (maintain Python behavior consistency);
+     * - Other actions use the set vaultAddress and expiresAfter;
+     * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
-     * @param action L1 动作（Map）
-     * @return JSON 响应
+     * @param action L1 action (Map)
+     * @return JSON response
      */
     public JsonNode postAction(Map<String, Object> action) {
         return postAction(action, null);
     }
 
     /**
-     * 发送 L1 动作并签名（支持自定义过期时间）。
+     * Send L1 action and sign (support custom expiration time).
      * <p>
-     * 规则：
-     * - nonce 使用毫秒时间戳（与 Python get_timestamp_ms 一致）；
-     * - usdClassTransfer/sendAsset 类型动作不附带 vaultAddress（保持 Python 行为一致）；
-     * - 其它动作使用已设置的 vaultAddress；
-     * - 使用 Signing.signL1Action 完成 TypedData 构造与签名。
+     * Rules:
+     * - nonce uses millisecond timestamp (consistent with Python get_timestamp_ms);
+     * - usdClassTransfer/sendAsset type actions do not include vaultAddress (maintain Python behavior consistency);
+     * - Other actions use the set vaultAddress;
+     * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
-     * @param action       L1 动作（Map）
-     * @param expiresAfter 订单过期时间（毫秒），为 null 时使用默认值 120000ms
-     * @return JSON 响应
+     * @param action       L1 action (Map)
+     * @param expiresAfter Order expiration time (milliseconds), uses default value 120000ms when null
+     * @return JSON response
      */
     public JsonNode postAction(Map<String, Object> action, Long expiresAfter) {
         long nonce = Signing.getTimestampMs();
@@ -1421,13 +1422,13 @@ public class Exchange {
     }
 
     /**
-     * 统一封装：使用现成签名（用户签名或其他签名）发送到 /exchange。
-     * 与 postAction 的区别在于：不在此方法内生成签名，而是接受外部传入的签名。
+     * Unified wrapper: Use existing signature (user signature or other signature) to send to /exchange.
+     * The difference from postAction is: the signature is not generated within this method, but accepts an externally passed signature.
      *
-     * @param action    动作 Map
-     * @param signature 现成的 r/s/v 签名（与 EIP-712 TypedData 对应）
-     * @param nonce     时间戳/随机数
-     * @return JSON 响应
+     * @param action    Action Map
+     * @param signature Existing r/s/v signature (corresponding to EIP-712 TypedData)
+     * @param nonce     Timestamp/random number
+     * @return JSON response
      */
     private JsonNode postActionWithSignature(Map<String, Object> action, Map<String, Object> signature, long nonce) {
         String type = String.valueOf(action.getOrDefault("type", ""));
@@ -1448,11 +1449,11 @@ public class Exchange {
     }
 
     /**
-     * 校验并返回资产 ID。
+     * Validate and return asset ID.
      *
-     * @param coinName 币种名
-     * @return 资产 ID
-     * @throws HypeError 当无法映射时抛出
+     * @param coinName Coin name
+     * @return Asset ID
+     * @throws HypeError Thrown when mapping fails
      */
     private int ensureAssetId(String coinName) {
         Integer assetId = info.nameToAsset(coinName);
@@ -1463,16 +1464,16 @@ public class Exchange {
     }
 
     /**
-     * 计算有效的 vault 地址。
+     * Calculate effective vault address.
      * <p>
-     * 规则：
-     * - usdClassTransfer 和 sendAsset 类型不使用 vaultAddress
-     * - 如果 vaultAddress 与签名者地址相同，返回 null
-     * - 否则返回小写化的 vaultAddress
+     * Rules:
+     * - usdClassTransfer and sendAsset types do not use vaultAddress
+     * - If vaultAddress is the same as the signer address, return null
+     * - Otherwise return lowercase vaultAddress
      * </p>
      *
-     * @param actionType 动作类型
-     * @return 有效的 vault 地址，或 null
+     * @param actionType Action type
+     * @return Effective vault address, or null
      */
     private String calculateEffectiveVaultAddress(String actionType) {
         // usdClassTransfer 和 sendAsset 不使用 vaultAddress
@@ -1493,13 +1494,13 @@ public class Exchange {
     }
 
     /**
-     * 判断动作是否为用户签名类型。
+     * Determine if the action is a user signature type.
      * <p>
-     * 用户签名动作使用 EIP-712 TypedData 签名，区别于 L1 动作签名。
+     * User signature actions use EIP-712 TypedData signature, different from L1 action signatures.
      * </p>
      *
-     * @param actionType 动作类型
-     * @return 是用户签名动作返回 true，否则返回 false
+     * @param actionType Action type
+     * @return Returns true if it's a user signature action, false otherwise
      */
     private boolean isUserSignedAction(String actionType) {
         return "approveAgent".equals(actionType)
@@ -1517,10 +1518,10 @@ public class Exchange {
 
 
     /**
-     * 解析 Dex Abstraction 启用状态。
+     * Parse Dex Abstraction enabled status.
      *
-     * @param node 状态 JSON
-     * @return 已启用返回 true，否则 false
+     * @param node Status JSON
+     * @return Returns true if enabled, false otherwise
      */
     private boolean isDexEnabled(JsonNode node) {
         if (node == null) return false;
@@ -1532,20 +1533,20 @@ public class Exchange {
     }
 
     /**
-     * 判断响应是否 status=ok。
+     * Determine if response status is ok.
      *
-     * @param node 响应 JSON
-     * @return 是则 true，否则 false
+     * @param node Response JSON
+     * @return Returns true if yes, false otherwise
      */
     private boolean isOk(JsonNode node) {
         return node != null && node.has("status") && "ok".equalsIgnoreCase(node.get("status").asText());
     }
 
     /**
-     * 判断响应是否为“已设置”类错误（already set）。
+     * Determine if response is "already set" type error.
      *
-     * @param node 响应 JSON
-     * @return 是则 true，否则 false
+     * @param node Response JSON
+     * @return Returns true if yes, false otherwise
      */
     private boolean isAlreadySet(JsonNode node) {
         return node != null && node.has("status") && "err".equalsIgnoreCase(node.get("status").asText())
@@ -1554,9 +1555,9 @@ public class Exchange {
     }
 
     /**
-     * 市价开仓占位转换：为 IOC 市价单计算占位限价。
+     * Market open placeholder conversion: Calculate placeholder limit price for IOC market orders.
      *
-     * @param req 下单请求
+     * @param req Order request
      */
     private void marketOpenTransition(OrderRequest req) {
         if (req == null) return;
@@ -1571,7 +1572,7 @@ public class Exchange {
     }
 
     /**
-     * 计算带滑点的价格（字符串版本）
+     * Calculate price with slippage (string version)
      */
     public String computeSlippagePrice(String coin, boolean isBuy, String slippage) {
         Map<String, String> mids = info.allMids();
@@ -1590,19 +1591,19 @@ public class Exchange {
     }
 
     /**
-     * 设置全局默认滑点比例。
+     * Set global default slippage ratio.
      *
-     * @param slippage 滑点比例（字符串，例如 "0.05" 表示 5%）
+     * @param slippage Slippage ratio (string, e.g., "0.05" for 5%)
      */
     public void setDefaultSlippage(String slippage) {
         this.defaultSlippage = slippage;
     }
 
     /**
-     * 为指定币种设置默认滑点比例（覆盖全局）。
+     * Set default slippage ratio for specified coin (overrides global).
      *
-     * @param coin     币种名称
-     * @param slippage 滑点比例（字符串）
+     * @param coin     Coin name
+     * @param slippage Slippage ratio (string)
      */
     public void setDefaultSlippage(String coin, String slippage) {
         if (coin != null)
@@ -1610,39 +1611,39 @@ public class Exchange {
     }
 
     /**
-     * 市价全量平仓指定币种（根据账户当前仓位自动推断方向与数量）。
+     * Market close all positions for specified coin (automatically infer direction and quantity based on current account position).
      *
-     * @param coin 币种名称
-     * @return 服务端订单响应
-     * @throws HypeError 当无仓位可平时抛出
+     * @param coin Coin name
+     * @return Server order response
+     * @throws HypeError Thrown when there is no position to close
      */
     public Order closePositionMarket(String coin) {
         return order(OrderRequest.Close.marketAll(coin));
     }
 
     /**
-     * 市价平仓指定币种（支持部分平仓与自定义滑点）。
+     * Market close position for specified coin (supports partial closing and custom slippage).
      * <p>
-     * 自动查询账户仓位，推断平仓方向（多仓卖出/空仓买入），并按市价平仓。
+     * Automatically queries account position, infers closing direction (sell long/buy short), and closes at market price.
      * <p>
-     * 使用示例：
+     * Usage examples:
      * <pre>
-     * // 完全平仓
+     * // Complete closing
      * Order result = exchange.closePositionMarket("ETH", null, null, null);
      *
-     * // 部分平仓
+     * // Partial closing
      * Order result = exchange.closePositionMarket("ETH", 0.5, null, null);
      *
-     * // 自定义滑点
+     * // Custom slippage
      * Order result = exchange.closePositionMarket("ETH", null, 0.1, null);
      * </pre>
      *
-     * @param coin     币种名称
-     * @param sz       平仓数量（可为 null，默认全平）
-     * @param slippage 滑点比例（可为 null，默认 0.05）
-     * @param cloid    客户端订单 ID（可为 null）
-     * @return 订单响应
-     * @throws HypeError 当无仓位可平时抛出
+     * @param coin     Coin name
+     * @param sz       Closing quantity (can be null, defaults to full closing)
+     * @param slippage Slippage ratio (can be null, defaults to 0.05)
+     * @param cloid    Client order ID (can be null)
+     * @return Order response
+     * @throws HypeError Thrown when there is no position to close
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid) {
         // 查询当前仓位
@@ -1669,14 +1670,14 @@ public class Exchange {
     }
 
     /**
-     * 市价平仓指定币种（带 builder 支持）。
+     * Market close position for specified coin (with builder support).
      *
-     * @param coin     币种名称
-     * @param sz       平仓数量（可为 null）
-     * @param slippage 滑点比例（可为 null）
-     * @param cloid    客户端订单 ID（可为 null）
-     * @param builder  builder 信息（可为 null）
-     * @return 订单响应
+     * @param coin     Coin name
+     * @param sz       Closing quantity (can be null)
+     * @param slippage Slippage ratio (can be null)
+     * @param cloid    Client order ID (can be null)
+     * @param builder  Builder information (can be null)
+     * @return Order response
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid, Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
@@ -1696,14 +1697,14 @@ public class Exchange {
     }
 
     /**
-     * 限价全量平仓指定币种（根据账户当前仓位自动推断方向与数量）。
+     * Limit close all positions for specified coin (automatically infer direction and quantity based on current account position).
      *
-     * @param tif     TIF 策略
-     * @param coin    币种名称
-     * @param limitPx 限价价格
-     * @param cloid   客户端订单 ID（可为 null）
-     * @return 服务端订单响应
-     * @throws HypeError 当无仓位可平时抛出
+     * @param tif     TIF strategy
+     * @param coin    Coin name
+     * @param limitPx Limit price
+     * @param cloid   Client order ID (can be null)
+     * @return Server order response
+     * @throws HypeError Thrown when there is no position to close
      */
     public Order closePositionLimit(Tif tif, String coin, String limitPx, Cloid cloid) {
         double szi = inferSignedPosition(coin);
@@ -1717,21 +1718,21 @@ public class Exchange {
 
 
     /**
-     * 市价平掉所有币种的全部持仓（自动推断多空方向）。
+     * Market close all positions for all coins (automatically infer long/short directions).
      * <p>
-     * 查询账户所有持仓，自动推断每个币种的平仓方向和数量，批量下单一次性平仓。
-     * 支持同时平掉多个币种的多空仓位。
+     * Query all account positions, automatically infer closing direction and quantity for each coin, batch order to close all at once.
+     * Supports closing multiple long and short positions across different coins simultaneously.
      * </p>
      * <p>
-     * 使用示例：
+     * Usage example:
      * <pre>
-     * // 一键平掉所有持仓
+     * // One-click close all positions
      * JsonNode result = exchange.closeAllPositions();
-     * System.out.println("平仓结果: " + result);
+     * System.out.println("Closing result: " + result);
      * </pre>
      *
-     * @return 批量订单响应 JSON
-     * @throws HypeError 当没有任何持仓时抛出
+     * @return Batch order response JSON
+     * @throws HypeError Thrown when there are no positions to close
      */
     public JsonNode closeAllPositions() {
         // 查询当前账户所有仓位
@@ -1779,28 +1780,30 @@ public class Exchange {
     }
 
     /**
-     * 判断当前是否主网。
+     * Determine if current network is mainnet.
      *
-     * @return 主网返回 true，否则 false
+     * @return Returns true if mainnet, false otherwise
      */
     private boolean isMainnet() {
         return Constants.MAINNET_API_URL.equals(hypeHttpClient.getBaseUrl());
     }
 
-    // ==================== Spot 子账户转账（Sub Account Spot Transfer） ====================
+
+     // ==================== Spot Sub Account Transfer ====================
 
     /**
-     * Spot 子账户转账（与 Python SDK 的 sub_account_spot_transfer 对齐）。
+     * Spot sub account transfer (aligned with Python SDK's sub_account_spot_transfer).
      * <p>
-     * 用于在主账户与 Spot 子账户之间转移现货代币。
+     * Used to transfer spot tokens between main account and Spot sub account.
      * </p>
      *
-     * @param subAccountUser 子账户用户地址（42 位十六进制格式）
-     * @param isDeposit      true 表示从主账户转入子账户，false 表示从子账户转回主账户
-     * @param token          代币名称（例如 "USDC"、"ETH" 等）
-     * @param amount         转账数量（字符串格式）
-     * @return JSON 响应
+     * @param subAccountUser Sub account user address (42-character hexadecimal format)
+     * @param isDeposit      true means transfer from main account to sub account, false means transfer from sub account to main account
+     * @param token          Token name (e.g., "USDC", "ETH", etc.)
+     * @param amount         Transfer quantity (string format)
+     * @return JSON response
      */
+
     public JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount) {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "subAccountSpotTransfer");
@@ -1812,20 +1815,21 @@ public class Exchange {
         return postAction(action);
     }
 
-    // ==================== 多签操作（Multi-Sig） ====================
+
+    // ==================== Multi-Signature Operations ====================
 
     /**
-     * 多签操作（与 Python SDK 的 multi_sig 对齐）。
+     * Multi-signature operation (aligned with Python SDK's multi_sig).
      * <p>
-     * 用于多签账户执行操作，需要多个签名者的签名。
+     * Used for multi-signature accounts to execute operations, requiring signatures from multiple signers.
      * </p>
      *
-     * @param multiSigUser 多签账户地址（42 位十六进制格式）
-     * @param innerAction  内部动作（实际要执行的操作）
-     * @param signatures   所有签名者的签名列表（按地址排序）
-     * @param nonce        随机数/时间戳
-     * @param vaultAddress vault 地址（可为 null）
-     * @return JSON 响应
+     * @param multiSigUser Multi-signature account address (42-character hexadecimal format)
+     * @param innerAction  Inner action (actual operation to be executed)
+     * @param signatures   List of all signers' signatures (sorted by address)
+     * @param nonce        Random number/timestamp
+     * @param vaultAddress Vault address (can be null)
+     * @return JSON response
      */
     public JsonNode multiSig(
             String multiSigUser,
@@ -1862,13 +1866,13 @@ public class Exchange {
     }
 
     /**
-     * 多签操作（简化版，使用当前 vaultAddress）。
+     * Multi-signature operation (simplified version, using current vaultAddress).
      *
-     * @param multiSigUser 多签账户地址
-     * @param innerAction  内部动作
-     * @param signatures   签名列表
-     * @param nonce        随机数/时间戳
-     * @return JSON 响应
+     * @param multiSigUser Multi-signature account address
+     * @param innerAction  Inner action
+     * @param signatures   Signature list
+     * @param nonce        Random number/timestamp
+     * @return JSON response
      */
     public JsonNode multiSig(
             String multiSigUser,
@@ -1879,20 +1883,20 @@ public class Exchange {
         return multiSig(multiSigUser, innerAction, signatures, nonce, this.vaultAddress);
     }
 
-    // ==================== PerpDeploy Oracle 设置 ====================
 
     /**
-     * PerpDeploy Oracle 设置（与 Python SDK 的 perp_deploy_set_oracle 对齐）。
+     * PerpDeploy Oracle settings (aligned with Python SDK's perp_deploy_set_oracle).
      * <p>
-     * 用于 Builder-deployed perp dex 的 Oracle 价格更新。
+     * Used for Oracle price updates in Builder-deployed perp dex.
      * </p>
      *
-     * @param dex             perp dex 名称
-     * @param oraclePxs       Oracle 价格 Map（币种名 -> 价格字符串）
-     * @param allMarkPxs      标记价格列表（每个元素是 Map<币种, 价格>）
-     * @param externalPerpPxs 外部永续价格 Map（币种名 -> 价格字符串）
-     * @return JSON 响应
+     * @param dex             Perp dex name
+     * @param oraclePxs       Oracle price Map (coin name -> price string)
+     * @param allMarkPxs      Mark price list (each element is Map<coin, price>)
+     * @param externalPerpPxs External perpetual price Map (coin name -> price string)
+     * @return JSON response
      */
+
     public JsonNode perpDeploySetOracle(
             String dex,
             Map<String, String> oraclePxs,
@@ -1947,16 +1951,15 @@ public class Exchange {
         return postAction(action);
     }
 
-    // ==================== EVM BigBlocks 开关 ====================
 
     /**
-     * EVM BigBlocks 开关（与 Python SDK 的 use_big_blocks 对齐）。
+     * EVM BigBlocks switch (aligned with Python SDK's use_big_blocks).
      * <p>
-     * 用于启用/禁用 EVM Big Blocks 功能。
+     * Used to enable/disable EVM Big Blocks functionality.
      * </p>
      *
-     * @param enable true 表示启用，false 表示禁用
-     * @return JSON 响应
+     * @param enable true means enable, false means disable
+     * @return JSON response
      */
     public JsonNode useBigBlocks(boolean enable) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -1966,23 +1969,24 @@ public class Exchange {
         return postAction(action);
     }
 
-    // ==================== C Validator 操作（专业功能） ====================
+
+    // ==================== C Validator Operations (Professional Features) ====================
 
     /**
-     * C Validator 注册（与 Python SDK 的 c_validator_register 对齐）。
+     * C Validator registration (aligned with Python SDK's c_validator_register).
      * <p>
-     * 用于注册新的验证者节点。
+     * Used to register new validator nodes.
      * </p>
      *
-     * @param nodeIp              节点 IP 地址
-     * @param name                验证者名称
-     * @param description         验证者描述
-     * @param delegationsDisabled 是否禁用委托
-     * @param commissionBps       佣金比例（基点，1 bps = 0.01%）
-     * @param signer              签名者地址
-     * @param unjailed            是否解除监禱
-     * @param initialWei          初始质押数量（wei）
-     * @return JSON 响应
+     * @param nodeIp              Node IP address
+     * @param name                Validator name
+     * @param description         Validator description
+     * @param delegationsDisabled Whether to disable delegations
+     * @param commissionBps       Commission ratio (basis points, 1 bps = 0.01%)
+     * @param signer              Signer address
+     * @param unjailed            Whether to unjail
+     * @param initialWei          Initial staking amount (wei)
+     * @return JSON response
      */
     public JsonNode cValidatorRegister(
             String nodeIp,
@@ -2021,19 +2025,19 @@ public class Exchange {
     }
 
     /**
-     * C Validator 更改配置（与 Python SDK 的 c_validator_change_profile 对齐）。
+     * C Validator change configuration (aligned with Python SDK's c_validator_change_profile).
      * <p>
-     * 用于修改验证者节点的配置信息。所有参数可为 null，仅更新非 null 参数。
+     * Used to modify validator node configuration information. All parameters can be null, only non-null parameters are updated.
      * </p>
      *
-     * @param nodeIp             节点 IP 地址（可为 null）
-     * @param name               验证者名称（可为 null）
-     * @param description        验证者描述（可为 null）
-     * @param unjailed           是否解除监禱
-     * @param disableDelegations 是否禁用委托（可为 null）
-     * @param commissionBps      佣金比例（可为 null）
-     * @param signer             签名者地址（可为 null）
-     * @return JSON 响应
+     * @param nodeIp             Node IP address (can be null)
+     * @param name               Validator name (can be null)
+     * @param description        Validator description (can be null)
+     * @param unjailed           Whether to unjail
+     * @param disableDelegations Whether to disable delegations (can be null)
+     * @param commissionBps      Commission ratio (can be null)
+     * @param signer             Signer address (can be null)
+     * @return JSON response
      */
     public JsonNode cValidatorChangeProfile(
             String nodeIp,
@@ -2071,12 +2075,12 @@ public class Exchange {
     }
 
     /**
-     * C Validator 注销（与 Python SDK 的 c_validator_unregister 对齐）。
+     * C Validator unregistration (aligned with Python SDK's c_validator_unregister).
      * <p>
-     * 用于注销验证者节点。
+     * Used to unregister validator nodes.
      * </p>
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode cValidatorUnregister() {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -2086,37 +2090,36 @@ public class Exchange {
         return postAction(action);
     }
 
-    // ==================== C Signer 监禱操作（专业功能） ====================
 
     /**
-     * C Signer 监禱自己（与 Python SDK 的 c_signer_jail_self 对齐）。
+     * C Signer jail self (aligned with Python SDK's c_signer_jail_self).
      * <p>
-     * 用于验证者主动监禱自己的签名者。
+     * Used for validators to actively jail their own signers.
      * </p>
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode cSignerJailSelf() {
         return cSignerInner("jailSelf");
     }
 
     /**
-     * C Signer 解除监禱（与 Python SDK 的 c_signer_unjail_self 对齐）。
+     * C Signer unjail self (aligned with Python SDK's c_signer_unjail_self).
      * <p>
-     * 用于验证者解除签名者的监禱状态。
+     * Used for validators to remove the jailed status of their signers.
      * </p>
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode cSignerUnjailSelf() {
         return cSignerInner("unjailSelf");
     }
 
     /**
-     * C Signer 操作的内部实现。
+     * Internal implementation of C Signer operations.
      *
-     * @param variant 操作类型（jailSelf 或 unjailSelf）
-     * @return JSON 响应
+     * @param variant Operation type (jailSelf or unjailSelf)
+     * @return JSON response
      */
     private JsonNode cSignerInner(String variant) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -2126,16 +2129,15 @@ public class Exchange {
         return postAction(action);
     }
 
-    // ==================== Noop 测试操作 ====================
 
     /**
-     * Noop 测试操作（与 Python SDK 的 noop 对齐）。
+     * Noop test operation (aligned with Python SDK's noop).
      * <p>
-     * 用于测试签名和网络连通性，不执行任何实际操作。
+     * Used to test signatures and network connectivity, without executing any actual operations.
      * </p>
      *
-     * @param nonce 随机数/时间戳
-     * @return JSON 响应
+     * @param nonce Random number/timestamp
+     * @return JSON response
      */
     public JsonNode noop(long nonce) {
         Map<String, Object> action = new LinkedHashMap<>();

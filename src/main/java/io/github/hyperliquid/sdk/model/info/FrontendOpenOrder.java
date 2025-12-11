@@ -1,32 +1,32 @@
 package io.github.hyperliquid.sdk.model.info;
 
-/** 前端未成交订单实体封装（携带触发/止盈止损等额外信息） */
+/** Frontend open order entity wrapper (carrying trigger/take-profit/stop-loss and other additional information) */
 public class FrontendOpenOrder {
-    /** 币种（如 "BTC" 或 Spot 索引 "@107"） */
+    /** Currency (e.g., "BTC" or Spot index "@107") */
     private String coin;
-    /** 是否为仓位止盈止损单 */
+    /** Whether it is a position take-profit/stop-loss order */
     private Boolean isPositionTpsl;
-    /** 是否为触发单 */
+    /** Whether it is a trigger order */
     private Boolean isTrigger;
-    /** 限价（字符串） */
+    /** Limit price (string) */
     private String limitPx;
-    /** 订单 ID */
+    /** Order ID */
     private Long oid;
-    /** 订单类型描述 */
+    /** Order type description */
     private String orderType;
-    /** 原始下单数量（字符串） */
+    /** Original order quantity (string) */
     private String origSz;
-    /** 是否仅减仓 */
+    /** Whether to reduce position only */
     private Boolean reduceOnly;
-    /** 方向（A/B 或 Buy/Sell） */
+    /** Direction (A/B or Buy/Sell) */
     private String side;
-    /** 当前剩余数量（字符串） */
+    /** Current remaining quantity (string) */
     private String sz;
-    /** 创建时间戳（毫秒） */
+    /** Creation timestamp (milliseconds) */
     private Long timestamp;
-    /** 触发条件（上穿/下穿等） */
+    /** Trigger condition (cross above/cross below, etc.) */
     private String triggerCondition;
-    /** 触发价格（字符串） */
+    /** Trigger price (string) */
     private String triggerPx;
 
     // Getter and Setter methods

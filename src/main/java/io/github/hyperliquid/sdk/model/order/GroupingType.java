@@ -1,36 +1,36 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * 订单分组类型枚举。
+ * Order grouping type enum.
  * <p>
- * 用于指定订单的分组类型，主要应用于止盈止损（TP/SL）订单。
+ * Used to specify the grouping type of orders, mainly applied to take-profit/stop-loss (TP/SL) orders.
  * </p>
  */
 public enum GroupingType {
 
     /**
-     * 普通订单（无分组）。
-     * 使用场景：
-     * ✅ 单笔普通订单（开仓、平仓、限价、市价等）
-     * ✅ 批量下单但订单之间无关联
-     * ✅ 不需要 TP/SL 的任何订单
+     * Normal order (no grouping).
+     * Usage scenarios:
+     * ✅ Single normal order (open, close, limit, market, etc.)
+     * ✅ Batch orders with no association between orders
+     * ✅ Any order that doesn't need TP/SL
      */
     NA("na"),
 
     /**
-     * 普通止盈止损组。
-     * 使用场景：
-     * ✅ 同时开仓并设置 TP/SL
-     * ✅ 批量下单：1个开仓订单 + 1个或2个止盈止损订单
+     * Normal take-profit/stop-loss group.
+     * Usage scenarios:
+     * ✅ Open position and set TP/SL simultaneously
+     * ✅ Batch orders: 1 open order + 1 or 2 take-profit/stop-loss orders
      */
     NORMAL_TPSL("normalTpsl"),
 
     /**
-     * 仓位止盈止损组。
+     * Position take-profit/stop-loss group.
      * <p>
-     * 使用场景：
-     * ✅ 针对已有仓位设置或修改 TP/SL
-     * ✅ 不开新仓，只设置现有仓位的保护
+     * Usage scenarios:
+     * ✅ Set or modify TP/SL for existing positions
+     * ✅ Don't open new positions, only set protection for existing positions
      * </p>
      */
     POSITION_TPSL("positionTpsl");
@@ -42,19 +42,19 @@ public enum GroupingType {
     }
 
     /**
-     * 获取分组类型的字符串值。
+     * Get the string value of the grouping type.
      *
-     * @return 分组类型的字符串值
+     * @return string value of the grouping type
      */
     public String getValue() {
         return value;
     }
 
     /**
-     * 根据字符串值获取对应的枚举实例。
+     * Get the corresponding enum instance based on string value.
      *
-     * @param value 字符串值
-     * @return 对应的枚举实例，如果未找到则返回 NA
+     * @param value string value
+     * @return corresponding enum instance, returns NA if not found
      */
     public static GroupingType fromValue(String value) {
         for (GroupingType type : GroupingType.values()) {
@@ -62,7 +62,7 @@ public enum GroupingType {
                 return type;
             }
         }
-        return NA; // 默认返回 NA
+        return NA; // Default return NA
     }
 
     @Override

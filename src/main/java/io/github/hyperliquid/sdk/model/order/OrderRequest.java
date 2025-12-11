@@ -3,94 +3,94 @@ package io.github.hyperliquid.sdk.model.order;
 import static io.github.hyperliquid.sdk.model.order.TriggerOrderType.TpslType;
 
 /**
- * 下单请求结构（Java 侧语义化表示）。
- * 说明：
- * - 市价单在协议层以“限价 + IOC”表达，`limitPx` 可为空，价格由业务层根据中间价及滑点计算；
- * - 触发单通过 `orderType.trigger` 承载触发参数；
- * - 最终会被转换为线缆结构并发送（见 `utils.Signing.orderRequestToOrderWire`）。
+ * Order request structure (Java side semantic representation).
+ * Note:
+ * - Market orders are expressed as "limit + IOC" at protocol level, `limitPx` can be empty, price is calculated by business layer based on mid price and slippage;
+ * - Trigger orders carry trigger parameters via `orderType.trigger`;
+ * - Will be converted to wire structure and sent (see `utils.Signing.orderRequestToOrderWire`).
  */
 public class OrderRequest {
 
     /**
-     * 交易品种类型（PERP 永续 / SPOT 现货）。
+     * Instrument type (PERP perpetual / SPOT spot).
      * <p>
-     * - PERP: 永续合约
-     * - SPOT: 现货交易
+     * - PERP: perpetual contract
+     * - SPOT: spot trading
      * </p>
      */
     private InstrumentType instrumentType;
 
     /**
-     * 币种名称（例如 "ETH"、"BTC"）。
+     * Currency name (e.g., "ETH", "BTC").
      */
     private String coin;
 
     /**
-     * 是否买入（true=买/做多，false=卖/做空）。
+     * Whether to buy (true=buy/long, false=sell/short).
      * <p>
-     * 市价平仓场景可为空，交由业务层自动推断。
+     * Can be empty for market close scenarios, inferred by business layer.
      * </p>
      */
     private Boolean isBuy;
 
     /**
-     * 下单数量（字符串）。
+     * Order quantity (string).
      * <p>
-     * 使用字符串表示以避免浮点数精度问题。
-     * 示例："0.1", "0.123456789"
+     * Use string representation to avoid floating-point precision issues.
+     * Examples: "0.1", "0.123456789"
      * </p>
      */
     private String sz;
 
     /**
-     * 限价价格（字符串）。
+     * Limit price (string).
      * <p>
-     * - 可为空（市价单或触发单的市价执行）
-     * - 使用字符串表示以避免浮点数精度问题
-     * - 示例："3500.0", "3500.123456"
+     * - Can be empty (market order or trigger order market execution)
+     * - Use string representation to avoid floating-point precision issues
+     * - Examples: "3500.0", "3500.123456"
      * </p>
      */
     private String limitPx;
 
     /**
-     * 订单类型：限价（TIF）或触发（triggerPx/isMarket/tpsl）。
+     * Order type: limit (TIF) or trigger (triggerPx/isMarket/tpsl).
      * <p>
-     * 可为空表示普通限价/市价默认行为。
+     * Can be empty to represent default limit/market behavior.
      * </p>
      */
     private OrderType orderType;
 
     /**
-     * 仅减仓标记（true 表示不会增加仓位）。
+     * Reduce-only flag (true means will not increase position).
      * <p>
-     * 用于平仓或触发减仓，防止反向开仓。
+     * Used for closing positions or trigger reductions to prevent reverse opening.
      * </p>
      */
     private Boolean reduceOnly;
 
     /**
-     * 客户端订单 ID（Cloid），可为空。
+     * Client order ID (Cloid), can be empty.
      * <p>
-     * 用于幂等性保证和后续撤单操作。
+     * Used for idempotency and subsequent cancellation operations.
      * </p>
      */
     private Cloid cloid;
 
     /**
-     * 市价下单滑点比例（字符串，例如 "0.05" 表示 5%）。
+     * Market order slippage ratio (string, e.g., "0.05" for 5%).
      * <p>
-     * 仅用于业务层模拟"市价=带滑点的 IOC 限价"时计算占位价格。
-     * 默认值为 "0.05"（5%）。
+     * Only used by business layer to simulate "market = IOC limit with slippage" when calculating placeholder price.
+     * Default value: "0.05" (5%).
      * </p>
      */
     private String slippage = "0.05";
 
     /**
-     * 订单过期时间（毫秒）。
+     * Order expiration time (milliseconds).
      * <p>
-     * - 若 < 1,000,000,000,000（即小于 1e12），则视为相对时间，实际过期时间为 nonce + expiresAfter；
-     * - 否则视为绝对时间戳（UTC）。
-     * - 默认值：120,000ms（120 秒）。
+     * - If < 1,000,000,000,000 (i.e., less than 1e12), treated as relative time, actual expiration time is nonce + expiresAfter;
+     * - Otherwise treated as absolute timestamp (UTC).
+     * - Default value: 120,000ms (120 seconds).
      * </p>
      */
     private Long expiresAfter;

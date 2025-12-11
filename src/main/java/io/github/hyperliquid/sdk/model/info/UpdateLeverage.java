@@ -1,10 +1,10 @@
 package io.github.hyperliquid.sdk.model.info;
 
-/** 更新杠杆操作返回 */
+/** Update leverage operation return */
 public class UpdateLeverage {
-    /** 顶层状态（如 "ok"/"error"） */
+    /** Top-level status (e.g., "ok"/"error") */
     private String status;
-    /** 响应体（类型等） */
+    /** Response body (type, etc.) */
     private Response response;
 
     // Getter and Setter methods
@@ -25,7 +25,7 @@ public class UpdateLeverage {
     }
 
     public static class Response {
-        /** 响应类型描述 */
+        /** Response type description */
         private String type;
 
         // Getter and Setter methods

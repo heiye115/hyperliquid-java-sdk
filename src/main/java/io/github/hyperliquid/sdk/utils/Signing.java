@@ -14,25 +14,25 @@ import java.math.BigDecimal;
 import java.util.*;
 
 /**
- * 签名与转换工具（覆盖核心功能：浮点转换、订单 wire 转换、动作哈希、EIP-712 签名）。
+ * Signature and conversion utilities (covering core functions: floating-point conversion, order wire conversion, action hashing, EIP-712 signing).
  * <p>
- * 设计目标：
- * - 在 addressToBytes 方法中实现严格的地址长度校验（默认 20 字节），并可通过开关启用兼容性降级策略；
- * - 为关键方法补充详细文档，包括 @return 与 @throws 注释，便于 IDE 友好提示与二次开发。
+ * Design objectives:
+ * - Implement strict address length validation in addressToBytes method (default 20 bytes), with option to enable compatibility downgrade strategy;
+ * - Supplement key methods with detailed documentation, including @return and @throws annotations for IDE-friendly hints and secondary development.
  * <p>
- * 下单 / 取消 / 所有 Exchange 下的交易行为：必须使用 sign_l1_action（即 L1 action 签名流程 —— msgpack(action) → actionHash → 构造 phantom agent → 用 EIP-712 对 phantom agent 签名）。
+ * Order placement / cancellation / all Exchange trading behaviors: must use sign_l1_action (i.e., L1 action signing process — msgpack(action) → actionHash → construct phantom agent → sign phantom agent with EIP-712).
  * <p>
- * 资金/管理类操作（USD/USDT 转账、approve agent、withdraw/deposit 等需要用户显式资产授权的操作）：必须使用 sign_user_signed_action（即直接对 action 使用 EIP-712 签名，chainId = 0x66eee，没有 phantom agent）。
+ * Fund/management operations (USD/USDT transfers, approve agent, withdraw/deposit, etc., requiring explicit user asset authorization): must use sign_user_signed_action (i.e., directly sign action with EIP-712, chainId = 0x66eee, no phantom agent).
  */
 public final class Signing {
 
     /**
-     * 地址长度严格模式开关：
-     * - true（默认）：addressToBytes 会严格要求地址为 20 字节（40 个十六进制字符），否则抛出
-     * IllegalArgumentException；
-     * - false：对非 20 字节输入执行兼容性降级（>20 截取末尾 20 字节；<20 左侧补零）。
+     * Address length strict mode switch:
+     * - true (default): addressToBytes will strictly require address to be 20 bytes (40 hexadecimal characters), otherwise throw
+     * IllegalArgumentException;
+     * - false: Perform compatibility downgrade for non-20-byte input (>20 truncate to last 20 bytes; <20 pad with zeros on the left).
      * <p>
-     * 可通过系统属性 hyperliquid.address.strict 控制默认值
+     * Can be controlled via system property hyperliquid.address.strict to set default value
      */
     private static volatile boolean STRICT_ADDRESS_LENGTH = Boolean.TRUE;
 
@@ -40,16 +40,16 @@ public final class Signing {
     }
 
     /**
-     * 将浮点数转换为字符串表示（与 Python float_to_wire 一致）。
-     * 规则：
-     * - 先将值格式化为 8 位小数（四舍五入规则与 Python 格式化一致）；
-     * - 若格式化后与原值差异 >= 1e-12，则抛出异常（避免不可接受的舍入）；
-     * - 规范化去除尾随 0 与科学计数法；
-     * - "-0" 正规化为 "0"。
+     * Convert floating-point number to string representation (consistent with Python float_to_wire).
+     * Rules:
+     * - First format the value to 8 decimal places (rounding rules consistent with Python formatting);
+     * - If the difference between formatted and original value >= 1e-12, throw an exception (avoid unacceptable rounding);
+     * - Normalize by removing trailing zeros and scientific notation;
+     * - Normalize "-0" to "0".
      *
-     * @param value 浮点数值
-     * @return 字符串表示
-     * @throws IllegalArgumentException 当舍入误差超过阈值时抛出
+     * @param value Floating-point value
+     * @return String representation
+     * @throws IllegalArgumentException Thrown when rounding error exceeds threshold
      */
     public static String floatToWire(double value) {
         // 使用字符串格式化为 8 位小数，模拟 Python 的 f"{x:.8f}"
@@ -68,43 +68,43 @@ public final class Signing {
     }
 
     /**
-     * 将浮点数转换为用于哈希的整数（与 Python float_to_int_for_hashing 一致，放大 1e8）。
+     * Convert floating-point number to integer for hashing (consistent with Python float_to_int_for_hashing, magnified by 1e8).
      * <p>
-     * 规则：
-     * - with_decimals = x * 10^8；
-     * - 若 |round(with_decimals) - with_decimals| >= 1e-3，抛出异常（避免不可接受的舍入）；
-     * - 返回四舍五入后的整数值。
+     * Rules:
+     * - with_decimals = x * 10^8;
+     * - If |round(with_decimals) - with_decimals| >= 1e-3, throw an exception (avoid unacceptable rounding);
+     * - Return the rounded integer value.
      *
-     * @param value 浮点
-     * @return 放大后的整数（long）
-     * @throws IllegalArgumentException 当舍入误差超过阈值时抛出
+     * @param value Floating-point
+     * @return Magnified integer (long)
+     * @throws IllegalArgumentException Thrown when rounding error exceeds threshold
      */
     public static long floatToIntForHashing(double value) {
         return floatToInt(value, 8);
     }
 
     /**
-     * USD 精度转换：按 1e6 放大并取整，用于 USD 类转账签名。
+     * USD precision conversion: Magnify by 1e6 and round, used for USD-type transfer signing.
      *
-     * @param value 金额
-     * @return 放大后的整数
+     * @param value Amount
+     * @return Magnified integer
      */
     public static long floatToUsdInt(double value) {
         return floatToInt(value, 6);
     }
 
     /**
-     * 通用整数转换：按 10^power 放大并取整（与 Python float_to_int 一致）。
+     * Generic integer conversion: Magnify by 10^power and round (consistent with Python float_to_int).
      * <p>
-     * 规则：
-     * - with_decimals = x * 10^power；
-     * - 若 |round(with_decimals) - with_decimals| >= 1e-3，抛出异常；
-     * - 返回四舍五入后的整数值。
+     * Rules:
+     * - with_decimals = x * 10^power;
+     * - If |round(with_decimals) - with_decimals| >= 1e-3, throw an exception;
+     * - Return the rounded integer value.
      *
-     * @param value 浮点
-     * @param power 放大倍数的指数（例如 8 表示 1e8）
-     * @return 放大后的整数
-     * @throws IllegalArgumentException 当舍入误差超过阈值时抛出
+     * @param value Floating-point
+     * @param power Exponent of magnification factor (e.g., 8 means 1e8)
+     * @return Magnified integer
+     * @throws IllegalArgumentException Thrown when rounding error exceeds threshold
      */
     public static long floatToInt(double value, int power) {
         double withDecimals = value * Math.pow(10, power);
@@ -116,19 +116,19 @@ public final class Signing {
     }
 
     /**
-     * 获取当前毫秒时间戳。
+     * Get current millisecond timestamp.
      *
-     * @return 毫秒时间戳
+     * @return Millisecond timestamp
      */
     public static long getTimestampMs() {
         return System.currentTimeMillis();
     }
 
     /**
-     * 将订单类型转换为 wire 结构（Map）。
+     * Convert order type to wire structure (Map).
      *
-     * @param orderType 订单类型
-     * @return Map 结构用于序列化
+     * @param orderType Order type
+     * @return Map structure for serialization
      */
     public static Object orderTypeToWire(OrderType orderType) {
         if (orderType == null)
@@ -156,12 +156,12 @@ public final class Signing {
     }
 
     /**
-     * 将下单请求转换为 wire 结构（OrderWire）。
+     * Convert order request to wire structure (OrderWire).
      * <p>
-     * 注意：sz 和 limitPx 是字符串类型，但签名时必须转换为 floatToWire 规范格式。
+     * Note: sz and limitPx are string types, but must be converted to floatToWire standard format when signing.
      *
-     * @param coinId 整数资产 ID
-     * @param req    下单请求
+     * @param coinId Integer asset ID
+     * @param req    Order request
      * @return OrderWire
      */
     public static OrderWire orderRequestToOrderWire(int coinId, OrderRequest req) {
@@ -175,15 +175,15 @@ public final class Signing {
     }
 
     /**
-     * 计算 L1 动作的哈希。
-     * 结构：msgpack(action) + 8字节nonce + vaultAddress标志与地址 + expiresAfter标志与值 ->
-     * keccak256。
+     * Calculate L1 action hash.
+     * Structure: msgpack(action) + 8-byte nonce + vaultAddress flag and address + expiresAfter flag and value ->
+     * keccak256.
      *
-     * @param action       动作对象（Map/POJO）
-     * @param nonce        随机数/时间戳
-     * @param vaultAddress 可选 vault 地址（0x 前缀地址 或 null）
-     * @param expiresAfter 可选过期时间（毫秒）
-     * @return 32字节哈希
+     * @param action       Action object (Map/POJO)
+     * @param nonce        Random number/timestamp
+     * @param vaultAddress Optional vault address (0x prefixed address or null)
+     * @param expiresAfter Optional expiration time (milliseconds)
+     * @return 32-byte hash
      */
     public static byte[] actionHash(Object action, long nonce, String vaultAddress, Long expiresAfter) {
         // 完全对齐 Python 的 action_hash 序列化与拼接规则：
@@ -228,8 +228,8 @@ public final class Signing {
     }
 
     /**
-     * 将任意 Java 对象以 Python msgpack.packb 的等价方式编码。
-     * 支持 Map（建议使用 LinkedHashMap 保持插入顺序）、List、String、数字、布尔和 null。
+     * Encode any Java object in a manner equivalent to Python's msgpack.packb.
+     * Supports Map (recommended to use LinkedHashMap to maintain insertion order), List, String, numbers, boolean, and null.
      */
     private static byte[] packAsMsgpack(Object obj) throws java.io.IOException {
         MessageBufferPacker packer = MessagePack.newDefaultBufferPacker();
@@ -313,17 +313,16 @@ public final class Signing {
     }
 
     /**
-     * 地址字符串转字节数组（去除 0x 前缀）。
+     * Convert address string to byte array (remove 0x prefix).
      * <p>
-     * 行为说明：
-     * - 严格模式（默认启用）：仅接受 20 字节地址（40 个十六进制字符），否则抛出 IllegalArgumentException；
-     * - 兼容模式（可通过 setStrictAddressLength(false) 或 -Dhyperliquid.address.strict=false
-     * 开启）：
-     * 非 20 字节输入将执行降级处理：长度大于 20 截取末尾 20 字节；长度不足 20 则在左侧补零至 20 字节。
+     * Behavior description:
+     * - Strict mode (enabled by default): Only accepts 20-byte addresses (40 hexadecimal characters), otherwise throws IllegalArgumentException;
+     * - Compatibility mode (can be enabled via setStrictAddressLength(false) or -Dhyperliquid.address.strict=false):
+     * Non-20-byte input will be downgraded: if length > 20, truncate to last 20 bytes; if length < 20, pad with zeros on the left to 20 bytes.
      *
-     * @param address 以太坊地址，支持带或不带 0x 前缀
-     * @return 地址的 20 字节表示
-     * @throws IllegalArgumentException 当地址为空、非十六进制或在严格模式下长度不为 20 字节时抛出
+     * @param address Ethereum address, supports with or without 0x prefix
+     * @return 20-byte representation of the address
+     * @throws IllegalArgumentException Thrown when address is null, non-hexadecimal, or not 20 bytes in strict mode
      */
     public static byte[] addressToBytes(String address) {
         if (address == null) {
@@ -361,11 +360,11 @@ public final class Signing {
     }
 
     /**
-     * 为用户签名 L1 动作（EIP-712 Typed Data）。
+     * Sign L1 action for user (EIP-712 Typed Data).
      *
-     * @param credentials 用户凭证（私钥）
-     * @return r/s/v 十六进制签名
-     * @throws HypeError 当序列化或签名过程出现异常时抛出（封装底层异常信息）
+     * @param credentials User credentials (private key)
+     * @return r/s/v hexadecimal signature
+     * @throws HypeError Thrown when serialization or signing process encounters exceptions (wraps underlying exception information)
      */
     public static Map<String, Object> signTypedData(Credentials credentials, String typedDataJson) {
         // 使用标准 EIP-712 结构化数据编码与签名（与 Python eth_account.encode_typed_data 一致）。
@@ -389,7 +388,7 @@ public final class Signing {
     }
 
     /**
-     * 构造 Phantom Agent（与 Python construct_phantom_agent 一致）。
+     * Construct Phantom Agent (consistent with Python construct_phantom_agent).
      */
     public static Map<String, Object> constructPhantomAgent(byte[] hash, boolean isMainnet) {
         Map<String, Object> agent = new LinkedHashMap<>();
@@ -400,7 +399,7 @@ public final class Signing {
     }
 
     /**
-     * 生成 EIP-712 TypedData JSON（与 Python l1_payload 一致）。
+     * Generate EIP-712 TypedData JSON (consistent with Python l1_payload).
      */
     public static String l1PayloadJson(Map<String, Object> phantomAgent) {
         Map<String, Object> domain = new LinkedHashMap<>();
@@ -436,8 +435,8 @@ public final class Signing {
     }
 
     /**
-     * 对 L1 动作进行签名（完整流程）：计算 actionHash -> 构造 phantom agent -> 生成 EIP-712 typed data
-     * -> 签名。
+     * Sign L1 action (complete process): calculate actionHash -> construct phantom agent -> generate EIP-712 typed data
+     * -> sign.
      */
     public static Map<String, Object> signL1Action(Credentials credentials, Object action, String vaultAddress,
                                                    long nonce, Long expiresAfter, boolean isMainnet) {
@@ -448,17 +447,17 @@ public final class Signing {
     }
 
     /**
-     * 构造用户签名动作的 EIP-712 TypedData JSON（与 Python user_signed_payload 一致）。
-     * 说明：
-     * - primaryType 为具体事务类型，例如 "HyperliquidTransaction:UsdSend"。
-     * - payloadTypes 为该事务类型的字段类型列表，例如 USD_SEND_SIGN_TYPES。
-     * - action 为消息体，其中必须包含 "signatureChainId"（16 进制字符串，如 0x66eee）与
-     * "hyperliquidChain"（"Mainnet" 或 "Testnet"）。
+     * Construct EIP-712 TypedData JSON for user-signed action (consistent with Python user_signed_payload).
+     * Description:
+     * - primaryType is the specific transaction type, e.g., "HyperliquidTransaction:UsdSend".
+     * - payloadTypes is the list of field type definitions for that transaction type, e.g., USD_SEND_SIGN_TYPES.
+     * - action is the message body, which must contain "signatureChainId" (hexadecimal string, e.g., 0x66eee) and
+     * "hyperliquidChain" ("Mainnet" or "Testnet").
      *
-     * @param primaryType  主类型名称
-     * @param payloadTypes 字段类型定义列表
-     * @param action       动作消息（必须包含 signatureChainId 与 hyperliquidChain）
-     * @return EIP-712 TypedData 的 JSON 字符串
+     * @param primaryType  Primary type name
+     * @param payloadTypes Field type definition list
+     * @param action       Action message (must contain signatureChainId and hyperliquidChain)
+     * @return EIP-712 TypedData JSON string
      */
     public static String userSignedPayloadJson(String primaryType, List<Map<String, Object>> payloadTypes,
                                                Map<String, Object> action) {
@@ -504,17 +503,17 @@ public final class Signing {
     }
 
     /**
-     * 对用户签名动作进行签名（与 Python sign_user_signed_action 一致）。
-     * 规则：
-     * - 自动设置 signatureChainId（0x66eee）与 hyperliquidChain（根据 isMainnet）。
-     * - 使用 userSignedPayloadJson 构造 EIP-712 TypedData 并进行签名。
+     * Sign user-signed action (consistent with Python sign_user_signed_action).
+     * Rules:
+     * - Automatically set signatureChainId (0x66eee) and hyperliquidChain (based on isMainnet).
+     * - Use userSignedPayloadJson to construct EIP-712 TypedData and sign it.
      *
-     * @param credentials  用户凭证
-     * @param action       动作消息（会补全签名相关字段）
-     * @param payloadTypes 字段类型定义列表
-     * @param primaryType  主类型名称
-     * @param isMainnet    是否主网
-     * @return r/s/v 签名
+     * @param credentials  User credentials
+     * @param action       Action message (will be supplemented with signature-related fields)
+     * @param payloadTypes Field type definition list
+     * @param primaryType  Primary type name
+     * @param isMainnet    Whether it's mainnet
+     * @return r/s/v signature
      */
     public static Map<String, Object> signUserSignedAction(Credentials credentials,
                                                            Map<String, Object> action,
@@ -528,11 +527,11 @@ public final class Signing {
     }
 
     /**
-     * 通用：从 EIP-712 TypedData JSON 与 r/s/v 签名恢复地址。
+     * Generic: Recover address from EIP-712 TypedData JSON and r/s/v signature.
      *
-     * @param typedDataJson EIP-712 TypedData JSON 字符串
-     * @param signature     r/s/v 签名
-     * @return 0x 地址（小写）
+     * @param typedDataJson EIP-712 TypedData JSON string
+     * @param signature     r/s/v signature
+     * @return 0x address (lowercase)
      */
     public static String recoverFromTypedData(String typedDataJson, Map<String, Object> signature) {
         try {
@@ -569,12 +568,12 @@ public final class Signing {
     }
 
     /**
-     * 公共辅助方法：从 digest 与 r/s/v 恢复地址（纯 EIP-712 非前缀）。
-     * 可用于测试与诊断，无需构造完整 typedData JSON。
+     * Public helper method: Recover address from digest and r/s/v (pure EIP-712 without prefix).
+     * Can be used for testing and diagnostics, without needing to construct complete typedData JSON.
      *
-     * @param digest    32 字节 EIP-712 哈希
-     * @param signature r/s/v 签名
-     * @return 恢复出的地址（0x 小写）
+     * @param digest    32-byte EIP-712 hash
+     * @param signature r/s/v signature
+     * @return Recovered address (0x lowercase)
      */
     public static String recoverAddressFromDigest(byte[] digest, Map<String, Object> signature) {
         String rHex = String.valueOf(signature.get("r"));
@@ -600,14 +599,14 @@ public final class Signing {
     }
 
     /**
-     * 使用 BouncyCastle 实现的 ecrecover：根据 r/s/v 与消息摘要（digest）恢复未压缩公钥（64字节）。
-     * 该实现遵循 secp256k1 曲线参数，避免 web3j 高层 API 对消息哈希或前缀的约束。
+     * ecrecover implemented using BouncyCastle: Recover uncompressed public key (64 bytes) from r/s/v and message digest.
+     * This implementation follows secp256k1 curve parameters, avoiding constraints of web3j high-level API on message hashing or prefixes.
      *
-     * @param recId  0 或 1（由 v 归一化得到）
-     * @param r      ECDSA r 值
-     * @param s      ECDSA s 值
-     * @param digest 32 字节消息摘要（EIP-712 哈希）
-     * @return 未压缩公钥的 BigInteger 表示（64 字节 x||y）
+     * @param recId  0 or 1 (obtained by normalizing v)
+     * @param r      ECDSA r value
+     * @param s      ECDSA s value
+     * @param digest 32-byte message digest (EIP-712 hash)
+     * @return BigInteger representation of uncompressed public key (64 bytes x||y)
      */
     private static java.math.BigInteger recoverPublicKeyFromSignature(int recId, java.math.BigInteger r,
                                                                       java.math.BigInteger s, byte[] digest) {
@@ -642,7 +641,7 @@ public final class Signing {
     }
 
     /**
-     * 将给定 x 坐标与 y 奇偶标志，解压为曲线上点（未压缩）。
+     * Decompress the given x coordinate and y parity flag into a point on the curve (uncompressed).
      */
     private static org.bouncycastle.math.ec.ECPoint decompressKey(java.math.BigInteger xBN, boolean yBit,
                                                                   org.bouncycastle.math.ec.ECCurve curve) {
@@ -656,15 +655,15 @@ public final class Signing {
     }
 
     /**
-     * 从 L1 动作签名中恢复签名者地址（与 Python recover_agent_or_user_from_l1_action 一致）。
+     * Recover signer address from L1 action signature (consistent with Python recover_agent_or_user_from_l1_action).
      *
-     * @param action       L1 动作（Map 或 List）
-     * @param vaultAddress 有效的 vault 地址（可为空）
-     * @param nonce        毫秒时间戳
-     * @param expiresAfter 过期毫秒偏移（可空）
-     * @param isMainnet    是否主网
-     * @param signature    r/s/v 签名
-     * @return 恢复得到的 0x 地址（小写）
+     * @param action       L1 action (Map or List)
+     * @param vaultAddress Valid vault address (can be null)
+     * @param nonce        Millisecond timestamp
+     * @param expiresAfter Expiration millisecond offset (can be null)
+     * @param isMainnet    Whether it's mainnet
+     * @param signature    r/s/v signature
+     * @return Recovered 0x address (lowercase)
      */
     public static String recoverAgentOrUserFromL1Action(Object action, String vaultAddress,
                                                         long nonce, Long expiresAfter,
@@ -677,15 +676,15 @@ public final class Signing {
     }
 
     /**
-     * 从用户签名动作中恢复用户地址（与 Python recover_user_from_user_signed_action 一致）。
-     * 注意：不会改动 action 的 signatureChainId，仅会根据 isMainnet 设置 hyperliquidChain。
+     * Recover user address from user-signed action (consistent with Python recover_user_from_user_signed_action).
+     * Note: Will not modify action's signatureChainId, only set hyperliquidChain based on isMainnet.
      *
-     * @param action       动作消息（须包含 signatureChainId）
-     * @param signature    r/s/v 签名
-     * @param payloadTypes 字段类型定义列表
-     * @param primaryType  主类型名称
-     * @param isMainnet    是否主网
-     * @return 恢复得到的 0x 地址（小写）
+     * @param action       Action message (must contain signatureChainId)
+     * @param signature    r/s/v signature
+     * @param payloadTypes Field type definition list
+     * @param primaryType  Primary type name
+     * @param isMainnet    Whether it's mainnet
+     * @return Recovered 0x address (lowercase)
      */
     public static String recoverUserFromUserSignedAction(Map<String, Object> action,
                                                          Map<String, Object> signature,
@@ -744,36 +743,36 @@ public final class Signing {
     }
 
     /**
-     * 设置地址长度校验严格模式。
+     * Set address length validation strict mode.
      *
-     * @param strict 是否严格要求地址为 20 字节
+     * @param strict Whether to strictly require address to be 20 bytes
      */
     public static void setStrictAddressLength(boolean strict) {
         STRICT_ADDRESS_LENGTH = strict;
     }
 
     /**
-     * 获取当前地址长度校验模式。
+     * Get current address length validation mode.
      *
-     * @return true 表示严格模式；false 表示兼容模式
+     * @return true means strict mode; false means compatibility mode
      */
     public static boolean isStrictAddressLength() {
         return STRICT_ADDRESS_LENGTH;
     }
 
     /**
-     * 多签动作签名（与 Python sign_multi_sig_action 对齐）。
+     * Multi-signature action signing (aligned with Python sign_multi_sig_action).
      * <p>
-     * 用于多签账户执行操作，需要构造特殊的 multiSigActionHash 并签名。
+     * Used for multi-signature accounts to execute operations, requires constructing special multiSigActionHash and signing.
      * </p>
      *
-     * @param wallet         签名者钱包
-     * @param multiSigAction 多签动作对象（包含 payload 等字段）
-     * @param isMainnet      是否主网
-     * @param vaultAddress   vault 地址（可为 null）
-     * @param nonce          随机数/时间戳
-     * @param expiresAfter   过期时间（毫秒，可为 null）
-     * @return EIP-712 签名结果（Map 包含 r, s, v）
+     * @param wallet         Signer wallet
+     * @param multiSigAction Multi-signature action object (contains payload and other fields)
+     * @param isMainnet      Whether it's mainnet
+     * @param vaultAddress   Vault address (can be null)
+     * @param nonce          Random number/timestamp
+     * @param expiresAfter   Expiration time (milliseconds, can be null)
+     * @return EIP-712 signature result (Map containing r, s, v)
      */
     public static Map<String, Object> signMultiSigAction(
             Credentials wallet,

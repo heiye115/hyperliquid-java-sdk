@@ -2,58 +2,58 @@ package io.github.hyperliquid.sdk.model.info;
 
 /**
  * Retrieve a user's fills
- * 用户最近成交
+ * User recent trades
  **/
 public class UserFill {
 
-    /** 币种（如 "BTC" 或 Spot 索引 "@107"） */
+    /** Currency (e.g., "BTC" or Spot index "@107") */
     private String coin;
-    /** 成交价格（字符串） */
+    /** Execution price (string) */
     private String px;
-    /** 成交数量（字符串） */
+    /** Execution quantity (string) */
     private String sz;
-    /** 方向（A/B 或 Buy/Sell） */
+    /** Direction (A/B or Buy/Sell) */
     private String side;
-    /** 成交时间戳（毫秒） */
+    /** Execution timestamp (milliseconds) */
     private Long time;
-    /** 成交时起始仓位大小（字符串） */
+    /** Starting position size at execution (string) */
     private String startPosition;
-    /** 方向描述（如 open/close 等） */
+    /** Direction description (e.g., open/close, etc.) */
     private String dir;
-    /** 已关闭盈亏（字符串） */
+    /** Closed profit and loss (string) */
     private String closedPnl;
-    /** 成交哈希 */
+    /** Execution hash */
     private String hash;
-    /** 订单 ID */
+    /** Order ID */
     private Long oid;
-    /** 是否为穿越成交（crossed） */
+    /** Whether it is a crossed execution */
     private Boolean crossed;
-    /** 手续费（字符串） */
+    /** Fee (string) */
     private String fee;
-    /** 成交序号（tid） */
+    /** Execution sequence number (tid) */
     private Long tid;
-    /** 手续费代币标识 */
+    /** Fee token identifier */
     private String feeToken;
-    /** TWAP 策略 ID（若为切片成交） */
+    /** TWAP strategy ID (if sliced execution) */
     private String twapId;
-    /** Builder 费用（字符串，若适用） */
+    /** Builder fee (string, if applicable) */
     private String builderFee;
 
 
-    // 实用方法 - 判断是否为现货交易
+    // Utility method - determine if it is a spot trade
     public boolean isSpotTrade() {
         return coin != null && coin.startsWith("@");
     }
 
-    // 实用方法 - 判断是否为永续合约交易
+    // Utility method - determine if it is a perpetual contract trade
     public boolean isPerpTrade() {
         return coin != null && !coin.startsWith("@");
     }
 
-    // 实用方法 - 获取资产ID（如果是现货交易）
+    // Utility method - get asset ID (if it is a spot trade)
     public String getAssetId() {
         if (isSpotTrade() && coin != null) {
-            return coin.substring(1); // 去掉"@"符号
+            return coin.substring(1); // Remove "@" symbol
         }
         return coin;
     }

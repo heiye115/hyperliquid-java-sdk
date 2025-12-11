@@ -1,40 +1,40 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * 订单修改请求封装。
+ * Order modification request wrapper.
  * <p>
- * 用于批量修改订单，支持通过 OID 或 Cloid 定位订单。
+ * Used for batch order modification, supports locating orders via OID or Cloid.
  * </p>
  */
 public class ModifyRequest {
 
     /**
-     * 币种名称（例如 "ETH"、"BTC"）
+     * Currency name (e.g., "ETH", "BTC")
      */
     private String coinName;
 
     /**
-     * 订单 ID（OID）
+     * Order ID (OID)
      */
     private Long oid;
 
     /**
-     * 客户端订单 ID（Cloid）
+     * Client order ID (Cloid)
      */
     private Cloid cloid;
 
     /**
-     * 新的订单内容
+     * New order content
      */
     private OrderRequest newOrder;
 
     /**
-     * 构造函数
+     * Constructor
      *
-     * @param coinName 币种名称
-     * @param oid      订单 OID
-     * @param cloid    客户端订单 ID
-     * @param newOrder 新订单请求
+     * @param coinName currency name
+     * @param oid      order OID
+     * @param cloid    client order ID
+     * @param newOrder new order request
      */
     public ModifyRequest(String coinName, Long oid, Cloid cloid, OrderRequest newOrder) {
         this.coinName = coinName;
@@ -44,24 +44,24 @@ public class ModifyRequest {
     }
 
     /**
-     * 通过 OID 创建修改请求
+     * Create modification request via OID
      *
-     * @param coinName 币种名称
-     * @param oid      订单 OID
-     * @param newOrder 新订单请求
-     * @return ModifyRequest 实例
+     * @param coinName currency name
+     * @param oid      order OID
+     * @param newOrder new order request
+     * @return ModifyRequest instance
      */
     public static ModifyRequest byOid(String coinName, Long oid, OrderRequest newOrder) {
         return new ModifyRequest(coinName, oid, null, newOrder);
     }
 
     /**
-     * 通过 Cloid 创建修改请求
+     * Create modification request via Cloid
      *
-     * @param coinName 币种名称
-     * @param cloid    客户端订单 ID
-     * @param newOrder 新订单请求
-     * @return ModifyRequest 实例
+     * @param coinName currency name
+     * @param cloid    client order ID
+     * @param newOrder new order request
+     * @return ModifyRequest instance
      */
     public static ModifyRequest byCloid(String coinName, Cloid cloid, OrderRequest newOrder) {
         return new ModifyRequest(coinName, null, cloid, newOrder);

@@ -5,9 +5,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Locale;
 
 /**
- * 最佳买卖价（BBO）订阅。
+ * Best Bid and Offer (BBO) subscription.
  * <p>
- * 订阅指定币种的最佳买一价和卖一价及其数量，数据更精简、更新更快。
+ * Subscribe to the best bid and ask prices and their quantities for specified currency, more concise data, faster updates.
  * </p>
  */
 public class BboSubscription extends Subscription {
@@ -19,25 +19,25 @@ public class BboSubscription extends Subscription {
     private String coin;
     
     /**
-     * 构造 BBO 订阅（无参构造，用于 Jackson 反序列化）。
+     * Construct BBO subscription (no-argument constructor, used for Jackson deserialization).
      */
     public BboSubscription() {
     }
     
     /**
-     * 构造 BBO 订阅。
+     * Construct BBO subscription.
      *
-     * @param coin 币种名称（如 "BTC"、"ETH"）或资产 ID
+     * @param coin currency name (e.g., "BTC", "ETH") or asset ID
      */
     public BboSubscription(String coin) {
         this.coin = coin;
     }
     
     /**
-     * 静态工厂方法：创建 BBO 订阅。
+     * Static factory method: create BBO subscription.
      *
-     * @param coin 币种名称（如 "BTC"、"ETH"）
-     * @return BboSubscription 实例
+     * @param coin currency name (e.g., "BTC", "ETH")
+     * @return BboSubscription instance
      */
     public static BboSubscription of(String coin) {
         return new BboSubscription(coin);

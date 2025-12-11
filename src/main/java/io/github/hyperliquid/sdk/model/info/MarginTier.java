@@ -2,18 +2,18 @@ package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** 保证金层级（仓位下限与最大杠杆） */
+/** Margin tier (position lower bound and maximum leverage) */
 public class MarginTier {
     
-    /** 仓位规模下限（字符串） */
+    /** Position size lower bound (string) */
     @JsonProperty("lowerBound")
     private String lowerBound;
 
-    /** 对应最大杠杆倍数 */
+    /** Corresponding maximum leverage multiple */
     @JsonProperty("maxLeverage")
     private Integer maxLeverage;
 
-    /** 无参构造函数 */
+    /** No-argument constructor */
     public MarginTier() {
     }
 

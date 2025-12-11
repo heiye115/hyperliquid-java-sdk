@@ -4,18 +4,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/** 市场元数据（永续） */
+/** Market metadata (perpetual) */
 public class Meta {
 
-    /** 支持交易的资产集合 */
+    /** List of supported trading assets */
     @JsonProperty("universe")
     private List<Universe> universe;
 
-    /** 抵押品 Token 的整数 ID */
+    /** Integer ID of collateral token */
     @JsonProperty("collateralToken")
     private Integer collateralToken;
 
-    /** 保证金表集合（服务端原始结构） */
+    /** Margin table collection (raw server structure) */
     @JsonProperty("marginTables")
     private List<List<Object>> marginTables;
 
@@ -45,19 +45,19 @@ public class Meta {
     }
 
     public static class Universe {
-        /** 数量精度（小数位） */
+        /** Quantity precision (decimal places) */
         @JsonProperty("szDecimals")
         private Integer szDecimals;
 
-        /** 资产名称（如 "BTC"） */
+        /** Asset name (e.g., "BTC") */
         @JsonProperty("name")
         private String name;
 
-        /** 该资产的最大杠杆 */
+        /** Maximum leverage for this asset */
         @JsonProperty("maxLeverage")
         private Integer maxLeverage;
 
-        /** 对应的保证金表 ID */
+        /** Corresponding margin table ID */
         @JsonProperty("marginTableId")
         private Integer marginTableId;
 

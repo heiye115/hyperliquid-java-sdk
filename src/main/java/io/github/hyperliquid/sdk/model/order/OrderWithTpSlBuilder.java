@@ -4,107 +4,107 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 开仓 + 止盈止损组合订单构建器。
+ * Open position + take-profit/stop-loss combined order builder.
  * <p>
- * 用于构建 normalTpsl 或 positionTpsl 订单组，简化一键设置止盈止损的操作。
+ * Used to build normalTpsl or positionTpsl order groups, simplifying one-click setup of take-profit/stop-loss operations.
  * <p>
- * 使用示例：
+ * Usage examples:
  * <pre>
- * // 1. 限价开仓 + 止盈止损（normalTpsl）
+ * // 1. Limit order open + take-profit/stop-loss (normalTpsl)
  * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
  *     .perp("ETH")
  *     .buy(0.1)
- *     .entryPrice(3500.0)  // 设置了entryPrice，将使用限价单
+ *     .entryPrice(3500.0)  // Set entryPrice, will use limit order
  *     .takeProfit(3600.0)
  *     .stopLoss(3400.0)
  *     .buildNormalTpsl();
  *
- * // 提交时自动推断 grouping="normalTpsl"
+ * // Automatically infer grouping="normalTpsl" when submitting
  * JsonNode result = exchange.bulkOrders(orderGroup);
  *
- * // 2. 市价开仓 + 止盈止损（normalTpsl）
+ * // 2. Market order open + take-profit/stop-loss (normalTpsl)
  * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
  *     .perp("ETH")
  *     .buy(0.1)
- *     // 没有设置entryPrice，将使用市价单
+ *     // No entryPrice set, will use market order
  *     .takeProfit(3600.0)
  *     .stopLoss(3400.0)
  *     .buildNormalTpsl();
  *
- * // 提交时自动推断 grouping="normalTpsl"
+ * // Automatically infer grouping="normalTpsl" when submitting
  * JsonNode result = exchange.bulkOrders(orderGroup);
  *
- * // 3. 仅为已有仓位添加止盈止损（positionTpsl - 手动指定）
+ * // 3. Add take-profit/stop-loss to existing position (positionTpsl - manual specification)
  * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
  *     .perp("ETH")
- *     .closePosition(0.5, true)  // 平掉 0.5 ETH 多仓
+ *     .closePosition(0.5, true)  // Close 0.5 ETH long position
  *     .takeProfit(3600.0)
  *     .stopLoss(3400.0)
  *     .buildPositionTpsl();
  *
- * // 提交时自动推断 grouping="positionTpsl"
+ * // Automatically infer grouping="positionTpsl" when submitting
  * JsonNode result = exchange.bulkOrders(orderGroup);
  *
- * // 4. 仅为已有仓位添加止盈止损（positionTpsl - 自动推断）
+ * // 4. Add take-profit/stop-loss to existing position (positionTpsl - automatic inference)
  * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
  *     .perp("ETH")
- *     // 不调用 closePosition()，Exchange 会自动查询账户持仓并推断方向和数量
+ *     // Don't call closePosition(), Exchange will automatically query account positions and infer direction and quantity
  *     .takeProfit(3600.0)
  *     .stopLoss(3400.0)
  *     .buildPositionTpsl();
  *
- * // Exchange 会自动调用 API 获取仓位信息并填充方向和数量
+ * // Exchange will automatically call API to get position information and fill direction and quantity
  * JsonNode result = exchange.bulkOrders(orderGroup);
  * </pre>
  */
 public class OrderWithTpSlBuilder {
     /**
-     * 交易品种类型（PERP 或 SPOT）
+     * Instrument type (PERP or SPOT)
      */
     private InstrumentType instrumentType;
 
     /**
-     * 币种名称
+     * Currency name
      */
     private String coin;
 
     /**
-     * 是否买入（true=买/做多，false=卖/做空）
+     * Whether to buy (true=buy/long, false=sell/short)
      */
     private Boolean isBuy;
 
     /**
-     * 下单数量（字符串）
+     * Order quantity (string)
      */
     private String sz;
 
     /**
-     * 开仓限价（字符串，buildAll 模式必填）
+     * Entry limit price (string, required for buildAll mode)
      */
     private String entryPrice;
 
     /**
-     * 止盈价格（字符串）
+     * Take-profit price (string)
      */
     private String takeProfitPrice;
 
     /**
-     * 止损价格（字符串）
+     * Stop-loss price (string)
      */
     private String stopLossPrice;
 
     /**
-     * 开仓单的 TIF 策略（默认 GTC）
+     * Entry order TIF strategy (default GTC)
      */
     private Tif entryTif = Tif.GTC;
 
     /**
-     * 客户端订单 ID
+     * Client order ID
      */
     private Cloid cloid;
 
     /**
-     * 订单过期时间（毫秒）
+     * Order expiration time (milliseconds)
      */
     private Long expiresAfter;
 

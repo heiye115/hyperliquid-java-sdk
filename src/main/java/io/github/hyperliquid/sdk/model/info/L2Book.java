@@ -2,14 +2,14 @@ package io.github.hyperliquid.sdk.model.info;
 
 import java.util.List;
 
-/** L2 订单簿快照（前 10 档买卖盘） */
+/** L2 order book snapshot (top 10 bid/ask levels) */
 public class L2Book {
 
-    /** 币种名称（如 "BTC"） */
+    /** Currency name (e.g., "BTC") */
     private String coin;
-    /** 快照时间戳（毫秒） */
+    /** Snapshot timestamp (milliseconds) */
     private Long time;
-    /** 买卖盘列表：索引 0 为买盘，索引 1 为卖盘 */
+    /** Bid/ask list: index 0 for bids, index 1 for asks */
     private List<List<Levels>> levels;
 
     // Getter and Setter methods
@@ -38,11 +38,11 @@ public class L2Book {
     }
 
     public static class Levels {
-        /** 该档位价格（字符串） */
+        /** Price at this level (string) */
         private String px;
-        /** 该档位挂单总数量（字符串） */
+        /** Total order quantity at this level (string) */
         private String sz;
-        /** 该价位的挂单笔数/档位计数 */
+        /** Number of orders/level count at this price */
         private Integer n;
 
         // Getter and Setter methods

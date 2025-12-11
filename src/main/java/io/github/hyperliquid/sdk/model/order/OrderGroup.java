@@ -3,19 +3,19 @@ package io.github.hyperliquid.sdk.model.order;
 import java.util.List;
 
 /**
- * 订单组，包含订单列表和分组类型信息。
+ * Order group, containing order list and grouping type information.
  * <p>
- * 用于自动推断 bulkOrders 的 grouping 参数，简化API调用。
+ * Used to automatically infer the grouping parameter of bulkOrders, simplifying API calls.
  * </p>
  */
 public class OrderGroup {
     /**
-     * 订单列表
+     * Order list
      */
     private final List<OrderRequest> orders;
 
     /**
-     * 分组类型
+     * Grouping type
      */
     private final GroupingType groupingType;
 

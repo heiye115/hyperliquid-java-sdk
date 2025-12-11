@@ -2,53 +2,53 @@ package io.github.hyperliquid.sdk.model.info;
 
 import java.util.List;
 
-/** 订单状态返回封装 */
+/** Order status return wrapper */
 public class OrderStatus {
 
-    /** 顶层状态（如 "ok"/"error"） */
+    /** Top-level status (e.g., "ok"/"error") */
     private String status;
 
-    /** 订单详情与状态时间戳 */
+    /** Order details and status timestamp */
     private Order order;
 
     public static class Order {
-        /** 订单详情 */
+        /** Order details */
         private OrderDetail order;
-        /** 状态更新时间戳（毫秒） */
+        /** Status update timestamp (milliseconds) */
         private Long statusTimestamp;
 
         public static class OrderDetail {
-            /** 币种名称 */
+            /** Currency name */
             private String coin;
-            /** 方向（A/B 或 Buy/Sell） */
+            /** Direction (A/B or Buy/Sell) */
             private String side;
-            /** 限价（字符串） */
+            /** Limit price (string) */
             private String limitPx;
-            /** 下单数量（字符串） */
+            /** Order quantity (string) */
             private String sz;
-            /** 订单 ID */
+            /** Order ID */
             private Long oid;
-            /** 创建时间戳（毫秒） */
+            /** Creation timestamp (milliseconds) */
             private Long timestamp;
-            /** 触发条件描述 */
+            /** Trigger condition description */
             private String triggerCondition;
-            /** 是否为触发单 */
+            /** Whether it is a trigger order */
             private Boolean isTrigger;
-            /** 触发价格（字符串） */
+            /** Trigger price (string) */
             private String triggerPx;
-            /** 子订单 ID 列表（若拆分/切片） */
+            /** Child order ID list (if split/sliced) */
             private List<String> children;
-            /** 是否为仓位止盈止损 */
+            /** Whether it is a position take-profit/stop-loss */
             private Boolean isPositionTpsl;
-            /** 是否仅减仓 */
+            /** Whether to reduce position only */
             private Boolean reduceOnly;
-            /** 订单类型描述 */
+            /** Order type description */
             private String orderType;
-            /** 原始下单数量（字符串） */
+            /** Original order quantity (string) */
             private String origSz;
-            /** TIF 策略（Gtc/Alo/Ioc） */
+            /** TIF strategy (Gtc/Alo/Ioc) */
             private String tif;
-            /** 客户端订单 ID */
+            /** Client order ID */
             private String cloid;
 
             // Getter and Setter methods

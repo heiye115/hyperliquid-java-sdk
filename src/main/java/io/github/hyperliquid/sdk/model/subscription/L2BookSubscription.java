@@ -5,9 +5,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Locale;
 
 /**
- * L2 订单簿订阅。
+ * L2 order book subscription.
  * <p>
- * 订阅指定币种的完整订单簿深度数据，包括买卖盘价格和数量。
+ * Subscribe to complete order book depth data for specified currency, including bid/ask prices and quantities.
  * </p>
  */
 public class L2BookSubscription extends Subscription {
@@ -19,25 +19,25 @@ public class L2BookSubscription extends Subscription {
     private String coin;
     
     /**
-     * 构造 L2 订单簿订阅（无参构造，用于 Jackson 反序列化）。
+     * Construct L2 order book subscription (no-argument constructor, used for Jackson deserialization).
      */
     public L2BookSubscription() {
     }
     
     /**
-     * 构造 L2 订单簿订阅。
+     * Construct L2 order book subscription.
      *
-     * @param coin 币种名称（如 "BTC"、"ETH"）或资产 ID
+     * @param coin currency name (e.g., "BTC", "ETH") or asset ID
      */
     public L2BookSubscription(String coin) {
         this.coin = coin;
     }
     
     /**
-     * 静态工厂方法：创建 L2 订单簿订阅。
+     * Static factory method: create L2 order book subscription.
      *
-     * @param coin 币种名称（如 "BTC"、"ETH"）
-     * @return L2BookSubscription 实例
+     * @param coin currency name (e.g., "BTC", "ETH")
+     * @return L2BookSubscription instance
      */
     public static L2BookSubscription of(String coin) {
         return new L2BookSubscription(coin);

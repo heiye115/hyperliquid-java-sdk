@@ -4,11 +4,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/** 现货市场元数据（资产与 Token 信息） */
+/** Spot market metadata (asset and token information) */
 public class SpotMeta {
-    /** 现货资产（聚合 Token）集合 */
+    /** Spot assets (aggregated tokens) collection */
     private List<Universe> universe;
-    /** 现货 Token 列表 */
+    /** Spot tokens list */
     private List<Token> tokens;
 
     // Getter and Setter methods
@@ -29,13 +29,13 @@ public class SpotMeta {
     }
 
     public static class Universe {
-        /** 该现货资产包含的 Token ID 列表 */
+        /** List of token IDs contained in this spot asset */
         private List<Integer> tokens;
-        /** 资产简称（如 "BTC"） */
+        /** Asset abbreviation (e.g., "BTC") */
         private String name;
-        /** 资产索引（整数） */
+        /** Asset index (integer) */
         private int index;
-        /** 是否为规范主资产 */
+        /** Whether it is a canonical main asset */
         private boolean isCanonical;
 
         // Getter and Setter methods
@@ -73,23 +73,23 @@ public class SpotMeta {
     }
 
     public static class Token {
-        /** Token 名称（如 "WETH"） */
+        /** Token name (e.g., "WETH") */
         private String name;
-        /** 交易数量精度 */
+        /** Trading quantity precision */
         private Integer szDecimals;
-        /** Wei 精度（EVM 代币最小单位精度） */
+        /** Wei precision (EVM token smallest unit precision) */
         private Integer weiDecimals;
-        /** Token 索引（整数） */
+        /** Token index (integer) */
         private Integer index;
-        /** Token 唯一 ID（字符串） */
+        /** Token unique ID (string) */
         private String tokenId;
-        /** 是否为规范主 Token */
+        /** Whether it is a canonical main token */
         private Boolean isCanonical;
-        /** EVM 合约信息（可能为 null） */
+        /** EVM contract information (may be null) */
         private EvmContract evmContract;
-        /** Token 全名（可能为 null） */
+        /** Token full name (may be null) */
         private String fullName;
-        /** 部署者交易手续费分成比例（字符串，可能为 null） */
+        /** Deployer trading fee share ratio (string, may be null) */
         private String deployerTradingFeeShare;
 
         // Getter and Setter methods
@@ -166,10 +166,10 @@ public class SpotMeta {
         }
 
         public static class EvmContract {
-            /** 合约地址 */
+            /** Contract address */
             private String address;
             @JsonProperty("evm_extra_wei_decimals")
-            private int evmExtraWeiDecimals; /** 额外 Wei 精度（合约特性） */
+            private int evmExtraWeiDecimals; /** Additional Wei precision (contract feature) */
 
             // Getter and Setter methods
             public String getAddress() {
