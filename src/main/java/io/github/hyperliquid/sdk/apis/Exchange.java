@@ -131,25 +131,25 @@ public class Exchange {
     }
 
     /**
-     * Single order placement (with builder support).
-     * <p>
-     * - Normal order scenario: When the user does not specify the builder parameter, the order will default to using
-     * Hyperliquid platform's core matching engine for trade processing.
-     * - Special purpose of builder parameter: Only needed when the user wants to route the order to a specific
-     * Builder-deployed perp dex (perpetual contract decentralized exchange deployed by third-party developers).
-     * - For example: When the user wants to utilize a specific Builder's customized liquidity, specific trading strategies,
-     * or pay Builder fees, then the builder parameter needs to be set.
+     * Place order (single).
+     *
+     * @param req    Order request
+     * @param builder Optional builder parameters (can be null)
+     *                 - "b": Builder address (0x prefix string)
+     *                 - "f": Builder fee (non-negative integer)
+     *                 For example: When the user wants to utilize a specific Builder's customized liquidity, specific trading strategies,
+     *                 or pay Builder fees, then the builder parameter needs to be set.
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
         OrderRequest effective = prepareRequest(req);
-        // 格式化订单数量精度
+        // Format order quantity precision
         formatOrderSize(effective);
-        // 格式化订单价格精度
+        // Format order price precision
         formatOrderPrice(effective);
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
-        // 获取订单的 expiresAfter，默认 120 秒
+        // Get order expiresAfter, default 120 seconds
         Long expiresAfter = effective.getExpiresAfter() != null ? effective.getExpiresAfter() : 120_000L;
         JsonNode node = postAction(action, expiresAfter);
         return JSONUtil.convertValue(node, Order.class);
@@ -229,7 +229,7 @@ public class Exchange {
      * 3. Infer conditional order limit price
      */
     private OrderRequest prepareRequest(OrderRequest req) {
-        //推断市价开仓价 带滑点
+        // Infer market order price with slippage
         if (req.getLimitPx() == null &&
                 req.getOrderType() != null &&
                 req.getOrderType().getLimit() != null &&
@@ -239,7 +239,7 @@ public class Exchange {
             req.setLimitPx(slipPx);
             return req;
         }
-        //市价平仓推断
+        // Market close position inference
         if (isClosePositionMarket(req)) {
             if (req.getIsBuy() != null && req.getSz() != null) {
                 return req;
@@ -252,18 +252,18 @@ public class Exchange {
             String sz = (req.getSz() != null && !req.getSz().isEmpty()) ? req.getSz() : String.valueOf(Math.abs(szi));
             return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
         }
-        //限价平仓推断
+        // Limit close position inference
         if (isClosePositionLimit(req)) {
             double signedPosition = inferSignedPosition(req.getCoin());
             if (signedPosition == 0.0) {
                 throw new HypeError("No position to close for coin " + req.getCoin());
             }
             boolean isBuy = signedPosition < 0.0;
-            //推断仓位方向 设置isBuy
+            // Infer position direction and set isBuy
             req.setIsBuy(isBuy);
             return req;
         }
-        //条件单推断
+        // Conditional order inference
         if (isTriggerOrder(req)) {
             if (req.getLimitPx() == null) {
                 Map<String, String> mids = info.allMids();
@@ -365,33 +365,33 @@ public class Exchange {
      * @throws HypeError Thrown when there is no position
      */
     private void inferAndFillPositionTpslOrders(List<OrderRequest> orders) {
-        // 获取第一个订单的币种（positionTpsl 所有订单应该是同一个币种）
+        // Get the coin of the first order (positionTpsl all orders should be the same coin)
         OrderRequest firstOrder = orders.getFirst();
         String coin = firstOrder.getCoin();
 
-        // 检查是否需要自动推断（isBuy 或 sz 为 null）
+        // Check if auto-inference is needed (isBuy or sz is null)
         boolean needsInference = firstOrder.getIsBuy() == null || firstOrder.getSz() == null;
 
         if (!needsInference) {
             return;
         }
 
-        // 自动查询仓位并推断
+        // Automatically query position and infer
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position found for " + coin + ". Cannot auto-infer direction and size for positionTpsl.");
         }
 
-        // 推断方向和数量
-        boolean isBuy = szi > 0; // 多仓需要卖出平仓，所以 isBuy=true 表示多仓
+        // Infer direction and quantity
+        boolean isBuy = szi > 0; // Long position needs to sell to close, so isBuy=true means long position
         String sz = String.valueOf(Math.abs(szi));
 
-        // 填充所有订单的方向和数量
+        // Fill direction and quantity for all orders
         for (OrderRequest order : orders) {
             if (order.getIsBuy() == null) {
-                // 对于止盈止损订单，需要反向
+                // For take-profit/stop-loss orders, need to reverse direction
                 if (order.getReduceOnly() != null && order.getReduceOnly()) {
-                    order.setIsBuy(!isBuy);  // 反向平仓
+                    order.setIsBuy(!isBuy);  // Reverse direction to close position
                 } else {
                     order.setIsBuy(isBuy);
                 }
@@ -448,11 +448,11 @@ public class Exchange {
      * @return Response JSON
      */
     public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
-        // 格式化订单数量精度
+        // Format order quantity precision
         requests.forEach(this::formatOrderSize);
-        //处理市价单
+        // Process market orders
         requests.forEach(this::marketOpenTransition);
-        // 格式化订单价格精度
+        // Format order price precision
         requests.forEach(this::formatOrderPrice);
         List<OrderWire> wires = new ArrayList<>();
         for (OrderRequest r : requests) {
@@ -515,7 +515,7 @@ public class Exchange {
         if (orders == null || orders.isEmpty()) {
             throw new HypeError("No orders found in OrderGroup.");
         }
-        // 对于 positionTpsl，检查是否需要自动推断仓位
+        // For positionTpsl, check if automatic position inference is needed
         if (GroupingType.POSITION_TPSL == orderGroup.getGroupingType()) {
             inferAndFillPositionTpslOrders(orders);
         }
@@ -693,7 +693,7 @@ public class Exchange {
     private Map<String, Object> validateAndFilterBuilder(Map<String, Object> builder) {
         Map<String, Object> filtered = new LinkedHashMap<>();
 
-        // 验证并过滤地址字段 b
+        // Validate and filter address field b
         if (builder.containsKey("b")) {
             Object bVal = builder.get("b");
             if (bVal instanceof String s) {
@@ -701,7 +701,7 @@ public class Exchange {
             }
         }
 
-        // 验证并过滤费用字段 f
+        // Validate and filter fee field f
         if (builder.containsKey("f")) {
             Object fVal = builder.get("f");
             if (!(fVal instanceof Number)) {
@@ -711,7 +711,7 @@ public class Exchange {
             if (f < 0) {
                 throw new HypeError("builder.f cannot be negative");
             }
-            // 限制一个合理上限，避免误传超大数导致后端拒绝（可根据业务调整）
+            // Limit a reasonable upper bound to avoid mistakenly passing oversized numbers that cause backend rejection (can be adjusted according to business)
             if (f > 1_000_000L) {
                 throw new HypeError("builder.f is too large, please verify the unit and value range");
             }
@@ -732,7 +732,7 @@ public class Exchange {
     public JsonNode agentEnableDexAbstraction() {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "agentEnableDexAbstraction");
-        // 直接复用 L1 发送逻辑
+        // Directly reuse L1 sending logic
         return postAction(action);
     }
 
@@ -751,7 +751,7 @@ public class Exchange {
         action.put("enabled", enabled);
         action.put("nonce", nonce);
 
-        // 构造与 Python 完全一致的 payloadTypes
+        // Construct payloadTypes exactly consistent with Python
         List<Map<String, Object>> payloadTypes = List.of(
                 Map.of("name", "hyperliquidChain", "type", "string"),
                 Map.of("name", "user", "type", "address"),
@@ -1393,7 +1393,7 @@ public class Exchange {
         String type = String.valueOf(action.getOrDefault("type", ""));
         String effectiveVault = calculateEffectiveVaultAddress(type);
 
-        // 默认 120 秒
+        // Default 120 seconds
         if (expiresAfter == null) {
             expiresAfter = 120_000L;
         }
@@ -1441,7 +1441,7 @@ public class Exchange {
         payload.put("signature", signature);
         if (!userSigned) {
             payload.put("vaultAddress", effectiveVault);
-            // userSigned 动作不需要 expiresAfter
+            // userSigned actions do not need expiresAfter
         } else {
             payload.put("vaultAddress", effectiveVault);
         }
@@ -1476,7 +1476,7 @@ public class Exchange {
      * @return Effective vault address, or null
      */
     private String calculateEffectiveVaultAddress(String actionType) {
-        // usdClassTransfer 和 sendAsset 不使用 vaultAddress
+        // usdClassTransfer and sendAsset do not use vaultAddress
         if ("usdClassTransfer".equals(actionType) || "sendAsset".equals(actionType)) {
             return null;
         }
@@ -1486,7 +1486,7 @@ public class Exchange {
         String effectiveVault = vaultAddress.toLowerCase();
         String signerAddr = apiWallet.getPrimaryWalletAddress().toLowerCase();
 
-        // 如果 vault 地址与签名者地址相同，返回 null
+        // If vault address is the same as signer address, return null
         if (effectiveVault.equals(signerAddr)) {
             return null;
         }
@@ -1998,7 +1998,7 @@ public class Exchange {
             boolean unjailed,
             long initialWei
     ) {
-        // 构造 profile
+        // Construct profile
         Map<String, Object> nodeIpMap = new LinkedHashMap<>();
         nodeIpMap.put("Ip", nodeIp);
 
@@ -2048,7 +2048,7 @@ public class Exchange {
             Integer commissionBps,
             String signer
     ) {
-        // 构造 changeProfile
+        // Construct changeProfile
         Map<String, Object> changeProfile = new LinkedHashMap<>();
 
         if (nodeIp != null) {
