@@ -20,7 +20,7 @@ public class OrderTest {
     String privateKey = "your_private_key_here";
 
     /**
-     * Unified client (testnet + enable debug logging)
+     * Unified client (testnet)
      */
     HyperliquidClient client = HyperliquidClient.builder()
             .testNetUrl()

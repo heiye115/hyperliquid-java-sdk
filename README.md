@@ -8,170 +8,46 @@
 [![Stars](https://img.shields.io/github/stars/heiye115/hyperliquid-java-sdk?style=social)](https://github.com/heiye115/hyperliquid-java-sdk)
 [![Issues](https://img.shields.io/github/issues/heiye115/hyperliquid-java-sdk)](https://github.com/heiye115/hyperliquid-java-sdk/issues)
 
-A pure Java SDK for the Hyperliquid decentralized exchange: market data, WebSocket subscriptions, orders, signing, and
-multi-wallet management.
+A professional, type-safe, and feature-rich Java SDK for the Hyperliquid L1, designed for high-performance trading and
+data streaming.
 
-## Table of Contents
+## 🎯 Overview
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [API Reference](#api-reference)
-- [Contribution](#contribution)
-- [License](#license)
+This SDK provides a comprehensive, pure Java solution for interacting with the Hyperliquid decentralized exchange. It
+empowers developers to build sophisticated trading bots, data analysis tools, and platform integrations with ease and
+confidence.
 
-## Overview
+### ✨ Feature Highlights
 
-- Unified client to access Info (market data) and Exchange (trading) with one builder.
-- Multi-wallet management: register multiple private keys and switch Exchange per-wallet.
-- Robust WebSocket manager with auto-reconnect, backoff, and network monitoring.
-- EIP-712 signing compatible with Hyperliquid actions, MessagePack-based hashing.
+- **🚀 High Performance:** Optimized for low-latency trading with efficient data handling.
+- **🛡️ Type-Safe:** Fluent builders and strongly-typed models prevent common errors and enhance code clarity.
+- **🔐 Secure by Design:** Robust EIP-712 signing and clear wallet management patterns.
+- **💼 Multi-Wallet Management:** Seamlessly manage and switch between multiple trading accounts (Main & API Wallets).
+- **🌐 Powerful WebSocket:** Auto-reconnect, exponential backoff, and type-safe real-time data subscriptions.
+- **🧩 Fluent & Intuitive API:** A clean, modern API designed for an excellent developer experience.
 
-## Architecture
+## ⚡ 5-Minute Quick Start
 
-```mermaid
-classDiagram
-    %% Client Layer
-    class HyperliquidClient {
-      +builder() Builder
-      +getInfo() Info
-      +useExchange(address) Exchange
-      +getSingleExchange() Exchange
-    }
-    
-    %% API Layer
-    class Info {
-      +l2Book(coin) L2Book
-      +userState(address) UserState
-      +subscribe(subscription, callback) void
-    }
-    
-    class Exchange {
-      +order(OrderRequest) Order
-      +bulkOrders(List) BulkOrderResponse
-      +cancel(coin, oid) CancelResponse
-      +updateLeverage(coin, leverage) void
-    }
-    
-    class OrderRequest {
-      <<static factory>>
-      +Open.market(...) OrderRequest
-      +Open.limit(...) OrderRequest
-      +Close.market(...) OrderRequest
-      +Close.takeProfit(...) OrderRequest
-    }
-    
-    %% Network Layer
-    class WebsocketManager {
-      +subscribe(subscription, callback) void
-      +setMaxReconnectAttempts(int) void
-      +setReconnectBackoffMs(initial, max) void
-    }
-    
-    class HypeHttpClient {
-      +post(path, payload) JsonNode
-    }
-    
-    %% Security Layer
-    class Signing {
-      <<utility>>
-      +signL1Action(...) Map
-      +signUserSignedAction(...) Map
-      +actionHash(...) byte[]
-    }
-    
-    %% Multi-Wallet Management
-    class ApiWallet {
-      +getPrimaryWalletAddress() String
-      +getCredentials() Credentials
-    }
-    
-    %% Relationships
-    HyperliquidClient --> Info
-    HyperliquidClient --> Exchange
-    HyperliquidClient --> ApiWallet : manages
-    
-    Info --> WebsocketManager : uses
-    Info --> HypeHttpClient : uses
-    
-    Exchange --> HypeHttpClient : uses
-    Exchange --> Signing : signs every action
-    Exchange --> ApiWallet : uses
-    Exchange ..> OrderRequest : creates
-    
-    OrderRequest ..> Signing : validated by
+Get up and running in minutes with this complete, runnable example.
+
+**Prerequisites:**
+
+1. Have a Hyperliquid account. For this example, use the **Testnet**.
+2. Obtain your wallet's private key.
+3. **IMPORTANT:** Store your private key securely. The recommended way is to use an environment variable.
+
+```bash
+export HYPERLIQUID_TESTNET_PRIVATE_KEY="0xYourPrivateKey"
 ```
 
-### Core Components
+**Runnable Example:**
 
-The SDK is organized into four architectural layers:
+This example demonstrates how to:
 
-**Client Layer**: `HyperliquidClient` serves as the unified entry point with builder pattern configuration. It manages
-multiple wallet credentials (`ApiWallet`) and provides seamless access to both Info and Exchange APIs. The multi-wallet
-design allows developers to switch between different trading accounts without recreating client instances.
-
-**API Layer**: `Info` handles market data queries via REST and real-time WebSocket subscriptions. `Exchange` manages all
-trading operations including orders, cancellations, and leverage adjustments. `OrderRequest` provides static factory
-methods (Open/Close helpers) to simplify order construction with type-safe builders.
-
-**Network Layer**: `HypeHttpClient` wraps HTTP communication with intelligent error classification (4xx/5xx).
-`WebsocketManager` implements robust connection handling with automatic reconnection, exponential backoff, and network
-availability monitoring.
-
-**Security Layer**: `Signing` is the core security component implementing EIP-712 typed data signing for Hyperliquid
-actions. It uses MessagePack-based hashing to generate action signatures, supporting both L1 actions (trading
-operations) and user-signed actions (fund transfers, approvals).
-
-### Key Workflows
-
-**Trading Flow**: Developers create orders using `OrderRequest.Open.limit(...)` or similar factory methods. When
-`Exchange.order(req)` is called, the Exchange validates the request and invokes `Signing.signL1Action` to generate an
-EIP-712 signature. The signed payload is sent via `HypeHttpClient.post` to the `/exchange` endpoint, returning an
-`Order` object with execution status and order ID.
-
-**WebSocket Flow**: Real-time data subscriptions begin with `Info.subscribe(subscription, callback)`. The
-`WebsocketManager` maintains persistent connections with periodic ping/pong heartbeats. On disconnection, it triggers
-exponential backoff retries while monitoring network availability. Upon successful reconnection, all active
-subscriptions are automatically re-established, ensuring zero data loss for critical market feeds.
-
-**Multi-Wallet Management**: `HyperliquidClient` stores multiple `ApiWallet` instances indexed by address. Developers
-can switch contexts using `useExchange(address)` to execute trades from different accounts. Each Exchange instance is
-bound to a specific wallet's credentials, with the `Signing` module handling per-wallet signature generation.
-
-## Features
-
-- Market data: `l2Book`, candles, user fills, open orders, clearinghouse state.
-- Trading: limit/market/trigger orders, bulk orders, modify/cancel, leverage and margin updates.
-- WebSocket: channel subscriptions with callback and error listener, ping/pong and auto-reconnect.
-- Signing: EIP-712 typed data signing for L1 and user actions, MessagePack hashing.
-- Utilities: JSON conversions, constants for mainnet/testnet URLs.
-
-## Installation
-
-- Requirements: JDK `21+`, Maven or Gradle.
-- Maven:
-
-```xml
-
-<dependency>
-    <groupId>io.github.heiye115</groupId>
-    <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.4</version>
-</dependency>
-```
-
-- Gradle (Groovy):
-
-```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.4'
-```
-
-## Quick Start
-
-- Use environment variables for private keys; never hardcode secrets.
+1. Build the client.
+2. Query market data (`l2Book`).
+3. Place a limit order (`order`).
+4. Handle potential API errors (`HypeError`).
 
 ```java
 import com.fasterxml.jackson.databind.JsonNode;
@@ -179,133 +55,298 @@ import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.info.L2Book;
-import io.github.hyperliquid.sdk.model.order.Order;
 import io.github.hyperliquid.sdk.model.order.OrderRequest;
 import io.github.hyperliquid.sdk.model.order.Tif;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class Demo {
+import java.math.BigDecimal;
+
+public class QuickStart {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuickStart.class);
+
     public static void main(String[] args) {
-        // Recommended: Use API Wallet for better security
-        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
-        // Main Private Key: Direct use of main wallet private key, full control, higher risk
-        String primaryWalletAddress = "";  // Primary wallet address
-        String apiWalletPrivateKey = "";   // API wallet private key
+        // 1. Read private key from environment variable for security
+        String privateKey = System.getenv("HYPERLIQUID_TESTNET_PRIVATE_KEY");
+        if (privateKey == null || privateKey.isEmpty()) {
+            LOGGER.error("Error: HYPERLIQUID_TESTNET_PRIVATE_KEY environment variable not set.");
+            LOGGER.error("Please set it to your testnet private key: export HYPERLIQUID_TESTNET_PRIVATE_KEY="0x..."");
+            return;
+        }
 
-        // Build client with API Wallet (Recommended)
-        // First parameter: Primary wallet address (for querying account state)
-        // Second parameter: API wallet private key (for signing trading requests)
+        // 2. Build the client for Testnet
         HyperliquidClient client = HyperliquidClient.builder()
-                .testNetUrl()
-                .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
+                .testNetUrl() // Use the testnet environment
+                .addPrivateKey(privateKey) // Add your wallet
                 .build();
 
-        // Alternative: Build client with main private key (Not recommended for production)
-        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        // HyperliquidClient client = HyperliquidClient.builder()
-        //         .testNetUrl()
-        //         .addPrivateKey(pk)
-        //         .build();
-
         Info info = client.getInfo();
-        L2Book book = info.l2Book("ETH");
-        System.out.println("Best bid: " + book.getLevels().get(0).get(0).getPx());
+        Exchange exchange = client.getSingleExchange(); // Get the exchange instance for the added wallet
 
-        Exchange ex = client.getExchange();
-        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.001", "3500.0");
+        // 3. Query Market Data: Get the L2 Order Book for "ETH"
         try {
-            Order order = ex.order(req);
-            System.out.println("Order status: " + order.getStatus());
+            LOGGER.info("Querying L2 book for ETH...");
+            L2Book l2Book = info.l2Book("ETH");
+            // Print top 3 bids and asks
+            LOGGER.info("Successfully fetched L2 book for {}:", l2Book.getCoin());
+            l2Book.getLevels().get(0).subList(0, 3).forEach(level ->
+                    LOGGER.info("  Ask - Price: {}, Size: {}", level.getPx(), level.getSz())
+            );
+            l2Book.getLevels().get(1).subList(0, 3).forEach(level ->
+                    LOGGER.info("  Bid - Price: {}, Size: {}", level.getPx(), level.getSz())
+            );
         } catch (HypeError e) {
-            System.err.println("Order failed: " + e.getMessage());
+            LOGGER.error("Failed to query L2 book. Code: {}, Message: {}", e.getCode(), e.getMessage());
         }
 
-        JsonNode sub = JSONUtil.convertValue(java.util.Map.of("type", "l2Book", "coin", "ETH"), JsonNode.class);
-        info.subscribe(sub, msg -> System.out.println("WS msg: " + msg));
+        // 4. Place a Trade: Create a limit buy order for ETH
         try {
-            Thread.sleep(10000);
-        } catch (InterruptedException ignored) {
+            LOGGER.info("Placing a limit buy order for ETH...");
+            // Create a limit buy order for 0.01 ETH at a price of $1500
+            // This order will be automatically cancelled if not filled immediately (IOC)
+            OrderRequest orderRequest = OrderRequest.builder()
+                    .perp("ETH")
+                    .buy("0.01")
+                    .limitPrice("1500")
+                    .orderType(Tif.IOC) // Immediate Or Cancel
+                    .build();
+
+            JsonNode response = exchange.order(orderRequest);
+            LOGGER.info("Successfully placed order. Response: {}", JSONUtil.toJson(response));
+
+        } catch (HypeError e) {
+            // Example of handling a specific error, e.g., insufficient margin
+            LOGGER.error("Failed to place order. Code: {}, Message: {}", e.getCode(), e.getMessage(), e);
         }
-        info.closeWs();
     }
 }
 ```
 
-## Configuration
+## 📚 Core Features Guide
 
-- Builder options (`HyperliquidClient.java:91`):
-    - `baseUrl(String)` and `testNetUrl()` use `Constants` mainnet/testnet (`Constants.java:11`, `Constants.java:16`).
-    - `addPrivateKey(String)` and `addPrivateKeys(List<String>)` register wallets by private key.
-    - `skipWs(boolean)` disables WebSocket manager for `Info` when true.
-    - `timeout(int)` sets OkHttp timeouts.
-    - `okHttpClient(OkHttpClient)` injects a custom client.
-- WebSocket tuning via `Info`:
-    - `setMaxReconnectAttempts(int)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:897`).
-    - `setNetworkCheckIntervalSeconds(int)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:910`).
-    - `setReconnectBackoffMs(initialMs, maxMs)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:924`).
+### Client Configuration
 
-## API Reference
+The `HyperliquidClient.builder()` provides a fluent API for configuration.
 
-- HyperliquidClient
-    - `builder()` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:91`)
-    - `getInfo()` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:46`)
-    - `useExchange(privateKey)` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:63`)
-    - `getAddress(privateKey)` (`src/main/java/io/github/hyperliquid/sdk/HyperliquidClient.java:74`)
-- Info
-    - `l2Book(String coin)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:225`)
-    - `subscribe(JsonNode, MessageCallback)` (`src/main/java/io/github/hyperliquid/sdk/apis/Info.java:838`)
-    - User/account state: `clearinghouseState`, `userState`, `spotClearinghouseState` (see `Info.java:591`,
-      `Info.java:617`, `Info.java:628`).
-- Exchange
-    - `order(OrderRequest)` and builder overload (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:208`,
-      `Exchange.java:127`).
-    - `bulkOrders(List<OrderRequest>)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:253`).
-    - `cancel(String coin, long oid)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:264`).
-    - `cancelByCloid(String coin, Cloid)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:283`).
-    - `modifyOrder(String coin, long oid, OrderRequest)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:302`).
-    - `updateLeverage(String coin, boolean crossed, int leverage)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:100`).
-    - Dex Abstraction: `agentEnableDexAbstraction()` and `userDexAbstraction(user, enabled)` (
-      `src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:386`, `Exchange.java:409`).
-    - Close position methods:
-        - `closePositionMarket(String coin)` - Close all position at market price.
-        - `closePositionMarket(String coin, Double sz, Double slippage, Cloid)` - Partial close with custom slippage.
-        - `closePositionLimit(Tif, String coin, double limitPx, Cloid)` - Close position at limit price.
-        - `closeAllPositions()` - Close all positions across all coins in a single batch order.
-    - Slippage config: `setDefaultSlippage(double)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1407`)
-      and `setDefaultSlippage(String coin, double)` (`src/main/java/io/github/hyperliquid/sdk/apis/Exchange.java:1417`).
-    - OrderRequest
-        - `Open.market(...)` - Market order to open position (no InstrumentType parameter for perps).
-        - `Open.limit(...)` - Limit order to open position (supports TIF strategies).
-        - `Open.breakoutAbove(...)` - Breakout long entry (trigger order when price breaks above).
-        - `Open.breakoutBelow(...)` - Breakout short entry (trigger order when price breaks below).
-        - `Open.spotMarketBuy/Sell(...)` - Spot market orders (prefix with "spot").
-        - `Open.spotLimitBuy/Sell(...)` - Spot limit orders.
-        - `Close.market(...)` - Market order to close position (auto-infer direction).
-        - `Close.limit(...)` - Limit order to close position.
-        - `Close.marketAll(...)` - Close entire position for a coin.
-        - `Close.takeProfit(...)` - Take profit order (trigger when price breaks above).
-        - `Close.stopLoss(...)` - Stop loss order (trigger when price breaks below).
-        - All order methods support optional `cloid` parameter for order tracking.
-- WebsocketManager
-    - `MessageCallback` interface (`src/main/java/io/github/hyperliquid/sdk/websocket/WebsocketManager.java:106`).
-    - Connection listener and error listener hooks.
-- HypeHttpClient
-    - `post(String, Object)` with error classification (
-      `src/main/java/io/github/hyperliquid/sdk/utils/HypeHttpClient.java:37`).
+```java
+// Full configuration example
+HyperliquidClient client = HyperliquidClient.builder()
+                // Select network (or provide a custom URL)
+                .testNetUrl() // .mainNetUrl() or .baseUrl("http://...")
 
-## Contribution
+                // --- Wallet Management ---
+                // Option 1: Add a single main private key
+                .addPrivateKey("0xYourMainPrivateKey")
 
-- Fork the repo and create feature branches.
-- Run `mvn -q -DskipTests package` locally; ensure Java 21.
-- Add unit tests for critical logic where applicable.
-- Open a Pull Request with a clear description and references.
+                // Option 2: Add multiple API Wallets (recommended for security)
+                // An API wallet is a sub-wallet authorized by your main wallet.
+                .addApiWallet("0xYourMainAddress1", "0xYourApiPrivateKey1")
+                .addApiWallet("0xYourMainAddress2", "0xYourApiPrivateKey2")
 
-## License
+                // --- Performance ---
+                // Pre-fetch market metadata into cache upon startup
+                .autoWarmUpCache(true)
 
-- Apache License 2.0. See `LICENSE`.
+                // --- Network ---
+                // Set custom timeouts for the underlying OkHttpClient (in milliseconds)
+                .connectTimeout(15_000)
+                .readTimeout(15_000)
+                .writeTimeout(15_000)
+
+                // Build the immutable client instance
+                .build();
+
+// Accessing exchange instances for different wallets
+Exchange exchange1 = client.useExchange("0xYourMainAddress1");
+Exchange exchange2 = client.useExchange("0xYourMainAddress2");
+```
+
+### Querying Data (`Info` API)
+
+The `Info` API provides access to all public market data and private user data.
+
+**Get User State:**
+
+```java
+UserState userState = info.userState("0xYourAddress");
+LOGGER.
+
+info("Total margin usage: {}",userState.getMarginSummary().
+
+getTotalMarginUsed());
+```
+
+**Get Open Orders:**
+
+```java
+List<Order> openOrders = info.openOrders("0xYourAddress");
+LOGGER.
+
+info("User has {} open orders.",openOrders.size());
+```
+
+**Get Market Metadata:**
+
+```java
+Meta meta = info.meta();
+// Find details for a specific asset
+meta.
+
+getUniverse().
+
+stream()
+    .
+
+filter(asset ->"ETH".
+
+equals(asset.getName()))
+        .
+
+findFirst()
+    .
+
+ifPresent(ethAsset ->LOGGER.
+
+info("Max leverage for ETH: {}",ethAsset.getMaxLeverage()));
+```
+
+### Trading (`Exchange` API)
+
+The `Exchange` API handles all state-changing actions, which require signing.
+
+**Building Orders with `OrderRequest.Builder`:**
+The builder provides a type-safe way to construct complex orders.
+
+```java
+// Stop-Loss Market Order
+OrderRequest slOrder = OrderRequest.builder()
+                .perp("ETH")
+                .sell("0.01") // Direction to close a long position
+                .triggerPrice("2900", false) // Trigger when price drops below 2900
+                .market() // Execute as a market order when triggered
+                .reduceOnly(true) // Ensures it only reduces a position
+                .build();
+
+// Take-Profit Limit Order
+OrderRequest tpOrder = OrderRequest.builder()
+        .perp("ETH")
+        .sell("0.01")
+        .triggerPrice("3100", true) // Trigger when price rises above 3100
+        .limitPrice("3100") // Execute as a limit order
+        .reduceOnly(true)
+        .build();
+```
+
+**Bulk Orders:**
+Place multiple orders in a single atomic request.
+
+```java
+List<OrderRequest> orders = List.of(slOrder, tpOrder);
+JsonNode bulkResponse = exchange.bulkOrders(orders);
+```
+
+**Cancel an Order:**
+
+```java
+// Assumes 'oid' is the ID of an open order
+JsonNode cancelResponse = exchange.cancel("ETH", oid);
+```
+
+**Update Leverage:**
+
+```java
+JsonNode leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20x leverage, non-cross-margin
+```
+
+### Real-time Data (WebSocket)
+
+Subscribe to real-time data streams. The `WebsocketManager` handles connection stability automatically.
+
+```java
+// Define a subscription for user-specific events
+Subscription userEventsSub = new Subscription(SubscriptionType.USER_EVENTS, "0xYourAddress");
+
+// Subscribe with a message handler and an error handler
+info.
+
+subscribe(userEventsSub,
+          // OnMessage callback
+    (message) ->{
+        LOGGER.
+
+info("Received WebSocket message: {}",message);
+// Add your logic to process the message
+    },
+            // OnError callback
+            (error)->{
+        LOGGER.
+
+error("WebSocket Error: ",error);
+    }
+            );
+
+// To unsubscribe
+// info.unsubscribe(userEventsSub);
+```
+
+### Error Handling (`HypeError`)
+
+All SDK-specific errors are thrown as `HypeError`. This includes API errors from the server and client-side validation
+errors.
+
+```java
+try{
+        // Some exchange operation
+        }catch(HypeError e){
+        LOGGER.
+
+error("An error occurred. Code: [{}], Message: [{}]",e.getCode(),e.
+
+getMessage());
+        // You can also access the original JSON error response if available
+        if(e.
+
+getJsonNode() !=null){
+        LOGGER.
+
+error("Raw error response: {}",e.getJsonNode().
+
+toString());
+        }
+        }
+```
+
+## 🛠️ Installation
+
+- **Requirements**: JDK `21+`, Maven or Gradle.
+- **Maven**:
+
+```xml
+
+<dependency>
+    <groupId>io.github.heiye115</groupId>
+    <artifactId>hyperliquid-java-sdk</artifactId>
+    <version>0.2.4</version> <!-- Replace with the latest version -->
+</dependency>
+```
+
+- **Gradle (Groovy)**:
+
+```gradle
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.4' // Replace with the latest version
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started. You can help by
+reporting issues, suggesting features, or submitting pull requests.
+
+## 📄 License
+
+This project is licensed under the **Apache 2.0 License**. See the [LICENSE](LICENSE) file for details.
 
 ## Contact
 
