@@ -240,24 +240,19 @@ JsonNode leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20x le
 Subscribe to real-time data streams. The `WebsocketManager` handles connection stability automatically.
 
 ```java
-// Define a subscription for user-specific events
-Subscription userEventsSub = new Subscription(SubscriptionType.USER_EVENTS, "0xYourAddress");
-
+// Define a subscription for order updates events
+OrderUpdatesSubscription orderUpdatesSubscription = OrderUpdatesSubscription.of("0x....");
 // Subscribe with a message handler and an error handler
-info.subscribe(userEventsSub,
+info.subscribe(orderUpdatesSubscription,
     // OnMessage callback
     (message) -> {
         LOGGER.info("Received WebSocket message: {}", message);
         // Add your logic to process the message
-    },
-    // OnError callback
-    (error) -> {
-        LOGGER.error("WebSocket Error: ", error);
     }
 );
 
 // To unsubscribe
-// info.unsubscribe(userEventsSub);
+// info.unsubscribe(orderUpdatesSubscription);
 ```
 
 ### Error Handling (`HypeError`)

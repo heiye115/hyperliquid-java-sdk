@@ -248,24 +248,20 @@ JsonNode leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20倍�
 订阅实时数据流。`WebsocketManager` 会自动处理连接稳定性。
 
 ```java
-// 定义一个用户事件的订阅
-Subscription userEventsSub = new Subscription(SubscriptionType.USER_EVENTS, "0x您的地址");
+// 定义一个OrderUpdatesSubscription 订阅
+OrderUpdatesSubscription orderUpdatesSubscription = OrderUpdatesSubscription.of("0x....");
 
 // 使用消息处理器和错误处理器进行订阅
-info.subscribe(userEventsSub,
+info.subscribe(orderUpdatesSubscription,
     // OnMessage 回调
     (message) -> {
         LOGGER.info("收到 WebSocket 消息: {}", message);
         // 在此添加您处理消息的逻辑
-    },
-    // OnError 回调
-    (error) -> {
-        LOGGER.error("WebSocket 错误: ", error);
     }
 );
 
 // 取消订阅
-// info.unsubscribe(userEventsSub);
+// info.unsubscribe(orderUpdatesSubscription);
 ```
 
 ### 错误处理 (`HypeError`)
