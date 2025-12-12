@@ -1,14 +1,17 @@
 package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.info.Candle;
 import io.github.hyperliquid.sdk.model.info.CandleInterval;
 import io.github.hyperliquid.sdk.model.subscription.TradesSubscription;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
+import io.github.hyperliquid.sdk.websocket.WebsocketManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * WebSocket subscription BTC market data example
@@ -48,5 +51,35 @@ public class ExampleWebsocketBTC {
         Info info = client.getInfo();
         List<Candle> candles = info.candleSnapshotByCount("BTC", CandleInterval.MINUTE_15, 1000);
         System.out.println(JSONUtil.writeValueAsString(candles));
+    }
+
+    @Test
+    public void orderUpdates() throws JsonProcessingException {
+        HyperliquidClient client = HyperliquidClient.builder()
+                .testNetUrl()
+                //.addPrivateKey(TESTNET_PRIVATE_KEY)
+                .build();
+        JsonNode sub = JSONUtil.convertValue(java.util.Map.of("type", "orderUpdates", "user", "0x...."), JsonNode.class);
+        client.getInfo().subscribe(sub, System.out::println);
+
+        /*  获取所有订阅
+        *
+        * 订阅: orderUpdates
+          订阅内容: {"user":"0x....","type":"orderUpdates"}
+        * */
+        Map<String, List<WebsocketManager.ActiveSubscription>> subscriptions = client.getInfo().getWsManager().getSubscriptions();
+        subscriptions.forEach((k, v) -> {
+            System.out.println("订阅: " + k);
+            for (WebsocketManager.ActiveSubscription activeSubscription : v) {
+                System.out.println("订阅内容: " + activeSubscription.getSubscription());
+            }
+        });
+
+        //等待
+        try {
+            Thread.sleep(6000000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }

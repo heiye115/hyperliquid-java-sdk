@@ -384,7 +384,20 @@ public class OrderRequest {
          * @return OrderRequest 实例
          */
         public static OrderRequest breakoutAbove(String coin, String sz, String triggerPx) {
-            return breakoutAbove(coin, sz, triggerPx, null);
+            return breakoutAbove(coin, true, sz, triggerPx, null);
+        }
+
+        /**
+         * 创建突破开仓订单（价格向上突破时触发，市价执行）。
+         *
+         * @param coin      币种名称
+         * @param isBuy     是否买入
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest breakoutAbove(String coin, Boolean isBuy, String sz, String triggerPx) {
+            return breakoutAbove(coin, isBuy, sz, triggerPx, null);
         }
 
         /**
@@ -397,11 +410,11 @@ public class OrderRequest {
          * @param cloid     客户端订单 ID（可为 null）
          * @return OrderRequest 实例
          */
-        public static OrderRequest breakoutAbove(String coin, String sz, String triggerPx, Cloid cloid) {
+        public static OrderRequest breakoutAbove(String coin, Boolean isBuy, String sz, String triggerPx, Cloid cloid) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);
-            req.setIsBuy(true);
+            req.setIsBuy(isBuy);
             req.setSz(sz);
             req.setLimitPx(null);
             req.setReduceOnly(false);
@@ -422,7 +435,20 @@ public class OrderRequest {
          * @return OrderRequest 实例
          */
         public static OrderRequest breakoutBelow(String coin, String sz, String triggerPx) {
-            return breakoutBelow(coin, sz, triggerPx, null);
+            return breakoutBelow(coin, false, sz, triggerPx, null);
+        }
+
+        /**
+         * 创建突破开仓订单（价格向下跌破时触发，市价执行）。
+         *
+         * @param coin      币种名称
+         * @param isBuy     是否买入
+         * @param sz        数量（字符串）
+         * @param triggerPx 触发价格（字符串）
+         * @return OrderRequest 实例
+         */
+        public static OrderRequest breakoutBelow(String coin, Boolean isBuy, String sz, String triggerPx) {
+            return breakoutBelow(coin, isBuy, sz, triggerPx, null);
         }
 
         /**
@@ -436,11 +462,11 @@ public class OrderRequest {
          * @param cloid     客户端订单 ID（可为 null）
          * @return OrderRequest 实例
          */
-        public static OrderRequest breakoutBelow(String coin, String sz, String triggerPx, Cloid cloid) {
+        public static OrderRequest breakoutBelow(String coin, Boolean isBuy, String sz, String triggerPx, Cloid cloid) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(InstrumentType.PERP);
             req.setCoin(coin);
-            req.setIsBuy(false);
+            req.setIsBuy(isBuy);
             req.setSz(sz);
             req.setLimitPx(null);
             req.setReduceOnly(false);

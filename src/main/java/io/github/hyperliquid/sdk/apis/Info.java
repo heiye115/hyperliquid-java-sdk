@@ -1225,6 +1225,15 @@ public class Info {
     }
 
     /**
+     * Get WebSocket subscriptions.
+     */
+    public Map<String, List<WebsocketManager.ActiveSubscription>> getSubscriptions() {
+        if (skipWs)
+            throw new HypeError("WebSocket disabled by skipWs");
+        return wsManager.getSubscriptions();
+    }
+
+    /**
      * Unsubscribe (type-safe version, using Subscription entity class).
      *
      * @param subscription Subscription object (Subscription entity class)
@@ -1357,6 +1366,16 @@ public class Info {
             return;
         if (wsManager != null)
             wsManager.removeCallbackErrorListener(listener);
+    }
+
+
+    /**
+     * Get WebSocket manager instance.
+     *
+     * @return WebSocket manager instance
+     */
+    public WebsocketManager getWsManager() {
+        return wsManager;
     }
 
 

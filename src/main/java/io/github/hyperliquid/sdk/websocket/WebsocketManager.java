@@ -193,6 +193,10 @@ public class WebsocketManager {
             this.subscription = s;
             this.callback = c;
         }
+
+        public JsonNode getSubscription() {
+            return subscription;
+        }
     }
 
     /**
@@ -877,5 +881,47 @@ public class WebsocketManager {
             default:
                 return type;
         }
+    }
+
+    /**
+     * Get a copy of all current subscriptions.
+     *
+     * @return A map of subscription identifiers to lists of active subscriptions
+     */
+    public Map<String, List<ActiveSubscription>> getSubscriptions() {
+        Map<String, List<ActiveSubscription>> copy = new HashMap<>();
+        for (Map.Entry<String, List<ActiveSubscription>> entry : subscriptions.entrySet()) {
+            copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+    /**
+     * Get subscriptions by identifier.
+     *
+     * @param identifier The subscription identifier
+     * @return A list of active subscriptions for the given identifier, or empty list if none
+     */
+    public List<ActiveSubscription> getSubscriptionsByIdentifier(String identifier) {
+        List<ActiveSubscription> list = subscriptions.get(identifier);
+        return list != null ? new ArrayList<>(list) : Collections.emptyList();
+    }
+
+    /**
+     * Check if there are any active subscriptions.
+     *
+     * @return true if there are active subscriptions, false otherwise
+     */
+    public boolean hasSubscriptions() {
+        return !subscriptions.isEmpty();
+    }
+
+    /**
+     * Get the count of active subscription identifiers.
+     *
+     * @return The number of unique subscription identifiers
+     */
+    public int getSubscriptionCount() {
+        return subscriptions.size();
     }
 }
