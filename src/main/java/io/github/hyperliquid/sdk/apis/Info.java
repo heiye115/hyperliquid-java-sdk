@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Info 客户端，提供行情、订单簿、用户状态等查询。
+ * Info client, providing market data, order book, user status, and other queries.
  */
 public class Info {
 
@@ -32,46 +32,46 @@ public class Info {
     private final HypeHttpClient hypeHttpClient;
 
     /**
-     * Meta 缓存（支持多 DEX）
-     * Key 格式："meta:default" 或 "meta:dexName"
+     * Meta cache (supports multiple DEX)
+     * Key format: "meta:default" or "meta:dexName"
      */
     private final Cache<String, Meta> metaCache;
 
     /**
-     * SpotMeta 缓存
+     * SpotMeta cache
      */
     private final Cache<String, SpotMeta> spotMetaCache;
 
     /**
-     * 币种名称到资产 ID 的映射缓存
-     * Key: 币种名称（大写），Value: 资产 ID
+     * Coin name to asset ID mapping cache
+     * Key: Coin name (uppercase), Value: Asset ID
      */
     private final Map<String, Integer> coinToAssetCache = new ConcurrentHashMap<>();
 
     /**
-     * 资产 ID 到数量精度的映射缓存
-     * Key: 资产 ID，Value: szDecimals
+     * Asset ID to quantity precision mapping cache
+     * Key: Asset ID, Value: szDecimals
      */
     private final Map<Integer, Integer> assetToSzDecimalsCache = new ConcurrentHashMap<>();
 
     /**
-     * 构造 InfoClient 客户端（使用默认缓存配置）。
+     * Construct InfoClient client (using default cache configuration).
      *
-     * @param baseUrl        API 根地址
-     * @param hypeHttpClient HTTP客户端实例
-     * @param skipWs         是否跳过创建 WebSocket 连接（用于测试）
+     * @param baseUrl        API root URL
+     * @param hypeHttpClient HTTP client instance
+     * @param skipWs         Whether to skip creating WebSocket connection (for testing)
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs) {
         this(baseUrl, hypeHttpClient, skipWs, CacheConfig.defaultConfig());
     }
 
     /**
-     * 构造 InfoClient 客户端（支持自定义缓存配置）。
+     * Construct InfoClient client (support custom cache configuration).
      *
-     * @param baseUrl        API 根地址
-     * @param hypeHttpClient HTTP客户端实例
-     * @param skipWs         是否跳过创建 WebSocket 连接（用于测试）
-     * @param cacheConfig    缓存配置
+     * @param baseUrl        API root URL
+     * @param hypeHttpClient HTTP client instance
+     * @param skipWs         Whether to skip creating WebSocket connection (for testing)
+     * @param cacheConfig    Cache configuration
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig) {
         this.hypeHttpClient = hypeHttpClient;
@@ -98,14 +98,14 @@ public class Info {
     }
 
     /**
-     * 将币种名称映射为资产 ID（根据 meta.universe）。
+     * Map coin name to asset ID (based on meta.universe).
      * <p>
-     * 优化：先查询内存映射缓存，未命中时从 meta 缓存加载并构建映射。
+     * Optimization: Query memory mapping cache first, load from meta cache and build mapping if not hit.
      * </p>
      *
-     * @param coinName 币种名称（大小写不敏感）
-     * @return 资产 ID（从 0 开始）
-     * @throws HypeError 当名称无法映射时抛出
+     * @param coinName Coin name (case insensitive)
+     * @return Asset ID (starting from 0)
+     * @throws HypeError Thrown when name cannot be mapped
      */
     public Integer nameToAsset(String coinName) {
         String normalizedName = coinName.trim().toUpperCase();
@@ -129,20 +129,20 @@ public class Info {
     }
 
     /**
-     * 发送 /info 请求的内部封装。
+     * Internal wrapper for sending /info requests.
      *
-     * @param payload 请求体对象（Map 或 POJO）
-     * @return JSON 响应
+     * @param payload Request body object (Map or POJO)
+     * @return JSON response
      */
     public JsonNode postInfo(Object payload) {
         return hypeHttpClient.post("/info", payload);
     }
 
     /**
-     * 查询所有中间价（allMids），类型化返回，可指定 perp dex 名称。
+     * Query all mid prices (allMids), typed return, can specify perp dex name.
      *
-     * @param dex perp dex 名称（可为空或空字符串）
-     * @return 币种到中间价的映射
+     * @param dex Perp dex name (can be empty or null)
+     * @return Coin to mid price mapping
      */
     public Map<String, String> allMids(String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -155,40 +155,40 @@ public class Info {
     }
 
     /**
-     * 查询所有中间价（allMids）。
+     * Query all mid prices (allMids).
      *
-     * @return 币种到中间价的映射
+     * @return Coin to mid price mapping
      */
     public Map<String, String> allMids() {
         return allMids(null);
     }
 
     /**
-     * 查询 perp 元数据（meta）。
+     * Query perp metadata (meta).
      *
-     * @return 类型化元数据对象 Meta
+     * @return Typed metadata object Meta
      */
     public Meta meta() {
         return meta(null);
     }
 
     /**
-     * 获取/刷新本地缓存的 meta（默认 dex）。
+     * Get/refresh locally cached meta (default dex).
      *
-     * @return 缓存中的 Meta
+     * @return Cached Meta
      */
     public Meta loadMetaCache() {
         return loadMetaCache(null);
     }
 
     /**
-     * 获取/刷新本地缓存的 meta（支持指定 dex）。
+     * Get/refresh locally cached meta (support specifying dex).
      * <p>
-     * 改进：支持多 DEX 缓存，缓存键格式为 "meta:default" 或 "meta:dexName"。
+     * Improvement: Support multiple DEX caches, cache key format is "meta:default" or "meta:dexName".
      * </p>
      *
-     * @param dex perp dex 名称（null 或空字符串表示默认 dex）
-     * @return 缓存中的 Meta
+     * @param dex Perp dex name (null or empty string means default dex)
+     * @return Cached Meta
      */
     public Meta loadMetaCache(String dex) {
         String cacheKey = buildMetaCacheKey(dex);
@@ -201,10 +201,10 @@ public class Info {
     }
 
     /**
-     * 手动刷新 meta 缓存（强制重新加载）。
+     * Manually refresh meta cache (force reload).
      *
-     * @param dex perp dex 名称（null 或空字符串表示默认 dex）
-     * @return 最新的 Meta
+     * @param dex Perp dex name (null or empty string means default dex)
+     * @return Latest Meta
      */
     public Meta refreshMetaCache(String dex) {
         String cacheKey = buildMetaCacheKey(dex);
@@ -216,16 +216,16 @@ public class Info {
     }
 
     /**
-     * 手动刷新 meta 缓存（默认 dex）。
+     * Manually refresh meta cache (default dex).
      *
-     * @return 最新的 Meta
+     * @return Latest Meta
      */
     public Meta refreshMetaCache() {
         return refreshMetaCache(null);
     }
 
     /**
-     * 清空所有 meta 缓存。
+     * Clear all meta caches.
      */
     public void clearMetaCache() {
         metaCache.invalidateAll();
@@ -234,33 +234,33 @@ public class Info {
     }
 
     /**
-     * 获取 meta 缓存统计信息。
+     * Get meta cache statistics.
      *
-     * @return 缓存统计对象
+     * @return Cache statistics object
      */
     public CacheStats getMetaCacheStats() {
         return metaCache.stats();
     }
 
     /**
-     * 构建 meta 缓存键。
+     * Build meta cache key.
      *
-     * @param dex perp dex 名称
-     * @return 缓存键字符串
+     * @param dex Perp dex name
+     * @return Cache key string
      */
     private String buildMetaCacheKey(String dex) {
         return (dex == null || dex.isEmpty()) ? "meta:default" : "meta:" + dex;
     }
 
     /**
-     * 从 Meta 构建币种映射缓存（内部方法）。
+     * Build coin mapping cache from Meta (internal method).
      * <p>
-     * 构建两个映射表：
-     * 1. coinToAssetCache: 币种名称（大写） -> 资产 ID
-     * 2. assetToSzDecimalsCache: 资产 ID -> szDecimals
+     * Build two mapping tables:
+     * 1. coinToAssetCache: Coin name (uppercase) -> Asset ID
+     * 2. assetToSzDecimalsCache: Asset ID -> szDecimals
      * </p>
      *
-     * @param meta Meta 对象
+     * @param meta Meta object
      */
     private void buildCoinMappingCache(Meta meta) {
         if (meta == null || meta.getUniverse() == null) {
@@ -280,14 +280,14 @@ public class Info {
     }
 
     /**
-     * 根据币种名称获取 meta 中的 universe 元素。
+     * Get universe element from meta by coin name.
      * <p>
-     * 优化：优先从映射缓存查询资产 ID，再获取对应的 Universe 元素。
+     * Optimization: Query asset ID from mapping cache first, then get corresponding Universe element.
      * </p>
      *
-     * @param coinName 币种名称
-     * @return 对应的 Universe 元素
-     * @throws HypeError 当名称不存在时抛出
+     * @param coinName Coin name
+     * @return Corresponding Universe element
+     * @throws HypeError Thrown when name does not exist
      */
     public Meta.Universe getMetaUniverse(String coinName) {
         // 通过 nameToAsset 获取资产 ID（会自动利用缓存）
@@ -300,15 +300,15 @@ public class Info {
     }
 
     /**
-     * 根据币种名称快速获取 szDecimals（数量精度）。
+     * Quickly get szDecimals (quantity precision) by coin name.
      * <p>
-     * 优化：优先从 assetToSzDecimalsCache 缓存查询，避免每次都获取完整 Universe 对象。
-     * 该方法主要用于订单格式化场景（formatOrderSize/formatOrderPrice）。
+     * Optimization: Query from assetToSzDecimalsCache cache first to avoid getting complete Universe object every time.
+     * This method is mainly used for order formatting scenarios (formatOrderSize/formatOrderPrice).
      * </p>
      *
-     * @param coinName 币种名称
-     * @return szDecimals 数量精度
-     * @throws HypeError 当名称不存在或精度未定义时抛出
+     * @param coinName Coin name
+     * @return szDecimals quantity precision
+     * @throws HypeError Thrown when name does not exist or precision is not defined
      */
     public Integer getSzDecimals(String coinName) {
         // 通过 nameToAsset 获取资产 ID（会自动利用缓存）
@@ -331,10 +331,10 @@ public class Info {
     }
 
     /**
-     * 查询 perp 元数据（可指定 dex）。
+     * Query perp metadata (can specify dex).
      *
-     * @param dex perp dex 名称（可为空）
-     * @return 类型化元数据对象 Meta
+     * @param dex Perp dex name (can be empty)
+     * @return Typed metadata object Meta
      */
     public Meta meta(String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -346,7 +346,7 @@ public class Info {
     }
 
     /**
-     * 获取永续资产相关信息（包括标价、当前资金、未平仓合约等）
+     * Get perpetual asset related information (including pricing, current funding, open contracts, etc.)
      */
     public JsonNode metaAndAssetCtxs() {
         Map<String, Object> payload = Map.of("type", "metaAndAssetCtxs");
@@ -354,9 +354,9 @@ public class Info {
     }
 
     /**
-     * 获取 perp 元数据与资产上下文（类型化返回）。
+     * Get perp metadata and asset context (typed return).
      *
-     * @return 类型化模型 MetaAndAssetCtxs
+     * @return Typed model MetaAndAssetCtxs
      */
     public MetaAndAssetCtxs metaAndAssetCtxsTyped() {
         JsonNode node = metaAndAssetCtxs();
@@ -364,9 +364,9 @@ public class Info {
     }
 
     /**
-     * 查询现货元数据（spotMeta）。
+     * Query spot metadata (spotMeta).
      *
-     * @return 类型化模型 SpotMeta
+     * @return Typed model SpotMeta
      */
     public SpotMeta spotMeta() {
         Map<String, Object> payload = Map.of("type", "spotMeta");
@@ -374,18 +374,18 @@ public class Info {
     }
 
     /**
-     * 获取/刷新本地缓存的 spotMeta。
+     * Get/refresh locally cached spotMeta.
      *
-     * @return 缓存中的 SpotMeta
+     * @return Cached SpotMeta
      */
     public SpotMeta loadSpotMetaCache() {
         return spotMetaCache.get("spotMeta", key -> spotMeta());
     }
 
     /**
-     * 手动刷新 spotMeta 缓存（强制重新加载）。
+     * Manually refresh spotMeta cache (force reload).
      *
-     * @return 最新的 SpotMeta
+     * @return Latest SpotMeta
      */
     public SpotMeta refreshSpotMetaCache() {
         spotMetaCache.invalidate("spotMeta");
@@ -393,30 +393,29 @@ public class Info {
     }
 
     /**
-     * 清空所有 spotMeta 缓存。
+     * Clear all spotMeta caches.
      */
     public void clearSpotMetaCache() {
         spotMetaCache.invalidateAll();
     }
 
     /**
-     * 获取 spotMeta 缓存统计信息。
+     * Get spotMeta cache statistics.
      *
-     * @return 缓存统计对象
+     * @return Cache statistics object
      */
     public CacheStats getSpotMetaCacheStats() {
         return spotMetaCache.stats();
     }
 
-    // ==================== 缓存预热（Warm Up） ====================
 
     /**
-     * 预热缓存（应用启动时调用，提前加载常用数据）。
+     * Warm up cache (call at application startup to preload commonly used data).
      * <p>
-     * 预加载：
-     * 1. 默认 dex 的 meta
+     * Preload:
+     * 1. Default dex meta
      * 2. spotMeta
-     * 3. 币种映射表
+     * 3. Coin mapping table
      * </p>
      */
     public void warmUpCache() {
@@ -425,9 +424,9 @@ public class Info {
     }
 
     /**
-     * 预热缓存（支持指定 dex 列表）。
+     * Warm up cache (support specifying dex list).
      *
-     * @param dexList 需要预加载的 dex 名称列表（null 或空列表表示只加载默认 dex）
+     * @param dexList List of dex names to preload (null or empty list means only load default dex)
      */
     public void warmUpCache(List<String> dexList) {
         if (dexList == null || dexList.isEmpty()) {
@@ -445,9 +444,9 @@ public class Info {
     }
 
     /**
-     * 查询现货元数据与资产上下文（spotMetaAndAssetCtxs）。
+     * Query spot metadata and asset context (spotMetaAndAssetCtxs).
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode spotMetaAndAssetCtxs() {
         Map<String, Object> payload = Map.of("type", "spotMetaAndAssetCtxs");
@@ -455,13 +454,13 @@ public class Info {
     }
 
     /**
-     * L2 订单簿快照。
-     * 可选聚合参数用于控制有效数字与尾数（仅当 nSigFigs 为 5 时允许设置 mantissa 为 1/2/5）。
+     * L2 order book snapshot.
+     * Optional aggregation parameters for controlling significant digits and mantissa (mantissa can only be set to 1/2/5 when nSigFigs is 5).
      *
-     * @param coin     币种名称
-     * @param nSigFigs 聚合到指定有效数字（可选：2、3、4、5 或 null）
-     * @param mantissa 尾数聚合（仅当 nSigFigs=5 时允许，取值 1/2/5）
-     * @return 类型化模型 L2Book
+     * @param coin     Coin name
+     * @param nSigFigs Aggregate to specified significant digits (optional: 2, 3, 4, 5 or null)
+     * @param mantissa Mantissa aggregation (only allowed when nSigFigs=5, values 1/2/5)
+     * @return Typed model L2Book
      */
     public L2Book l2Book(String coin, Integer nSigFigs, Integer mantissa) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -477,10 +476,10 @@ public class Info {
     }
 
     /**
-     * L2 订单簿快照（默认全精度）。
+     * L2 order book snapshot (default full precision).
      *
-     * @param coin 币种名称
-     * @return 类型化模型 L2Book
+     * @param coin Coin name
+     * @return Typed model L2Book
      */
     public L2Book l2Book(String coin) {
         return l2Book(coin, null, null);
@@ -492,19 +491,19 @@ public class Info {
      * <p>
      * Supported intervals: "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h",
      * "12h", "1d", "3d", "1w", "1M"
-     * K 线快照（类型化返回，支持以币种名称传参）。
+     * Candlestick snapshot (typed return, supports passing coin name).
      *
      * <p>
-     * 某些环境下服务端可能要求请求体中 coin 字段为字符串（如 "BTC" 或 "@107"）。
-     * 为提升兼容性，提供该重载方法，使用币种名称直接发起请求。
+     * In some environments, the server may require the coin field in the request body to be a string (e.g., "BTC" or "@107").
+     * To improve compatibility, this overload method is provided to make requests directly using coin names.
      * </p>
      *
-     * @param coin      币种名称（如 "BTC"，或形如 "@107" 的内部标识）
-     * @param interval  间隔字符串（如 "1m"、"15m"、"1h"、"1d" 等）
-     * @param startTime 起始毫秒
-     * @param endTime   结束毫秒
-     * @return Candle 列表
-     * @throws HypeError 当参数不合法时抛出
+     * @param coin      Coin name (e.g., "BTC", or internal identifier like "@107")
+     * @param interval  Interval string (e.g., "1m", "15m", "1h", "1d", etc.)
+     * @param startTime Start milliseconds
+     * @param endTime   End milliseconds
+     * @return Candle list
+     * @throws HypeError Thrown when parameters are invalid
      */
     public List<Candle> candleSnapshot(String coin, CandleInterval interval, Long startTime, Long endTime) {
         // 参数校验
@@ -536,15 +535,15 @@ public class Info {
     }
 
     /**
-     * 获取最近一根已完成的 K 线。
+     * Get the most recent completed candlestick.
      * <p>
-     * 查询最近 2 个周期的时间范围，确保至少获取到上一根已完成的 K 线。
-     * 如果当前 K 线尚未完成，返回上一根；如果当前 K 线已完成，返回当前根。
+     * Query the time range of the last 2 periods to ensure at least the previous completed candlestick is obtained.
+     * If the current candlestick is not yet completed, return the previous one; if the current candlestick is completed, return the current one.
      * </p>
      *
-     * @param coin     币种名称
-     * @param interval 间隔枚举
-     * @return 最近一根已完成的 K 线；若无数据返回 null
+     * @param coin     Coin name
+     * @param interval Interval enum
+     * @return The most recent completed candlestick; returns null if no data
      */
     public Candle candleSnapshotLatest(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
@@ -555,17 +554,17 @@ public class Info {
     }
 
     /**
-     * 按数量获取最近的 K 线列表。
+     * Get recent candlestick list by quantity.
      * <p>
-     * 查询时会增加额外的缓冲时间（count + 2 个周期），确保获取足够数据后再截取。
-     * 注意：Hyperliquid API 仅提供最新的 5000 根 K 线。
+     * Additional buffer time (count + 2 periods) is added during query to ensure sufficient data is obtained before truncation.
+     * Note: Hyperliquid API only provides the latest 5000 candlesticks.
      * </p>
      *
-     * @param coin     币种名称
-     * @param interval 间隔枚举
-     * @param count    需要的数量（>0，建议 ≤5000）
-     * @return 最近的 K 线列表（按时间升序，最后一根是最新的）
-     * @throws HypeError 当 count <= 0 或 count > 5000 时抛出
+     * @param coin     Coin name
+     * @param interval Interval enum
+     * @param count    Required quantity (>0, recommended ≤5000)
+     * @return Recent candlestick list (in ascending time order, last one is the newest)
+     * @throws HypeError Thrown when count <= 0 or count > 5000
      */
     public List<Candle> candleSnapshotByCount(String coin, CandleInterval interval, int count) {
         if (count <= 0) {
@@ -588,17 +587,17 @@ public class Info {
     }
 
     /**
-     * 获取最近 N 天的 K 线数据。
+     * Get candlestick data for the last N days.
      * <p>
-     * 根据指定的周期和天数计算时间范围，查询该时间段内的所有 K 线。
-     * 例如：查询最近 7 天的 1 小时 K 线，将返回约 168 根 K 线。
+     * Calculate the time range based on the specified period and number of days, and query all candlesticks within that time period.
+     * For example: Querying 1-hour candlesticks for the last 7 days will return approximately 168 candlesticks.
      * </p>
      *
-     * @param coin     币种名称
-     * @param interval 间隔枚举
-     * @param days     天数（>0，建议 ≤30）
-     * @return K 线列表（按时间升序）
-     * @throws HypeError 当 days <= 0 时抛出
+     * @param coin     Coin name
+     * @param interval Interval enum
+     * @param days     Number of days (>0, recommended ≤30)
+     * @return Candlestick list (in ascending time order)
+     * @throws HypeError Thrown when days <= 0
      */
     public List<Candle> candleSnapshotByDays(String coin, CandleInterval interval, int days) {
         if (days <= 0) {
@@ -611,19 +610,19 @@ public class Info {
     }
 
     /**
-     * 获取指定日期（UTC 时区）的所有 K 线数据。
+     * Get all candlestick data for a specified date (UTC timezone).
      * <p>
-     * 查询从指定日期 00:00:00 到 23:59:59 之间的所有 K 线。
-     * 注意：时间基于 UTC 时区，如需其他时区请自行转换。
+     * Query all candlesticks between the specified date 00:00:00 and 23:59:59.
+     * Note: Time is based on UTC timezone, convert to other timezones if needed.
      * </p>
      *
-     * @param coin     币种名称
-     * @param interval 间隔枚举
-     * @param year     年份（如 2024）
-     * @param month    月份（1-12）
-     * @param day      日期（1-31）
-     * @return K 线列表（按时间升序）
-     * @throws HypeError 当日期参数不合法时抛出
+     * @param coin     Coin name
+     * @param interval Interval enum
+     * @param year     Year (e.g., 2024)
+     * @param month    Month (1-12)
+     * @param day      Day (1-31)
+     * @return Candlestick list (in ascending time order)
+     * @throws HypeError Thrown when date parameters are invalid
      */
     public List<Candle> candleSnapshotByDate(String coin, CandleInterval interval, int year, int month, int day) {
         if (year < 2000 || year > 2100) {
@@ -651,15 +650,15 @@ public class Info {
     }
 
     /**
-     * 获取当前正在生成的 K 线（未完成的 K 线）。
+     * Get the current candlestick being generated (incomplete candlestick).
      * <p>
-     * 查询当前周期的 K 线数据，该 K 线可能尚未完成（仍在实时更新）。
-     * 例如：如果是 1 小时 K 线，当前时间 14:35，则返回 14:00-15:00 这根正在生成的 K 线。
+     * Query candlestick data for the current period, which may not yet be completed (still being updated in real-time).
+     * For example: If it's a 1-hour candlestick and the current time is 14:35, it returns the 14:00-15:00 candlestick that is currently being generated.
      * </p>
      *
-     * @param coin     币种名称
-     * @param interval 间隔枚举
-     * @return 当前正在生成的 K 线；若无数据返回 null
+     * @param coin     Coin name
+     * @param interval Interval enum
+     * @return The current candlestick being generated; returns null if no data
      */
     public Candle candleSnapshotCurrent(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
@@ -672,21 +671,21 @@ public class Info {
     }
 
     /**
-     * 查询用户未成交订单（默认 perp dex）。
+     * Query user's unfilled orders (default perp dex).
      *
-     * @param address 用户地址
-     * @return 未成交订单列表
+     * @param address User address
+     * @return Unfilled order list
      */
     public List<OpenOrder> openOrders(String address) {
         return openOrders(address, null);
     }
 
     /**
-     * 查询用户未成交订单（可指定 perp dex）。
+     * Query user's unfilled orders (can specify perp dex).
      *
-     * @param address 用户地址
-     * @param dex     perp dex 名称（可为空）
-     * @return 未成交订单列表
+     * @param address User address
+     * @param dex     Perp dex name (can be empty)
+     * @return Unfilled order list
      */
     public List<OpenOrder> openOrders(String address, String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -699,14 +698,14 @@ public class Info {
     }
 
     /**
-     * 查询用户成交（按时间范围）。
-     * 返回最多 2000 条；仅保留最近的 10000 条可用。
+     * Query user fills (by time range).
+     * Returns up to 2000 entries; only the latest 10000 entries are available.
      *
-     * @param address         用户地址
-     * @param startTime       起始毫秒
-     * @param endTime         结束毫秒（可选）
-     * @param aggregateByTime 是否按时间聚合（可选）
-     * @return 成交列表
+     * @param address         User address
+     * @param startTime       Start milliseconds
+     * @param endTime         End milliseconds (optional)
+     * @param aggregateByTime Whether to aggregate by time (optional)
+     * @return Fill list
      */
     public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime, Boolean aggregateByTime) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -735,10 +734,10 @@ public class Info {
     }
 
     /**
-     * 查询用户费用（返现/手续费）。
+     * Query user fees (rebates/commissions).
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode userFees(String address) {
         Map<String, Object> payload = Map.of("type", "userFees", "user", address);
@@ -746,12 +745,12 @@ public class Info {
     }
 
     /**
-     * 查询资金费率历史（按币种名称）。
+     * Query funding rate history (by coin name).
      *
-     * @param coin    币种名称（如 "BTC"）
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return List<FundingHistory> 响应
+     * @param coin    Coin name (e.g., "BTC")
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds
+     * @return List<FundingHistory> response
      */
     public List<FundingHistory> fundingHistory(String coin, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -763,24 +762,24 @@ public class Info {
     }
 
     /**
-     * 查询用户资金费率历史（按资产 ID）。
+     * Query user funding rate history (by asset ID).
      *
-     * @param address 用户地址
-     * @param coin    资产 ID
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return JSON 响应
+     * @param address User address
+     * @param coin    Asset ID
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds
+     * @return JSON response
      */
     public JsonNode userFundingHistory(String address, int coin, long startMs, long endMs) {
         return this.userFundingHistory(address, this.coinIdToInfoCoinString(coin), startMs, endMs);
     }
 
     /**
-     * 将资产 ID 转换为 /info API coin 字段格式（形如 "@107"）。
+     * Convert asset ID to /info API coin field format (e.g., "@107").
      *
-     * @param coinId 资产 ID
-     * @return 形如 "@<id>" 的字符串
-     * @throws HypeError 当 ID 不合法时抛出
+     * @param coinId Asset ID
+     * @return String in the format "@<id>"
+     * @throws HypeError Thrown when ID is invalid
      */
     private String coinIdToInfoCoinString(int coinId) {
         Meta meta = loadMetaCache();
@@ -792,13 +791,13 @@ public class Info {
     }
 
     /**
-     * 查询用户资金费率历史（按币种名称）。
+     * Query user funding rate history (by coin name).
      *
-     * @param address 用户地址
-     * @param coin    币种名称或内部标识（如 "BTC" 或 "@107"）
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return JSON 响应
+     * @param address User address
+     * @param coin    Coin name or internal identifier (e.g., "BTC" or "@107")
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds
+     * @return JSON response
      */
     public JsonNode userFundingHistory(String address, String coin, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -821,12 +820,12 @@ public class Info {
     }
 
     /**
-     * 用户非资金费率账本更新（不含 funding）。
+     * User non-funding ledger updates (excluding funding).
      *
-     * @param address 用户地址
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return JSON 响应
+     * @param address User address
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds
+     * @return JSON response
      */
     public JsonNode userNonFundingLedgerUpdates(String address, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -838,12 +837,12 @@ public class Info {
     }
 
     /**
-     * 历史订单查询。
+     * Historical order query.
      *
-     * @param address 用户地址
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return JSON 响应
+     * @param address User address
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds
+     * @return JSON response
      */
     public JsonNode historicalOrders(String address, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -855,12 +854,12 @@ public class Info {
     }
 
     /**
-     * 用户 TWAP 切片成交查询。
+     * User TWAP slice fill query.
      *
-     * @param address 用户地址
-     * @param startMs 起始毫秒
-     * @param endMs   结束毫秒
-     * @return JSON 响应
+     * @param address User address
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds
+     * @return JSON response
      */
     public JsonNode userTwapSliceFills(String address, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -872,11 +871,11 @@ public class Info {
     }
 
     /**
-     * 前端附加信息的未成交订单（frontendOpenOrders）。
+     * Frontend additional information unfilled orders (frontendOpenOrders).
      *
-     * @param address 用户地址
-     * @param dex     perp dex 名称（可为空）
-     * @return 前端未成交订单列表
+     * @param address User address
+     * @param dex     Perp dex name (can be empty)
+     * @return Frontend unfilled order list
      */
     public List<FrontendOpenOrder> frontendOpenOrders(String address, String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -889,21 +888,21 @@ public class Info {
     }
 
     /**
-     * 前端附加信息的未成交订单（默认 perp dex）。
+     * Frontend additional information unfilled orders (default perp dex).
      *
-     * @param address 用户地址
-     * @return 前端未成交订单列表
+     * @param address User address
+     * @return Frontend unfilled order list
      */
     public List<FrontendOpenOrder> frontendOpenOrders(String address) {
         return frontendOpenOrders(address, null);
     }
 
     /**
-     * 用户最近成交（最多 2000 条）。
+     * User recent fills (up to 2000 entries).
      *
-     * @param address         用户地址
-     * @param aggregateByTime 是否按时间聚合（可选）
-     * @return 成交列表
+     * @param address         User address
+     * @param aggregateByTime Whether to aggregate by time (optional)
+     * @return Fill list
      */
     public List<UserFill> userFills(String address, Boolean aggregateByTime) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -920,9 +919,9 @@ public class Info {
     }
 
     /**
-     * 查询所有 perpetual dexs（perpDexs）。
+     * Query all perpetual dexs (perpDexs).
      *
-     * @return JSON 数组
+     * @return JSON array
      */
     public JsonNode perpDexs() {
         Map<String, Object> payload = Map.of("type", "perpDexs");
@@ -930,10 +929,10 @@ public class Info {
     }
 
     /**
-     * 查询所有 perpetual dexs（类型化返回）。
-     * 元素可能为 null 或对象，使用 Map 接收以适配字段变动。
+     * Query all perpetual dexs (typed return).
+     * Elements may be null or objects, use Map to receive to adapt to field changes.
      *
-     * @return perp dex 列表（元素为 Map 或 null）
+     * @return Perp dex list (elements are Map or null)
      */
     public List<Map<String, Object>> perpDexsTyped() {
         JsonNode node = perpDexs();
@@ -943,11 +942,11 @@ public class Info {
     }
 
     /**
-     * 永续清算所状态（用户账户摘要）。
+     * Perpetual clearinghouse state (user account summary).
      *
-     * @param address 用户地址
-     * @param dex     可选 perp dex 名称
-     * @return 类型化模型 ClearinghouseState
+     * @param address User address
+     * @param dex     Optional perp dex name
+     * @return Typed model ClearinghouseState
      */
     public ClearinghouseState clearinghouseState(String address, String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -960,30 +959,30 @@ public class Info {
     }
 
     /**
-     * 永续清算所状态（默认 perp dex）。
+     * Perpetual clearinghouse state (default perp dex).
      *
-     * @param address 用户地址
-     * @return 类型化模型 ClearinghouseState
+     * @param address User address
+     * @return Typed model ClearinghouseState
      */
     public ClearinghouseState clearinghouseState(String address) {
         return clearinghouseState(address, null);
     }
 
     /**
-     * 用户状态（同 clearinghouseState）。
+     * User state (same as clearinghouseState).
      *
-     * @param address 用户地址
-     * @return 类型化模型 ClearinghouseState
+     * @param address User address
+     * @return Typed model ClearinghouseState
      */
     public ClearinghouseState userState(String address) {
         return clearinghouseState(address, null);
     }
 
     /**
-     * 获取用户的代币余额（现货清算所状态）。
+     * Get user's token balances (spot clearinghouse state).
      *
-     * @param address 用户地址
-     * @return 类型化模型 SpotClearinghouseState
+     * @param address User address
+     * @return Typed model SpotClearinghouseState
      */
     public SpotClearinghouseState spotClearinghouseState(String address) {
         Map<String, Object> payload = Map.of("type", "spotClearinghouseState", "user", address);
@@ -992,11 +991,11 @@ public class Info {
     }
 
     /**
-     * 查询 Vault 详情。
+     * Query Vault details.
      *
-     * @param vaultAddress Vault 地址
-     * @param user         用户地址（可选）
-     * @return JSON 响应
+     * @param vaultAddress Vault address
+     * @param user         User address (optional)
+     * @return JSON response
      */
     public JsonNode vaultDetails(String vaultAddress, String user) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -1009,10 +1008,10 @@ public class Info {
     }
 
     /**
-     * Spot Deploy Auction 状态。
+     * Spot Deploy Auction status.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode spotDeployState(String address) {
         Map<String, Object> payload = Map.of("type", "spotDeployState", "user", address);
@@ -1020,10 +1019,10 @@ public class Info {
     }
 
     /**
-     * 用户组合（portfolio）。
+     * User portfolio.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode portfolio(String address) {
         Map<String, Object> payload = Map.of("type", "portfolio", "user", address);
@@ -1031,10 +1030,10 @@ public class Info {
     }
 
     /**
-     * 用户仓位费率与等级（userRole）。
+     * User position fee rate and level (userRole).
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode userRole(String address) {
         Map<String, Object> payload = Map.of("type", "userRole", "user", address);
@@ -1042,10 +1041,10 @@ public class Info {
     }
 
     /**
-     * 用户速率限制（userRateLimit）。
+     * User rate limit (userRateLimit).
      *
-     * @param address 用户地址
-     * @return 类型化模型 UserRateLimit
+     * @param address User address
+     * @return Typed model UserRateLimit
      */
     public UserRateLimit userRateLimit(String address) {
         Map<String, Object> payload = Map.of("type", "userRateLimit", "user", address);
@@ -1053,11 +1052,11 @@ public class Info {
     }
 
     /**
-     * 订单状态查询（按 OID）。
+     * Order status query (by OID).
      *
-     * @param address 用户地址
-     * @param oid     订单 OID
-     * @return 类型化模型 OrderStatus
+     * @param address User address
+     * @param oid     Order OID
+     * @return Typed model OrderStatus
      */
     public OrderStatus orderStatus(String address, Long oid) {
         Map<String, Object> payload = Map.of("type", "orderStatus", "user", address, "oid", oid);
@@ -1065,11 +1064,11 @@ public class Info {
     }
 
     /**
-     * 订单状态查询（按 Cloid，与 Python query_order_by_cloid 对齐）。
+     * Order status query (by Cloid, aligned with Python query_order_by_cloid).
      *
-     * @param address 用户地址
-     * @param cloid   客户端订单 ID
-     * @return 类型化模型 OrderStatus
+     * @param address User address
+     * @param cloid   Client order ID
+     * @return Typed model OrderStatus
      */
     public OrderStatus orderStatusByCloid(String address, Cloid cloid) {
         if (cloid == null) {
@@ -1080,10 +1079,10 @@ public class Info {
     }
 
     /**
-     * 查询推荐人状态（queryReferralState）。
+     * Query referrer status (queryReferralState).
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode queryReferralState(String address) {
         Map<String, Object> payload = Map.of("type", "referral", "user", address);
@@ -1091,10 +1090,10 @@ public class Info {
     }
 
     /**
-     * 查询子账户列表。
+     * Query sub-account list.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode querySubAccounts(String address) {
         Map<String, Object> payload = Map.of("type", "subAccounts", "user", address);
@@ -1102,10 +1101,10 @@ public class Info {
     }
 
     /**
-     * 查询用户到多签签名者映射。
+     * Query user to multi-signature signer mapping.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode queryUserToMultiSigSigners(String address) {
         Map<String, Object> payload = Map.of("type", "userToMultiSigSigners", "user", address);
@@ -1113,9 +1112,9 @@ public class Info {
     }
 
     /**
-     * 永续部署拍卖状态。
+     * Perpetual deploy auction status.
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode queryPerpDeployAuctionStatus() {
         Map<String, Object> payload = Map.of("type", "perpDeployAuctionStatus");
@@ -1123,9 +1122,9 @@ public class Info {
     }
 
     /**
-     * 现货部署拍卖状态。
+     * Spot deploy auction status.
      *
-     * @return JSON 响应
+     * @return JSON response
      */
     public JsonNode querySpotDeployAuctionStatus() {
         // 该接口在 Python SDK 中对应 spotDeployState(user)，Java SDK 已提供
@@ -1139,10 +1138,10 @@ public class Info {
     }
 
     /**
-     * 获取 Perp 市场状态（perpDexStatus）。
+     * Get Perp market status (perpDexStatus).
      *
-     * @param dex perp dex 名称；空字符串代表第一个 perp dex
-     * @return JSON 对象
+     * @param dex Perp dex name; empty string represents the first perp dex
+     * @return JSON object
      */
     public JsonNode perpDexStatus(String dex) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -1152,10 +1151,10 @@ public class Info {
     }
 
     /**
-     * 获取 Perp 市场状态（类型化返回）。
+     * Get Perp market status (typed return).
      *
-     * @param dex perp dex 名称；空字符串代表第一个 perp dex
-     * @return 类型化模型 PerpDexStatus
+     * @param dex Perp dex name; empty string represents the first perp dex
+     * @return Typed model PerpDexStatus
      */
     public PerpDexStatus perpDexStatusTyped(String dex) {
         JsonNode node = perpDexStatus(dex);
@@ -1163,10 +1162,10 @@ public class Info {
     }
 
     /**
-     * 查询用户 DEX 抽象状态。
+     * Query user DEX abstraction state.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode queryUserDexAbstractionState(String address) {
         Map<String, Object> payload = Map.of("type", "userDexAbstraction", "user", address);
@@ -1174,10 +1173,10 @@ public class Info {
     }
 
     /**
-     * 用户仓库（vault）权益。
+     * User vault equities.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode userVaultEquities(String address) {
         Map<String, Object> payload = Map.of("type", "userVaultEquities", "user", address);
@@ -1185,10 +1184,10 @@ public class Info {
     }
 
     /**
-     * 用户的额外代理（extraAgents）。
+     * User's extra agents.
      *
-     * @param address 用户地址
-     * @return JSON 响应
+     * @param address User address
+     * @return JSON response
      */
     public JsonNode extraAgents(String address) {
         Map<String, Object> payload = Map.of("type", "extraAgents", "user", address);
@@ -1196,13 +1195,13 @@ public class Info {
     }
 
     /**
-     * 订阅 WebSocket（类型安全版本，使用 Subscription 实体类）。
+     * Subscribe to WebSocket (type-safe version, using Subscription entity class).
      * <p>
-     * 推荐使用此方法，提供编译期类型检查和更好的代码可读性。
+     * Recommended to use this method, provides compile-time type checking and better code readability.
      * </p>
      *
-     * @param subscription 订阅对象（Subscription 实体类）
-     * @param callback     消息回调
+     * @param subscription Subscription object (Subscription entity class)
+     * @param callback     Message callback
      */
     public void subscribe(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
@@ -1211,13 +1210,13 @@ public class Info {
     }
 
     /**
-     * 订阅 WebSocket（兼容版本，使用 JsonNode）。
+     * Subscribe to WebSocket (compatible version, using JsonNode).
      * <p>
-     * 为了更好的类型安全性，建议使用 {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} 方法。
+     * For better type safety, it is recommended to use the {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} method.
      * </p>
      *
-     * @param subscription 订阅对象
-     * @param callback     消息回调
+     * @param subscription Subscription object
+     * @param callback     Message callback
      */
     public void subscribe(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
@@ -1226,9 +1225,9 @@ public class Info {
     }
 
     /**
-     * 取消订阅（类型安全版本，使用 Subscription 实体类）。
+     * Unsubscribe (type-safe version, using Subscription entity class).
      *
-     * @param subscription 订阅对象（Subscription 实体类）
+     * @param subscription Subscription object (Subscription entity class)
      */
     public void unsubscribe(Subscription subscription) {
         if (skipWs)
@@ -1237,9 +1236,9 @@ public class Info {
     }
 
     /**
-     * 取消订阅（兼容版本，使用 JsonNode）。
+     * Unsubscribe (compatible version, using JsonNode).
      *
-     * @param subscription 订阅对象
+     * @param subscription Subscription object
      */
     public void unsubscribe(JsonNode subscription) {
         if (skipWs)
@@ -1248,7 +1247,7 @@ public class Info {
     }
 
     /**
-     * 关闭 WebSocket 连接。
+     * Close WebSocket connection.
      */
     public void closeWs() {
         if (wsManager != null)
@@ -1256,9 +1255,9 @@ public class Info {
     }
 
     /**
-     * 添加连接状态监听器（连接/断开/重连/网络状态变化）。
+     * Add connection status listener (connect/disconnect/reconnect/network status changes).
      *
-     * @param listener 监听器实现
+     * @param listener Listener implementation
      */
     public void addConnectionListener(WebsocketManager.ConnectionListener listener) {
         if (skipWs)
@@ -1268,9 +1267,9 @@ public class Info {
     }
 
     /**
-     * 移除连接状态监听器。
+     * Remove connection status listener.
      *
-     * @param listener 监听器实现
+     * @param listener Listener implementation
      */
     public void removeConnectionListener(WebsocketManager.ConnectionListener listener) {
         if (skipWs)
@@ -1280,9 +1279,9 @@ public class Info {
     }
 
     /**
-     * 设置网络监控的检查间隔（秒）。
+     * Set network monitoring check interval (seconds).
      *
-     * @param seconds 间隔秒数（默认 5，建议 3~10）
+     * @param seconds Interval seconds (default 5, recommended 3~10)
      */
     public void setNetworkCheckIntervalSeconds(int seconds) {
         if (skipWs)
@@ -1292,10 +1291,10 @@ public class Info {
     }
 
     /**
-     * 设置重连指数退避参数。
+     * Set reconnection exponential backoff parameters.
      *
-     * @param initialMs 初始重连延迟毫秒（建议 500~2000）
-     * @param maxMs     最大重连延迟毫秒（建议不超过 5000~30000）
+     * @param initialMs Initial reconnection delay milliseconds (recommended 500~2000)
+     * @param maxMs     Maximum reconnection delay milliseconds (recommended not to exceed 5000~30000)
      */
     public void setReconnectBackoffMs(long initialMs, long maxMs) {
         if (skipWs)
@@ -1305,13 +1304,13 @@ public class Info {
     }
 
     /**
-     * 设置自定义网络探测 URL。
+     * Set custom network probe URL.
      * <p>
-     * 默认情况下，WebSocket 管理器使用 API baseUrl 进行网络可用性探测。
-     * 在某些企业环境或特殊网络配置下，可能需要指定专门的探测地址。
+     * By default, the WebSocket manager uses the API baseUrl for network availability probing.
+     * In some enterprise environments or special network configurations, a dedicated probe address may be required.
      * </p>
      *
-     * @param url 自定义网络探测 URL（如 "https://www.google.com"）
+     * @param url Custom network probe URL (e.g., "https://www.google.com")
      */
     public void setNetworkProbeUrl(String url) {
         if (skipWs)
@@ -1321,13 +1320,13 @@ public class Info {
     }
 
     /**
-     * 启用或禁用网络探测功能。
+     * Enable or disable network probing functionality.
      * <p>
-     * 网络探测用于在 WebSocket 断线时周期性检查网络可用性，当网络恢复时自动触发重连。
-     * 在某些场景下（如始终可用的内网环境），可以禁用探测以减少不必要的 HTTP 请求。
+     * Network probing is used to periodically check network availability when WebSocket is disconnected, and automatically triggers reconnection when the network is restored.
+     * In some scenarios (such as always-available intranet environments), probing can be disabled to reduce unnecessary HTTP requests.
      * </p>
      *
-     * @param disabled true=禁用网络探测，false=启用网络探测（默认启用）
+     * @param disabled true=disable network probing, false=enable network probing (default enabled)
      */
     public void setNetworkProbeDisabled(boolean disabled) {
         if (skipWs)
@@ -1337,9 +1336,9 @@ public class Info {
     }
 
     /**
-     * 添加回调异常监听器。
+     * Add callback exception listener.
      *
-     * @param listener 监听器实现
+     * @param listener Listener implementation
      */
     public void addCallbackErrorListener(WebsocketManager.CallbackErrorListener listener) {
         if (skipWs)
@@ -1349,9 +1348,9 @@ public class Info {
     }
 
     /**
-     * 移除回调异常监听器。
+     * Remove callback exception listener.
      *
-     * @param listener 监听器实现
+     * @param listener Listener implementation
      */
     public void removeCallbackErrorListener(WebsocketManager.CallbackErrorListener listener) {
         if (skipWs)
@@ -1360,21 +1359,20 @@ public class Info {
             wsManager.removeCallbackErrorListener(listener);
     }
 
-    // ==================== 质押功能模块（Staking） ====================
 
     /**
-     * 查询用户质押摘要（delegatorSummary）。
+     * Query user staking summary (delegatorSummary).
      * <p>
      * POST /info
      * </p>
      *
-     * @param address 用户地址（42 位十六进制格式）
-     * @return JSON 响应，包含：
+     * @param address User address (42-character hexadecimal format)
+     * @return JSON response containing:
      * <ul>
-     * <li>delegated - 已委托数量（float string）</li>
-     * <li>undelegated - 未委托数量（float string）</li>
-     * <li>totalPendingWithdrawal - 总待提取数量（float string）</li>
-     * <li>nPendingWithdrawals - 待提取笔数（int）</li>
+     * <li>delegated - Delegated amount (float string)</li>
+     * <li>undelegated - Undelegated amount (float string)</li>
+     * <li>totalPendingWithdrawal - Total pending withdrawal amount (float string)</li>
+     * <li>nPendingWithdrawals - Number of pending withdrawals (int)</li>
      * </ul>
      */
     public JsonNode userStakingSummary(String address) {
@@ -1386,17 +1384,17 @@ public class Info {
     }
 
     /**
-     * 查询用户质押委托详情（delegations）。
+     * Query user staking delegation details (delegations).
      * <p>
      * POST /info
      * </p>
      *
-     * @param address 用户地址（42 位十六进制格式）
-     * @return JSON 响应数组，每个元素包含：
+     * @param address User address (42-character hexadecimal format)
+     * @return JSON response array, each element contains:
      * <ul>
-     * <li>validator - 验证者地址（string）</li>
-     * <li>amount - 委托数量（float string）</li>
-     * <li>lockedUntilTimestamp - 锁定至时间戳（int）</li>
+     * <li>validator - Validator address (string)</li>
+     * <li>amount - Delegated amount (float string)</li>
+     * <li>lockedUntilTimestamp - Locked until timestamp (int)</li>
      * </ul>
      */
     public JsonNode userStakingDelegations(String address) {
@@ -1408,17 +1406,17 @@ public class Info {
     }
 
     /**
-     * 查询用户历史质押奖励（delegatorRewards）。
+     * Query user historical staking rewards (delegatorRewards).
      * <p>
      * POST /info
      * </p>
      *
-     * @param address 用户地址（42 位十六进制格式）
-     * @return JSON 响应数组，每个元素包含：
+     * @param address User address (42-character hexadecimal format)
+     * @return JSON response array, each element contains:
      * <ul>
-     * <li>time - 时间戳（int）</li>
-     * <li>source - 奖励来源（string）</li>
-     * <li>totalAmount - 总奖励数量（float string）</li>
+     * <li>time - Timestamp (int)</li>
+     * <li>source - Reward source (string)</li>
+     * <li>totalAmount - Total reward amount (float string)</li>
      * </ul>
      */
     public JsonNode userStakingRewards(String address) {
@@ -1430,13 +1428,13 @@ public class Info {
     }
 
     /**
-     * 查询委托历史记录（delegatorHistory）。
+     * Query delegation history (delegatorHistory).
      * <p>
      * POST /info
      * </p>
      *
-     * @param user 用户地址（42 位十六进制格式）
-     * @return JSON 响应，包含委托和取消委托事件的详细历史记录，包括时间戳、交易哈希及详细 delta 信息
+     * @param user User address (42-character hexadecimal format)
+     * @return JSON response containing detailed history of delegation and undelegation events, including timestamps, transaction hashes, and detailed delta information
      */
     public JsonNode delegatorHistory(String user) {
         Map<String, Object> payload = Map.of(

@@ -4,54 +4,54 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * 订单线缆（wire）内部表示，用于构造最终发送给服务端的动作负载。
- * 说明：
- * - 本类使用语义化字段名（coin/isBuy/sz/limitPx/orderType/reduceOnly/cloid）在 Java 内部承载订单数据；
- * - 在实际序列化为 L1 动作时，会被转换为官方线缆键名：
- * a(资产ID), b(是否买), p(限价), s(数量), r(仅减仓), t(订单类型), c(客户端订单ID)；
- * - 转换逻辑见 `io.github.hyperliquid.sdk.utils.Signing.orderWiresToOrderAction` 与 `writeMsgpack`；
- * - `sz` 与 `limitPx` 字段为字符串形式，需通过 `Signing.floatToWire` 规范化以避免不可接受的舍入。
+ * Order wire (wire) internal representation, used to construct the final action payload sent to the server.
+ * Note:
+ * - This class uses semantic field names (coin/isBuy/sz/limitPx/orderType/reduceOnly/cloid) to carry order data internally in Java;
+ * - When actually serialized to L1 action, it will be converted to official wire key names:
+ * a(assetID), b(whether to buy), p(limit price), s(quantity), r(reduce only), t(order type), c(client order ID);
+ * - Conversion logic see `io.github.hyperliquid.sdk.utils.Signing.orderWiresToOrderAction` and `writeMsgpack`;
+ * - `sz` and `limitPx` fields are in string form, need to be normalized via `Signing.floatToWire` to avoid unacceptable rounding.
  */
 public class OrderWire {
     /**
-     * 资产整数 ID（Perp 为合约资产，Spot 为现货资产）
+     * Asset integer ID (Perp for contract assets, Spot for spot assets)
      */
     public final Integer coin;
     /**
-     * 是否买入（true=买/做多，false=卖/做空）
+     * Whether to buy (true=buy/long, false=sell/short)
      */
     public final Boolean isBuy;
     /**
-     * 订单数量（字符串形式，由浮点经规范化得到）
+     * Order quantity (string form, obtained from float after normalization)
      */
-    public final String sz; // 转换为字符串表示
+    public final String sz; // Converted to string representation
     /**
-     * 限价（字符串或 null，市价/触发市价时可为空）
+     * Limit price (string or null, can be empty for market/trigger market)
      */
-    public final String limitPx; // 字符串（或 null）
+    public final String limitPx; // String (or null)
     /**
-     * 原始订单类型结构（Map/POJO），包含 limit(tif) 或 trigger(triggerPx/isMarket/tpsl)
+     * Original order type structure (Map/POJO), containing limit(tif) or trigger(triggerPx/isMarket/tpsl)
      */
-    public final Object orderType; // Map/POJO 结构，符合交易接口的 wire 格式
+    public final Object orderType; // Map/POJO structure, conforming to trading interface wire format
     /**
-     * 仅减仓标记（true 表示不增加仓位，仅减少既有仓位）
+     * Reduce-only flag (true means not to increase position, only reduce existing position)
      */
     public final Boolean reduceOnly;
     /**
-     * 客户端订单 ID（Cloid，0x + 32 十六进制字符），可为 null
+     * Client order ID (Cloid, 0x + 32 hexadecimal characters), can be null
      */
-    public final Cloid cloid; // 可为 null
+    public final Cloid cloid; // Can be null
 
     /**
-     * 构造方法（支持 Jackson 反序列化）。
+     * Constructor method (supports Jackson deserialization).
      *
-     * @param coin       资产整数 ID
-     * @param isBuy      是否买入（true=买/多；false=卖/空）
-     * @param sz         数量（字符串）
-     * @param limitPx    限价（字符串或 null）
-     * @param orderType  订单类型结构（对象/映射）
-     * @param reduceOnly 是否仅减仓
-     * @param cloid      客户端订单 ID（可为 null）
+     * @param coin       asset integer ID
+     * @param isBuy      whether to buy (true=buy/long; false=sell/short)
+     * @param sz         quantity (string)
+     * @param limitPx    limit price (string or null)
+     * @param orderType  order type structure (object/map)
+     * @param reduceOnly whether to reduce only
+     * @param cloid      client order ID (can be null)
      */
     @JsonCreator
     public OrderWire(@JsonProperty("coin") Integer coin,

@@ -3,9 +3,9 @@ package io.github.hyperliquid.sdk.model.subscription;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * 所有币种中间价订阅。
+ * All currencies mid price subscription.
  * <p>
- * 订阅所有币种的中间价（买一价和卖一价的平均值），用于快速获取市场行情概览。
+ * Subscribe to mid prices (average of best bid and ask prices) for all currencies, used for quick market overview.
  * </p>
  */
 public class AllMidsSubscription extends Subscription {
@@ -14,15 +14,15 @@ public class AllMidsSubscription extends Subscription {
     private final String type = "allMids";
     
     /**
-     * 构造所有币种中间价订阅。
+     * Construct all currencies mid price subscription.
      */
     public AllMidsSubscription() {
     }
     
     /**
-     * 静态工厂方法：创建所有币种中间价订阅。
+     * Static factory method: create all currencies mid price subscription.
      *
-     * @return AllMidsSubscription 实例
+     * @return AllMidsSubscription instance
      */
     public static AllMidsSubscription create() {
         return new AllMidsSubscription();

@@ -1,12 +1,12 @@
 package io.github.hyperliquid.sdk.model.info;
 
-/** 用户速率限制信息 */
+/** User rate limit information */
 public class UserRateLimit {
-    /** 累计交易量（字符串） */
+    /** Cumulative trading volume (string) */
     private String cumVlm;
-    /** 已使用的请求次数 */
+    /** Number of requests used */
     private Long nRequestsUsed;
-    /** 请求次数上限 */
+    /** Request count limit */
     private Long nRequestsCap;
 
     // Getter and Setter methods

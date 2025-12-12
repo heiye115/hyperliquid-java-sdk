@@ -19,25 +19,25 @@ import java.util.*;
 
 
 /**
- * HyperliquidClient 统一管理客户端，负责下单、撤单、转账等 L1/L2 操作。
- * 支持多个钱包凭证的管理与切换。
+ * HyperliquidClient unified management client, responsible for order placement, cancellation, transfers, and other L1/L2 operations.
+ * Supports management and switching of multiple wallet credentials.
  */
 public class HyperliquidClient {
 
     private static final Logger log = LoggerFactory.getLogger(HyperliquidClient.class);
 
     /**
-     * Info 客户端
+     * Info client
      **/
     private final Info info;
 
     /**
-     * K:钱包地址 V:Exchange
+     * K:Wallet address V:Exchange
      **/
     private final Map<String, Exchange> exchangesByAddress;
 
     /**
-     * API钱包列表
+     * API wallet list
      **/
     private final List<ApiWallet> apiWallets;
 
@@ -49,37 +49,37 @@ public class HyperliquidClient {
     }
 
     /**
-     * 获取 Info 客户端
+     * Get Info client
      *
-     * @return Info 客户端实例
+     * @return Info client instance
      */
     public Info getInfo() {
         return info;
     }
 
     /**
-     * 获取钱包地址到 Exchange 的映射
+     * Get wallet address to Exchange mapping
      *
-     * @return 钱包地址到 Exchange 的映射
+     * @return Wallet address to Exchange mapping
      */
     public Map<String, Exchange> getExchangesByAddress() {
         return exchangesByAddress;
     }
 
     /**
-     * 获取 API 钱包列表
+     * Get API wallet list
      *
-     * @return API 钱包列表
+     * @return API wallet list
      */
     public List<ApiWallet> getApiWallets() {
         return apiWallets;
     }
 
     /**
-     * 获取单个Exchange  , 如果有多个则返回第一个
+     * Get single Exchange, if there are multiple, return the first one
      * 
-     * @deprecated 此方法已被弃用，请使用 {@link #getExchange()} 替代
-     * @return Exchange 实例
+     * @deprecated This method is deprecated, please use {@link #getExchange()} instead
+     * @return Exchange instance
      */
     @Deprecated
     public Exchange getSingleExchange() {
@@ -87,7 +87,7 @@ public class HyperliquidClient {
     }
 
     /**
-     * 获取单个Exchange  , 如果有多个则返回第一个
+     * Get single Exchange, if there are multiple, return the first one
      **/
     public Exchange getExchange() {
         if (exchangesByAddress.isEmpty()) {
@@ -97,12 +97,12 @@ public class HyperliquidClient {
     }
 
     /**
-     * 根据钱包地址获取 Exchange 实例
+     * Get Exchange instance by wallet address
      *
-     * @param address 钱包地址（42位十六进制格式，0x开头）
-     * @return 对应的 Exchange 实例
-     * @throws HypeError 如果地址不存在，抛出异常并提示可用地址列表
-     * @deprecated 此方法已被弃用，请使用 {@link #getExchange(String)} 替代
+     * @param address Wallet address (42-character hexadecimal format, starting with 0x)
+     * @return Corresponding Exchange instance
+     * @throws HypeError If address does not exist, throw exception and prompt available address list
+     * @deprecated This method is deprecated, please use {@link #getExchange(String)} instead
      **/
     @Deprecated
     public Exchange useExchange(String address) {
@@ -110,11 +110,11 @@ public class HyperliquidClient {
     }
 
     /**
-     * 根据钱包地址获取 Exchange 实例
+     * Get Exchange instance by wallet address
      *
-     * @param address 钱包地址（42位十六进制格式，0x开头）
-     * @return 对应的 Exchange 实例
-     * @throws HypeError 如果地址不存在，抛出异常并提示可用地址列表
+     * @param address Wallet address (42-character hexadecimal format, starting with 0x)
+     * @return Corresponding Exchange instance
+     * @throws HypeError If address does not exist, throw exception and prompt available address list
      **/
     public Exchange getExchange(String address) {
         if (address == null || address.trim().isEmpty()) {
@@ -130,39 +130,39 @@ public class HyperliquidClient {
     }
 
     /**
-     * 检查指定地址的钱包是否存在
+     * Check if wallet exists for specified address
      *
-     * @param address 钱包地址
-     * @return 存在返回 true，否则返回 false
+     * @param address Wallet address
+     * @return Returns true if exists, false otherwise
      */
     public boolean hasWallet(String address) {
         return address != null && exchangesByAddress.containsKey(address);
     }
 
     /**
-     * 获取所有可用的钱包地址集合（不可变）
+     * Get all available wallet address collection (immutable)
      *
-     * @return 钱包地址集合
+     * @return Wallet address collection
      */
     public Set<String> getAvailableAddresses() {
         return Collections.unmodifiableSet(exchangesByAddress.keySet());
     }
 
     /**
-     * 获取所有钱包地址列表（按注册顺序）
+     * Get all wallet address list (in registration order)
      *
-     * @return 钱包地址列表
+     * @return Wallet address list
      */
     public List<String> listWallets() {
         return new ArrayList<>(exchangesByAddress.keySet());
     }
 
     /**
-     * 根据索引获取 Exchange 实例（按注册顺序）
+     * Get Exchange instance by index (in registration order)
      *
-     * @param index 索引（从0开始）
-     * @return 对应的 Exchange 实例
-     * @throws HypeError 如果索引越界
+     * @param index Index (starting from 0)
+     * @return Corresponding Exchange instance
+     * @throws HypeError If index is out of bounds
      */
     public Exchange getExchangeByIndex(int index) {
         List<String> addresses = listWallets();
@@ -177,19 +177,19 @@ public class HyperliquidClient {
     }
 
     /**
-     * 获取钱包总数
+     * Get total number of wallets
      *
-     * @return 钱包数量
+     * @return Number of wallets
      */
     public int getWalletCount() {
         return exchangesByAddress.size();
     }
 
     /**
-     * 获取单个地址（第一个钱包的主地址）
+     * Get single address (primary address of the first wallet)
      *
-     * @return 主钱包地址
-     * @throws HypeError 如果没有可用钱包
+     * @return Primary wallet address
+     * @throws HypeError If no wallets are available
      */
     public String getSingleAddress() {
         if (apiWallets == null || apiWallets.isEmpty()) {
@@ -204,34 +204,34 @@ public class HyperliquidClient {
 
     public static class Builder {
         /**
-         * API 节点地址
+         * API node address
          **/
         private String baseUrl = Constants.MAINNET_API_URL;
 
         /**
-         * 超时时间（秒，默认10秒）
+         * Timeout (seconds, default 10 seconds)
          **/
         private int timeout = 10;
 
         /**
-         * 是否跳过 WebSocket（默认不跳过）
+         * Whether to skip WebSocket (default: do not skip)
          **/
         private boolean skipWs = false;
 
         /**
-         * API 钱包列表
+         * API wallet list
          **/
         private final List<ApiWallet> apiWallets = new ArrayList<>();
 
         /**
-         * OkHttpClient 实例
+         * OkHttpClient instance
          **/
         private OkHttpClient okHttpClient = null;
 
         /**
-         * 是否自动预热缓存（默认启用）
-         * 启用后，在 build() 时会自动加载常用数据（meta、spotMeta、币种映射）到缓存中，
-         * 避免首次调用 API 时的延迟，提升用户体验。
+         * Whether to automatically warm up cache (default: enabled)
+         * When enabled, build() will automatically load commonly used data (meta, spotMeta, coin mapping) into cache,
+         * avoiding delays during first API calls and improving user experience.
          */
         private boolean autoWarmUpCache = true;
 
@@ -288,16 +288,16 @@ public class HyperliquidClient {
         }
 
         /**
-         * 禁用自动缓存预热（高级选项）。
+         * Disable automatic cache warm-up (advanced option).
          * <p>
-         * 默认情况下，build() 会自动预热缓存以提升性能。
-         * 仅在以下场景需要禁用：
-         * 1. 应用启动时间要求极其严格（毫秒级）
-         * 2. 网络环境不稳定，不希望 build() 阻塞
-         * 3. 用于测试场景，需要精确控制缓存行为
+         * By default, build() will automatically warm up cache to improve performance.
+         * Only disable in the following scenarios:
+         * 1. Application startup time requirements are extremely strict (millisecond level)
+         * 2. Unstable network environment, don't want build() to block
+         * 3. Used for testing scenarios, need precise control over cache behavior
          * </p>
          *
-         * @return Builder 实例
+         * @return Builder instance
          */
         public Builder disableAutoWarmUpCache() {
             this.autoWarmUpCache = false;
@@ -349,10 +349,10 @@ public class HyperliquidClient {
 
 
         /**
-         * 私钥验证逻辑：
-         * 1. 不为空
-         * 2. 长度与字符集合法
-         * 3. 能被 Web3j 正常解析为 ECKeyPair
+         * Private key validation logic:
+         * 1. Not empty
+         * 2. Length and character set are valid
+         * 3. Can be parsed by Web3j into ECKeyPair
          */
         private void validatePrivateKey(String privateKey) {
             if (privateKey == null || privateKey.trim().isEmpty()) {

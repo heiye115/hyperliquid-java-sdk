@@ -1,7 +1,7 @@
 package io.github.hyperliquid.sdk.utils;
 
 /**
- * 重试策略配置，支持指数退避。
+ * Retry policy configuration, supports exponential backoff.
  */
 public final class RetryPolicy {
 

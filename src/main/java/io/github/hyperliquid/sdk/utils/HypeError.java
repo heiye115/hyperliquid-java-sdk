@@ -1,14 +1,14 @@
 package io.github.hyperliquid.sdk.utils;
 
 /**
- * SDK 自定义异常类型定义。
+ * SDK custom exception type definitions.
  */
 public class HypeError extends RuntimeException {
 
     /**
-     * 构造基础错误。
+     * Construct base error.
      *
-     * @param message 错误信息
+     * @param message Error message
      */
     public HypeError(String message) {
         super(message);
@@ -19,19 +19,19 @@ public class HypeError extends RuntimeException {
     }
 
     /**
-     * 客户端错误（4xx）
+     * Client error (4xx)
      */
     public static class ClientHypeError extends HypeError {
         /**
-         *  获取 HTTP 状态码。
+         * Get HTTP status code.
          */
         private final int statusCode;
 
         /**
-         * 构造客户端错误。
+         * Construct client error.
          *
-         * @param statusCode HTTP 状态码
-         * @param message    错误信息
+         * @param statusCode HTTP status code
+         * @param message    Error message
          */
         public ClientHypeError(int statusCode, String message) {
             super(message);
@@ -39,9 +39,9 @@ public class HypeError extends RuntimeException {
         }
 
         /**
-         * 获取 HTTP 状态码。
+         * Get HTTP status code.
          *
-         * @return HTTP 状态码
+         * @return HTTP status code
          */
         public int getStatusCode() {
             return statusCode;
@@ -49,19 +49,19 @@ public class HypeError extends RuntimeException {
     }
 
     /**
-     * 服务器错误（5xx）
+     * Server error (5xx)
      */
     public static class ServerHypeError extends HypeError {
         /**
-         *  获取 HTTP 状态码。
+         * Get HTTP status code.
          */
         private final int statusCode;
 
         /**
-         * 构造服务器错误。
+         * Construct server error.
          *
-         * @param statusCode HTTP 状态码
-         * @param message    错误信息
+         * @param statusCode HTTP status code
+         * @param message    Error message
          */
         public ServerHypeError(int statusCode, String message) {
             super(message);
@@ -69,9 +69,9 @@ public class HypeError extends RuntimeException {
         }
 
         /**
-         * 获取 HTTP 状态码。
+         * Get HTTP status code.
          *
-         * @return HTTP 状态码
+         * @return HTTP status code
          */
         public int getStatusCode() {
             return statusCode;

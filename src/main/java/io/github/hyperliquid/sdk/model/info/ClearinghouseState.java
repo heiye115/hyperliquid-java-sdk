@@ -3,31 +3,31 @@ package io.github.hyperliquid.sdk.model.info;
 import java.util.List;
 
 /**
- * 永续清算所状态封装（账户与仓位概览）
+ * Perpetual clearinghouse state encapsulation (account and position overview)
  */
 public class ClearinghouseState {
     /**
-     * 各资产的仓位信息列表
+     * List of position information for each asset
      */
     private List<AssetPositions> assetPositions;
     /**
-     * 交叉保证金维持保证金占用
+     * Cross margin maintenance margin usage
      */
     private String crossMaintenanceMarginUsed;
     /**
-     * 交叉保证金汇总
+     * Cross margin summary
      */
     private CrossMarginSummary crossMarginSummary;
     /**
-     * 单币种保证金汇总
+     * Single currency margin summary
      */
     private MarginSummary marginSummary;
     /**
-     * 状态时间戳（毫秒）
+     * Status timestamp (milliseconds)
      */
     private Long time;
     /**
-     * 可提余额（字符串）
+     * Withdrawable balance (string)
      */
     private String withdrawable;
 
@@ -82,15 +82,15 @@ public class ClearinghouseState {
 
     public static class CumFunding {
         /**
-         * 历史累计资金费率影响
+         * Historical cumulative funding rate impact
          */
         private String allTime;
         /**
-         * 自上次杠杆/模式变更以来累计
+         * Cumulative since last leverage/mode change
          */
         private String sinceChange;
         /**
-         * 自开仓以来累计
+         * Cumulative since position opening
          */
         private String sinceOpen;
 
@@ -123,15 +123,15 @@ public class ClearinghouseState {
 
     public static class Leverage {
         /**
-         * 原始美元规模（用于计算）
+         * Original dollar scale (used for calculation)
          */
         private String rawUsd;
         /**
-         * 杠杆类型（cross/isolated）
+         * Leverage type (cross/isolated)
          */
         private String type;
         /**
-         * 杠杆倍数值
+         * Leverage multiplier value
          */
         private int value;
 
@@ -163,47 +163,47 @@ public class ClearinghouseState {
 
     public static class Position {
         /**
-         * 币种名称
+         * Currency name
          */
         private String coin;
         /**
-         * 累计资金费率影响
+         * Cumulative funding rate impact
          */
         private CumFunding cumFunding;
         /**
-         * 开仓均价
+         * Average opening price
          */
         private String entryPx;
         /**
-         * 杠杆信息
+         * Leverage information
          */
         private Leverage leverage;
         /**
-         * 预估强平价
+         * Estimated liquidation price
          */
         private String liquidationPx;
         /**
-         * 保证金占用
+         * Margin usage
          */
         private String marginUsed;
         /**
-         * 最大允许杠杆
+         * Maximum allowed leverage
          */
         private int maxLeverage;
         /**
-         * 仓位名义价值
+         * Position notional value
          */
         private String positionValue;
         /**
-         * 账户收益率（ROE）
+         * Account return on equity (ROE)
          */
         private String returnOnEquity;
         /**
-         * 仓位签名数量（正多负空，字符串）
+         * Position signed quantity (positive long, negative short, string)
          */
         private String szi;
         /**
-         * 未实现盈亏
+         * Unrealized profit and loss
          */
         private String unrealizedPnl;
 
@@ -299,11 +299,11 @@ public class ClearinghouseState {
 
     public static class AssetPositions {
         /**
-         * 仓位详情
+         * Position details
          */
         private Position position;
         /**
-         * 类型（如 perp）
+         * Type (e.g., perp)
          */
         private String type;
 
@@ -327,19 +327,19 @@ public class ClearinghouseState {
 
     public static class CrossMarginSummary {
         /**
-         * 账户总价值
+         * Account total value
          */
         private String accountValue;
         /**
-         * 总保证金占用
+         * Total margin usage
          */
         private String totalMarginUsed;
         /**
-         * 总名义仓位
+         * Total notional position
          */
         private String totalNtlPos;
         /**
-         * 总原始美元规模
+         * Total original dollar scale
          */
         private String totalRawUsd;
 
@@ -379,19 +379,19 @@ public class ClearinghouseState {
 
     public static class MarginSummary {
         /**
-         * 账户总价值
+         * Account total value
          */
         private String accountValue;
         /**
-         * 总保证金占用
+         * Total margin usage
          */
         private String totalMarginUsed;
         /**
-         * 总名义仓位
+         * Total notional position
          */
         private String totalNtlPos;
         /**
-         * 总原始美元规模
+         * Total original dollar scale
          */
         private String totalRawUsd;
 

@@ -15,22 +15,22 @@ public class JSONUtil {
     private static final ObjectMapper mapper = createSharedMapper();
 
     /**
-     * 构建并配置共享 ObjectMapper。
+     * Build and configure shared ObjectMapper.
      */
     private static ObjectMapper createSharedMapper() {
         ObjectMapper om = new ObjectMapper();
-        // 反序列化容错：忽略未知字段，避免后端新增字段导致解析失败
+        // Deserialization fault tolerance: ignore unknown fields to avoid parsing failure when backend adds new fields
         om.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        // 序列化：日期使用 ISO-8601（不写为时间戳），便于日志可读
+        // Serialization: dates use ISO-8601 (not written as timestamps) for log readability
         om.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         return om;
     }
 
     /**
-     * 注册自定义模块（例如 JavaTimeModule、Jdk8Module 或自定义序列化器）。
-     * 该方法线程安全，应在应用启动时统一注册。
+     * Register custom modules (e.g., JavaTimeModule, Jdk8Module, or custom serializers).
+     * This method is thread-safe and should be registered uniformly at application startup.
      *
-     * @param module Jackson 模块
+     * @param module Jackson module
      */
     public static synchronized void registerModule(com.fasterxml.jackson.databind.Module module) {
         if (module != null) {

@@ -9,38 +9,38 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 
 /**
- * 客户端订单 ID（Cloid）Java 实现，对齐 Python 版本。
+ * Client order ID (Cloid) Java implementation, aligned with Python version.
  *
  * <p>
- * - 字符串必须以 "0x" 开头且后续十六进制字符长度为 32（即 16 字节）；
- * - 非符合上述格式时抛出 TypeError：
- * - 前缀不为 0x -> "cloid is not a hex string"
- * - 长度不为 32 -> "cloid is not 16 bytes"
- * - from_int(cloid: int) 会格式化为 0x 前缀、宽度 34（含 0x），不足位左侧补零；
- * - from_str(cloid: str) 直接封装；
- * - to_raw() 返回原始字符串。
+ * - String must start with "0x" and the subsequent hexadecimal characters must be 32 in length (i.e., 16 bytes);
+ * - Throws TypeError when not conforming to the above format:
+ * - Prefix not 0x -> "cloid is not a hex string"
+ * - Length not 32 -> "cloid is not 16 bytes"
+ * - from_int(cloid: int) will format with 0x prefix, width 34 (including 0x), left-padded with zeros if insufficient;
+ * - from_str(cloid: str) directly wraps;
+ * - to_raw() returns the raw string.
  */
 public class Cloid {
 
     /**
-     * 原始 Cloid 字符串（0x + 32 hex chars）
+     * Raw Cloid string (0x + 32 hex chars)
      */
     private final String raw;
 
     /**
-     * 兼容旧接口：获取原始字符串。
+     * Compatible with old interface: get raw string.
      *
-     * @return 原始 Cloid 字符串
+     * @return raw Cloid string
      */
     public String getRaw() {
         return raw;
     }
 
     /**
-     * 构造函数：校验并保存原始 Cloid 字符串。
+     * Constructor: validate and save raw Cloid string.
      *
-     * @param raw 原始字符串（必须以 0x 开头且长度为 34，包括 0x + 32 位十六进制字符）
-     * @throws HypeError 当不以 0x 开头或长度不为 16 字节（32 hex）时抛出
+     * @param raw raw string (must start with 0x and have length 34, including 0x + 32 hex characters)
+     * @throws HypeError when not starting with 0x or length not 16 bytes (32 hex)
      */
     @JsonCreator
     public Cloid(String raw) {
@@ -52,7 +52,7 @@ public class Cloid {
     }
 
     /**
-     * 内部校验逻辑
+     * Internal validation logic
      */
     private void validate() {
         if (!raw.startsWith("0x")) {
@@ -65,11 +65,11 @@ public class Cloid {
     }
 
     /**
-     * 工厂方法：从整型构造 Cloid（对齐 Python from_int）。
+     * Factory method: construct Cloid from integer (aligned with Python from_int).
      *
-     * @param cloid 整型值（Java int）
-     * @return Cloid 实例
-     * @throws HypeError 当格式化结果长度不为 16 字节时抛出（例如数值超出 32 hex 长度）
+     * @param cloid integer value (Java int)
+     * @return Cloid instance
+     * @throws HypeError when formatted result length is not 16 bytes (e.g., value exceeds 32 hex length)
      */
     public static Cloid fromInt(Integer cloid) {
         String hex = Integer.toHexString(cloid);
@@ -78,10 +78,10 @@ public class Cloid {
     }
 
     /**
-     * 工厂方法：从长整型构造 Cloid，便于覆盖更大范围（可选扩展）。
+     * Factory method: construct Cloid from long (optional extension to cover larger range).
      *
-     * @param cloid 长整型值
-     * @return Cloid 实例
+     * @param cloid long value
+     * @return Cloid instance
      */
     public static Cloid fromLong(Long cloid) {
         String hex = Long.toHexString(cloid);
@@ -90,10 +90,10 @@ public class Cloid {
     }
 
     /**
-     * 工厂方法：从 BigInteger 构造 Cloid（覆盖超出 64 位的场景）。
+     * Factory method: construct Cloid from BigInteger (cover scenarios exceeding 64 bits).
      *
-     * @param cloid BigInteger 值
-     * @return Cloid 实例
+     * @param cloid BigInteger value
+     * @return Cloid instance
      */
     public static Cloid fromBigInt(BigInteger cloid) {
         if (cloid == null) {
@@ -105,10 +105,10 @@ public class Cloid {
     }
 
     /**
-     * 工厂方法：从字符串构造 Cloid（对齐 Python from_str）。
+     * Factory method: construct Cloid from string (aligned with Python from_str).
      *
-     * @param cloid 字符串（必须满足 0x + 32 hex 规则）
-     * @return Cloid 实例
+     * @param cloid string (must satisfy 0x + 32 hex rule)
+     * @return Cloid instance
      */
     public static Cloid fromStr(String cloid) {
         return new Cloid(cloid);
@@ -123,18 +123,18 @@ public class Cloid {
     }
 
     /**
-     * 工厂方法：从十进制字符串构造 Cloid。
+     * Factory method: construct Cloid from decimal string.
      * <p>
-     * 使用场景：当上游系统生成的是纯数字 ID（如 "123456789"），可通过该方法直接转换为
-     * 满足后端要求的 0x 前缀 + 32 位十六进制格式。
-     * 规则：
-     * - 仅允许由数字字符组成的非负整数（正则 ^\d+$）；
-     * - 自动左侧补零至 32 位十六进制字符；
-     * - 超出 32 位十六进制范围时会截断高位（与 fromBigInt/leftPad 行为保持一致）。
+     * Usage scenario: when upstream system generates pure numeric ID (e.g., "123456789"), can use this method to directly convert to
+     * satisfy backend requirement of 0x prefix + 32-bit hexadecimal format.
+     * Rules:
+     * - Only allows non-negative integers composed of digit characters (regex ^\d+$);
+     * - Automatically left-pads to 32 hexadecimal characters;
+     * - Truncates high bits when exceeding 32 hexadecimal range (consistent with fromBigInt/leftPad behavior).
      *
-     * @param s 十进制数字字符串（例如 "123456"）
-     * @return Cloid 实例
-     * @throws HypeError 当输入为空、包含非数字字符或为负数时抛出
+     * @param s decimal numeric string (e.g., "123456")
+     * @return Cloid instance
+     * @throws HypeError when input is empty, contains non-digit characters, or is negative
      */
     public static Cloid fromDecimalString(String s) {
         if (s == null) {
@@ -144,7 +144,7 @@ public class Cloid {
         if (!trimmed.matches("^\\d+$")) {
             throw new HypeError("cloid is not a hex string");
         }
-        // BigInteger 构造确保非负十进制
+        // BigInteger construction ensures non-negative decimal
         BigInteger bi = new BigInteger(trimmed);
         if (bi.signum() < 0) {
             throw new HypeError("cloid is not a hex string");
@@ -155,9 +155,9 @@ public class Cloid {
     }
 
     /**
-     * 返回原始字符串（对齐 Python to_raw）。
+     * Return raw string (aligned with Python to_raw).
      *
-     * @return 原始字符串（0x + 32 hex）
+     * @return raw string (0x + 32 hex)
      */
     @JsonValue
     public String toRaw() {
@@ -170,7 +170,7 @@ public class Cloid {
     }
 
     /**
-     * 左侧补齐到指定长度。
+     * Left-pad to specified length.
      */
     private static String leftPad(String s) {
         if (s == null)

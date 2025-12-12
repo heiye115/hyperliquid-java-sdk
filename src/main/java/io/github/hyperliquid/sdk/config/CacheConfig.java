@@ -1,43 +1,43 @@
 package io.github.hyperliquid.sdk.config;
 
 /**
- * 缓存配置类，用于自定义 Info 客户端的缓存参数。
+ * Cache configuration class, used to customize cache parameters for Info client.
  */
 public class CacheConfig {
 
     /**
-     * Meta 缓存最大容量（默认 20）
+     * Meta cache maximum capacity (default 20)
      */
     private int metaCacheMaxSize = 20;
 
     /**
-     * SpotMeta 缓存最大容量（默认 10）
+     * SpotMeta cache maximum capacity (default 10)
      */
     private int spotMetaCacheMaxSize = 10;
 
     /**
-     * 缓存过期时间（分钟，默认 30 分钟）
+     * Cache expiration time (minutes, default 30 minutes)
      */
     private long expireAfterWriteMinutes = 30;
 
     /**
-     * 是否启用缓存统计（默认 true）
+     * Whether to enable cache statistics (default true)
      */
     private boolean recordStats = true;
 
     /**
-     * 默认构造函数（使用默认配置）
+     * Default constructor (uses default configuration)
      */
     public CacheConfig() {
     }
 
     /**
-     * 全参构造函数
+     * Full parameter constructor
      *
-     * @param metaCacheMaxSize          Meta 缓存最大容量
-     * @param spotMetaCacheMaxSize      SpotMeta 缓存最大容量
-     * @param expireAfterWriteMinutes   缓存过期时间（分钟）
-     * @param recordStats               是否启用缓存统计
+     * @param metaCacheMaxSize          Meta cache maximum capacity
+     * @param spotMetaCacheMaxSize      SpotMeta cache maximum capacity
+     * @param expireAfterWriteMinutes   Cache expiration time (minutes)
+     * @param recordStats               Whether to enable cache statistics
      */
     public CacheConfig(int metaCacheMaxSize, int spotMetaCacheMaxSize, long expireAfterWriteMinutes, boolean recordStats) {
         this.metaCacheMaxSize = metaCacheMaxSize;
@@ -47,18 +47,18 @@ public class CacheConfig {
     }
 
     /**
-     * 创建默认配置
+     * Create default configuration
      *
-     * @return 默认 CacheConfig 实例
+     * @return Default CacheConfig instance
      */
     public static CacheConfig defaultConfig() {
         return new CacheConfig();
     }
 
     /**
-     * Builder 模式构建器
+     * Builder pattern builder
      *
-     * @return Builder 实例
+     * @return Builder instance
      */
     public static Builder builder() {
         return new Builder();
@@ -97,7 +97,7 @@ public class CacheConfig {
     }
 
     /**
-     * CacheConfig Builder 类
+     * CacheConfig Builder class
      */
     public static class Builder {
         private int metaCacheMaxSize = 20;
@@ -106,10 +106,10 @@ public class CacheConfig {
         private boolean recordStats = true;
 
         /**
-         * 设置 Meta 缓存最大容量
+         * Set Meta cache maximum capacity
          *
-         * @param maxSize 最大容量
-         * @return Builder 实例
+         * @param maxSize Maximum capacity
+         * @return Builder instance
          */
         public Builder metaCacheMaxSize(int maxSize) {
             this.metaCacheMaxSize = maxSize;
@@ -117,10 +117,10 @@ public class CacheConfig {
         }
 
         /**
-         * 设置 SpotMeta 缓存最大容量
+         * Set SpotMeta cache maximum capacity
          *
-         * @param maxSize 最大容量
-         * @return Builder 实例
+         * @param maxSize Maximum capacity
+         * @return Builder instance
          */
         public Builder spotMetaCacheMaxSize(int maxSize) {
             this.spotMetaCacheMaxSize = maxSize;
@@ -128,10 +128,10 @@ public class CacheConfig {
         }
 
         /**
-         * 设置缓存过期时间（分钟）
+         * Set cache expiration time (minutes)
          *
-         * @param minutes 过期时间
-         * @return Builder 实例
+         * @param minutes Expiration time
+         * @return Builder instance
          */
         public Builder expireAfterWriteMinutes(long minutes) {
             this.expireAfterWriteMinutes = minutes;
@@ -139,10 +139,10 @@ public class CacheConfig {
         }
 
         /**
-         * 设置是否启用缓存统计
+         * Set whether to enable cache statistics
          *
-         * @param recordStats 是否启用
-         * @return Builder 实例
+         * @param recordStats Whether to enable
+         * @return Builder instance
          */
         public Builder recordStats(boolean recordStats) {
             this.recordStats = recordStats;
@@ -150,9 +150,9 @@ public class CacheConfig {
         }
 
         /**
-         * 构建 CacheConfig 实例
+         * Build CacheConfig instance
          *
-         * @return CacheConfig 实例
+         * @return CacheConfig instance
          */
         public CacheConfig build() {
             return new CacheConfig(metaCacheMaxSize, spotMetaCacheMaxSize, expireAfterWriteMinutes, recordStats);

@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 统一错误模型，携带错误码、消息与上下文。
+ * Unified error model, carrying error code, message, and context.
  */
 public final class ApiError {
 

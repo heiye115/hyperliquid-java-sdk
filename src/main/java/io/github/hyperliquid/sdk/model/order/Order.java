@@ -3,17 +3,17 @@ package io.github.hyperliquid.sdk.model.order;
 import java.util.List;
 
 /**
- * 下单响应封装（包含 resting/filled/error 状态）
+ * Order response encapsulation (contains resting/filled/error status)
  */
 public class Order {
 
     /**
-     * 顶层状态（如 "ok"/"error"）
+     * Top-level status (e.g., "ok"/"error")
      */
     private String status;
 
     /**
-     * 响应体，包含类型与数据
+     * Response body, contains type and data
      */
     private Response response;
 
@@ -36,12 +36,12 @@ public class Order {
 
     public static class Resting {
         /**
-         * 挂单订单 ID
+         * Resting order ID
          */
         private long oid;
         
         /**
-         * 客户端订单 ID
+         * Client order ID
          */
         private String cloid;
 
@@ -65,15 +65,15 @@ public class Order {
 
     public static class Statuses {
         /**
-         * 未成交挂单信息
+         * Unfilled resting order information
          */
         private Resting resting;
         /**
-         * 已成交信息
+         * Filled order information
          */
         private Filled filled;
         /**
-         * 错误描述（若有）
+         * Error description (if any)
          */
         private String error;
 
@@ -106,19 +106,19 @@ public class Order {
 
     public static class Filled {
         /**
-         * 成交总数量（字符串）
+         * Total filled quantity (string)
          */
         private String totalSz;
         /**
-         * 成交均价（字符串）
+         * Average filled price (string)
          */
         private String avgPx;
         /**
-         * 订单 ID
+         * Order ID
          */
         private Long oid;
         /**
-         * 客户端订单 ID
+         * Client order ID
          */
         private String cloid;
 
@@ -158,7 +158,7 @@ public class Order {
 
     public static class Data {
         /**
-         * 各订单状态列表
+         * List of order statuses
          */
         private List<Statuses> statuses;
 
@@ -174,11 +174,11 @@ public class Order {
 
     public static class Response {
         /**
-         * 响应类型（如 "order"）
+         * Response type (e.g., "order")
          */
         private String type;
         /**
-         * 订单状态数据
+         * Order status data
          */
         private Data data;
 

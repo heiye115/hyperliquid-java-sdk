@@ -1,8 +1,8 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * 订单类型封装：限价（TIF）与触发（TPSL）可二择一；
- * 若同时存在，仅后端定义的解析行为生效（一般不同时设置）。
+ * Order type wrapper: limit (TIF) and trigger (TPSL) can be chosen alternatively;
+ * If both exist, only the parsing behavior defined by the backend takes effect (generally not set at the same time).
  */
 public class OrderType {
 
@@ -10,10 +10,10 @@ public class OrderType {
     private final TriggerOrderType trigger;
 
     /**
-     * 构造订单类型。
+     * Construct order type.
      *
-     * @param limit   限价单类型（可为 null）
-     * @param trigger 触发单类型（可为 null）
+     * @param limit   limit order type (can be null)
+     * @param trigger trigger order type (can be null)
      */
     public OrderType(LimitOrderType limit, TriggerOrderType trigger) {
         this.limit = limit;
@@ -31,24 +31,24 @@ public class OrderType {
     }
 
     /**
-     * Gtc限价单类型
-     * GTC (Good Till Cancel) ：订单在取消前一直有效，直到被用户手动取消或完全成交。
+     * GTC limit order type
+     * GTC (Good Till Cancel): order remains valid until canceled by user or fully executed.
      **/
     public static OrderType limitByGtc() {
         return new OrderType(new LimitOrderType(Tif.GTC));
     }
 
     /**
-     * Alo限价单类型
-     * ALO (Add Liquidity Only)：仅添加流动性，若会立即成交则取消。
+     * ALO limit order type
+     * ALO (Add Liquidity Only): only add liquidity, cancel if it would execute immediately.
      **/
     public static OrderType limitByAlo() {
         return new OrderType(new LimitOrderType(Tif.ALO));
     }
 
     /**
-     * Ioc限价单类型
-     * IOC (Immediate Or Cancel) ：订单要求立即全部或部分成交，未成交部分将被取消。
+     * IOC limit order type
+     * IOC (Immediate Or Cancel): order requires immediate full or partial execution, unexecuted portion will be canceled.
      **/
     public static OrderType limitByIoc() {
         return new OrderType(new LimitOrderType(Tif.IOC));
@@ -60,18 +60,18 @@ public class OrderType {
 
 
     /**
-     * 获取限价单类型。
+     * Get limit order type.
      *
-     * @return 限价单类型（可能为 null）
+     * @return limit order type (may be null)
      */
     public LimitOrderType getLimit() {
         return limit;
     }
 
     /**
-     * 获取触发单类型。
+     * Get trigger order type.
      *
-     * @return 触发单类型（可能为 null）
+     * @return trigger order type (may be null)
      */
     public TriggerOrderType getTrigger() {
         return trigger;

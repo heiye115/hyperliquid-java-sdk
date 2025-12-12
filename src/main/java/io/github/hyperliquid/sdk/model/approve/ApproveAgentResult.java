@@ -3,31 +3,31 @@ package io.github.hyperliquid.sdk.model.approve;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * ApproveAgentResult 封装 approveAgent 的返回值：
- * - response: 服务端 /exchange 的 JSON 响应；
- * - agentPrivateKey: 新生成的 Agent 私钥（0x 前缀十六进制字符串）；
- * - agentAddress: 新生成的 Agent 地址（0x 前缀十六进制字符串）。
+ * ApproveAgentResult wraps the return value of approveAgent:
+ * - response: server /exchange JSON response;
+ * - agentPrivateKey: newly generated Agent private key (0x prefix hexadecimal string);
+ * - agentAddress: newly generated Agent address (0x prefix hexadecimal string).
  */
 public class ApproveAgentResult {
 
-    /** 服务端响应 JSON
+    /** Server response JSON
      */
     private final JsonNode response;
 
-    /** 新生成的 Agent 私钥（0x 前缀）
+    /** Newly generated Agent private key (0x prefix)
      */
     private final String agentPrivateKey;
 
-    /** 新生成的 Agent 地址（0x 前缀）
+    /** Newly generated Agent address (0x prefix)
      */
     private final String agentAddress;
 
     /**
-     * 构造结果对象。
+     * Construct result object.
      *
-     * @param response        服务端响应 JSON
-     * @param agentPrivateKey 新生成的 Agent 私钥（0x 前缀）
-     * @param agentAddress    新生成的 Agent 地址（0x 前缀）
+     * @param response        server response JSON
+     * @param agentPrivateKey newly generated Agent private key (0x prefix)
+     * @param agentAddress    newly generated Agent address (0x prefix)
      */
     public ApproveAgentResult(JsonNode response, String agentPrivateKey, String agentAddress) {
         this.response = response;

@@ -4,21 +4,21 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/** 市场元数据（类型化） */
+/** Market metadata (typed) */
 public class MetaInfo {
-    /** 支持交易的资产集合 */
+    /** List of supported trading assets */
     @JsonProperty("universe")
     private List<UniverseElement> universe;
 
-    /** 保证金表集合（类型化） */
+    /** Margin table collection (typed) */
     @JsonProperty("marginTables")
     private List<MarginTableEntry> marginTables;
 
-    /** 抵押品 Token 的整数 ID */
+    /** Integer ID of collateral token */
     @JsonProperty("collateralToken")
     private Integer collateralToken;
 
-    /** 无参构造函数 */
+    /** No-argument constructor */
     public MetaInfo() {
     }
 

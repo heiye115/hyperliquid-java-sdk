@@ -1,3 +1,4 @@
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
@@ -53,7 +54,7 @@ public class ExampleBulkOrders {
         try {
             JsonNode result = ex.bulkOrders(openOrders);
             System.out.println("Bulk open result: " + JSONUtil.writeValueAsString(result));
-        } catch (HypeError e) {
+        } catch (HypeError | JsonProcessingException e) {
             System.err.println("Bulk open failed: " + e.getMessage());
         }
 
@@ -67,7 +68,7 @@ public class ExampleBulkOrders {
         try {
             JsonNode result = ex.bulkOrders(closeOrders);
             System.out.println("Bulk close result: " + JSONUtil.writeValueAsString(result));
-        } catch (HypeError e) {
+        } catch (HypeError | JsonProcessingException e) {
             System.err.println("Bulk close failed: " + e.getMessage());
         }
     }

@@ -9,40 +9,40 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 用户成交实体封装。
+ * User trade entity wrapper.
  *
- * <p>说明：官方返回字段在不同接口与版本可能存在差异，同时为 SDK 使用者保留完整信息。</p>
+ * <p>Note: Official return fields may vary across different interfaces and versions, while preserving complete information for SDK users.</p>
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Fill {
 
     /**
-     * 成交时间戳（毫秒）
+     * Execution timestamp (milliseconds)
      */
     private Long time;
     /**
-     * 币种 ID（perp/spot，若服务端返回为整数 ID）
+     * Currency ID (perp/spot, if server returns as integer ID)
      */
     private Integer coin;
     /**
-     * 币种名称（若服务端返回为字符串名称，如 "AVAX"）
+     * Currency name (if server returns as string name, e.g., "AVAX")
      */
     private String coinName;
     /**
-     * 买入为 true，卖出为 false
+     * true for buy, false for sell
      */
     private Boolean isBuy;
     /**
-     * 成交数量
+     * Execution quantity
      */
     private Double size;
     /**
-     * 成交价格
+     * Execution price
      */
     private Double price;
 
     /**
-     * 额外字段容器（用于兼容不同返回结构）
+     * Extra fields container (for compatibility with different return structures)
      */
     private Map<String, Object> extensions = new HashMap<>();
 
@@ -107,7 +107,7 @@ public class Fill {
     }
 
     /**
-     * Builder 构建器，便于友好创建。
+     * Builder builder, for friendly creation.
      */
     public static class Builder {
         private final Fill f = new Fill();
@@ -153,9 +153,9 @@ public class Fill {
     }
 
     /**
-     * 兼容性 coin 映射：同时支持整数 ID 与字符串名称。
+     * Compatibility coin mapping: supports both integer ID and string name.
      *
-     * @param value 服务端返回的 coin 字段值（可能为数字或字符串）
+     * @param value server returned coin field value (may be number or string)
      */
     @JsonSetter("coin")
     public void setCoinFlexible(Object value) {
@@ -168,7 +168,7 @@ public class Fill {
             this.coin = ((Number) value).intValue();
             this.coinName = null;
         } else {
-            // 兼容字符串与其他类型
+            // Compatible with string and other types
             this.coin = null;
             this.coinName = String.valueOf(value);
         }

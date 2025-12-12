@@ -68,10 +68,10 @@ public class ExampleComprehensive {
         L2Book book = info.l2Book("ETH");
         if (book != null && book.getLevels() != null && !book.getLevels().isEmpty()) {
             System.out.println("ETH Order Book:");
-            System.out.println("  Best bid price: " + book.getLevels().get(0).get(0).getPx());
-            System.out.println("  Best bid size: " + book.getLevels().get(0).get(0).getSz());
-            System.out.println("  Best ask price: " + book.getLevels().get(1).get(0).getPx());
-            System.out.println("  Best ask size: " + book.getLevels().get(1).get(0).getSz());
+            System.out.println("  Best bid price: " + book.getLevels().get(0).getFirst().getPx());
+            System.out.println("  Best bid size: " + book.getLevels().get(0).getFirst().getSz());
+            System.out.println("  Best ask price: " + book.getLevels().get(1).getFirst().getPx());
+            System.out.println("  Best ask size: " + book.getLevels().get(1).getFirst().getSz());
         }
 
         // Query account state
@@ -131,7 +131,7 @@ public class ExampleComprehensive {
         System.out.println("\n--- 7. Partial Close Example ---");
         try {
             // Close 0.005 ETH at market (partial close, 3% custom slippage)
-            Order partialClose = exchange.closePositionMarket("ETH", 0.005, 0.03, Cloid.auto());
+            Order partialClose = exchange.closePositionMarket("ETH", "0.005", "0.03", Cloid.auto());
             System.out.println("Partial close order status: " + partialClose.getStatus());
         } catch (HypeError e) {
             System.err.println("Partial close failed: " + e.getMessage());

@@ -3,22 +3,22 @@ package io.github.hyperliquid.sdk.model.wallet;
 import org.web3j.crypto.Credentials;
 
 /**
- * API 钱包
+ * API wallet
  **/
 public class ApiWallet {
 
     /**
-     * 主钱包地址（Primary Wallet Address）
+     * Primary wallet address (Primary Wallet Address)
      */
     private String primaryWalletAddress;
 
     /**
-     * API 钱包对应的私钥（用于签名交易请求）
+     * API wallet corresponding private key (used for signing transaction requests)
      */
     private String apiWalletPrivateKey;
 
     /**
-     * 凭证
+     * Credentials
      **/
     private Credentials credentials;
 

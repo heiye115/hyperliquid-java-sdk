@@ -1,17 +1,17 @@
 package io.github.hyperliquid.sdk.utils;
 
 /**
- * 常量定义，包含主网、测试网与本地环境的 API 地址。
+ * Constant definitions, containing API addresses for mainnet, testnet, and local environments.
  */
 public final class Constants {
 
     /**
-     * 主网 API 根地址
+     * Mainnet API root URL
      */
     public static final String MAINNET_API_URL = "https://api.hyperliquid.xyz";
 
     /**
-     * 测试网 API 根地址
+     * Testnet API root URL
      */
     public static final String TESTNET_API_URL = "https://api.hyperliquid-testnet.xyz";
 

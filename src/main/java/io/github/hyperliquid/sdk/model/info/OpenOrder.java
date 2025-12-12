@@ -3,33 +3,33 @@ package io.github.hyperliquid.sdk.model.info;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
- * openOrders 返回的未成交订单实体。
+ * openOrders returned unexecuted order entity.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class OpenOrder {
 
     /**
-     * 币种名称或 Spot 索引（如 "BTC"、"@107"）
+     * Currency name or Spot index (e.g., "BTC", "@107")
      */
     private String coin;
     /**
-     * 限价，字符串形式，例如 "29792.0"
+     * Limit price, string format, e.g., "29792.0"
      */
     private String limitPx;
     /**
-     * 订单 ID
+     * Order ID
      */
     private Long oid;
     /**
-     * 方向字符串（例如 "A"/"B"、或 "Buy"/"Sell" 等，多端可能不同），保持原样
+     * Direction string (e.g., "A"/"B", or "Buy"/"Sell", etc., may vary across platforms), keep as is
      */
     private String side;
     /**
-     * 订单数量，字符串形式
+     * Order quantity, string format
      */
     private String sz;
     /**
-     * 创建时间戳（毫秒）
+     * Creation timestamp (milliseconds)
      */
     private Long timestamp;
 

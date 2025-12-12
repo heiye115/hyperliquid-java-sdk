@@ -1,17 +1,17 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * 限价单类型（TIF 策略）：
- * - Gtc：直到取消前有效；
- * - Alo：仅添加流动性（Post Only）；
- * - Ioc：立即成交或取消。
+ * Limit order type (TIF strategy):
+ * - Gtc: valid until canceled;
+ * - Alo: add liquidity only (Post Only);
+ * - Ioc: immediate or cancel.
  */
 public class LimitOrderType {
 
     private final Tif tif;
 
     /**
-     * 构造限价单类型。
+     * Construct limit order type.
      */
     public LimitOrderType(Tif tif) {
         if (tif == null) {
@@ -21,9 +21,9 @@ public class LimitOrderType {
     }
 
     /**
-     * 获取TIF策略。
+     * Get TIF strategy.
      *
-     * @return TIF策略
+     * @return TIF strategy
      */
     public Tif getTif() {
         return tif;

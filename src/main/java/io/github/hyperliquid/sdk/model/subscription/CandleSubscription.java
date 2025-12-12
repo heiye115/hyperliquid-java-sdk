@@ -5,9 +5,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Locale;
 
 /**
- * K 线订阅。
+ * Candle subscription.
  * <p>
- * 订阅指定币种和时间周期的 K 线数据，包括开高低收和成交量。
+ * Subscribe to candle data for specified currency and time period, including open, high, low, close, and volume.
  * </p>
  */
 public class CandleSubscription extends Subscription {
@@ -22,16 +22,16 @@ public class CandleSubscription extends Subscription {
     private String interval;
     
     /**
-     * 构造 K 线订阅（无参构造，用于 Jackson 反序列化）。
+     * Construct candle subscription (no-argument constructor, used for Jackson deserialization).
      */
     public CandleSubscription() {
     }
     
     /**
-     * 构造 K 线订阅。
+     * Construct candle subscription.
      *
-     * @param coin     币种名称（如 "BTC"、"ETH"）或资产 ID
-     * @param interval 时间周期（如 "1m"、"5m"、"15m"、"1h"、"1d"）
+     * @param coin     currency name (e.g., "BTC", "ETH") or asset ID
+     * @param interval time period (e.g., "1m", "5m", "15m", "1h", "1d")
      */
     public CandleSubscription(String coin, String interval) {
         this.coin = coin;
@@ -39,11 +39,11 @@ public class CandleSubscription extends Subscription {
     }
     
     /**
-     * 静态工厂方法：创建 K 线订阅。
+     * Static factory method: create candle subscription.
      *
-     * @param coin     币种名称（如 "BTC"、"ETH"）
-     * @param interval 时间周期（如 "1m"、"5m"、"15m"、"1h"、"1d"）
-     * @return CandleSubscription 实例
+     * @param coin     currency name (e.g., "BTC", "ETH")
+     * @param interval time period (e.g., "1m", "5m", "15m", "1h", "1d")
+     * @return CandleSubscription instance
      */
     public static CandleSubscription of(String coin, String interval) {
         return new CandleSubscription(coin, interval);

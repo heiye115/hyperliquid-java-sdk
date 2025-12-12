@@ -3,10 +3,10 @@ package io.github.hyperliquid.sdk.model.subscription;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * 用户事件订阅。
+ * User events subscription.
  * <p>
- * 订阅当前用户的所有交易事件，包括订单状态变化、成交通知等。
- * 该订阅不需要指定用户地址，自动使用当前登录用户。
+ * Subscribe to all trading events of the current user, including order status changes, trade notifications, etc.
+ * This subscription does not require specifying a user address, automatically uses the currently logged-in user.
  * </p>
  */
 public class UserEventsSubscription extends Subscription {
@@ -15,15 +15,15 @@ public class UserEventsSubscription extends Subscription {
     private final String type = "userEvents";
     
     /**
-     * 构造用户事件订阅。
+     * Construct user events subscription.
      */
     public UserEventsSubscription() {
     }
     
     /**
-     * 静态工厂方法：创建用户事件订阅。
+     * Static factory method: create user events subscription.
      *
-     * @return UserEventsSubscription 实例
+     * @return UserEventsSubscription instance
      */
     public static UserEventsSubscription create() {
         return new UserEventsSubscription();

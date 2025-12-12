@@ -10,17 +10,17 @@ import io.github.hyperliquid.sdk.utils.JSONUtil;
 import org.junit.jupiter.api.Test;
 
 /**
- * 订单下单与平仓逻辑综合测试。
+ * Comprehensive test for order placement and closing logic.
  */
 public class OrderTest {
 
     /**
-     * 私钥（测试网）
+     * Private key (testnet)
      */
     String privateKey = "your_private_key_here";
 
     /**
-     * 统一客户端（测试网 + 启用调试日志）
+     * Unified client (testnet + enable debug logging)
      */
     HyperliquidClient client = HyperliquidClient.builder()
             .testNetUrl()
@@ -28,7 +28,7 @@ public class OrderTest {
             .build();
 
     /**
-     * 市价下单
+     * Market order placement
      **/
     @Test
     public void testMarketOrder() throws JsonProcessingException {
@@ -38,7 +38,7 @@ public class OrderTest {
     }
 
     /**
-     * 市价平仓
+     * Market close position
      **/
     @Test
     public void testMarketCloseOrder() {
@@ -48,7 +48,7 @@ public class OrderTest {
     }
 
     /**
-     * 全部市价平仓
+     * Close all positions at market price
      **/
     @Test
     public void testMarketCloseAllOrder() {
@@ -57,7 +57,7 @@ public class OrderTest {
     }
 
     /**
-     * 限价下单
+     * Limit order placement
      **/
     @Test
     public void testLimitOrder() {
@@ -67,7 +67,7 @@ public class OrderTest {
     }
 
     /**
-     * 限价平仓
+     * Limit close position
      **/
     @Test
     public void testLimitCloseOrder() {
@@ -77,7 +77,7 @@ public class OrderTest {
     }
 
     /**
-     * 全部限价平仓
+     * Close all positions at limit price
      **/
     @Test
     public void testLimitCloseAllOrder() {
@@ -110,7 +110,7 @@ public class OrderTest {
     }
 
     /**
-     * 测试止损平仓
+     * Test stop loss close position
      */
     @Test
     public void testStopLoss() throws JsonProcessingException {
@@ -120,7 +120,7 @@ public class OrderTest {
     }
 
     /**
-     * 测试止盈平仓
+     * Test take profit close position
      */
     @Test
     public void testTakeProfit() throws JsonProcessingException {

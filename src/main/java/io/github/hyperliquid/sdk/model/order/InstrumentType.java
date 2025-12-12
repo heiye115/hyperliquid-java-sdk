@@ -1,16 +1,16 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * 交易品种类型
+ * Trading instrument type
  */
 public enum InstrumentType {
     /**
-     * 永续合约
+     * Perpetual contract
      */
     PERP,
 
     /**
-     * 现货
+     * Spot
      */
     SPOT
 }

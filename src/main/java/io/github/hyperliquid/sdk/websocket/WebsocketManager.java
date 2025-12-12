@@ -15,175 +15,175 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * WebSocket 管理器。
- * 管理连接、订阅、心跳与消息分发。
+ * WebSocket Manager.
+ * Manages connections, subscriptions, heartbeats, and message distribution.
  */
 public class WebsocketManager {
 
     /**
-     * 日志记录器
+     * Logger
      */
     private static final Logger LOG = Logger.getLogger(WebsocketManager.class.getName());
 
     /**
-     * 原始 API 根地址（http/https），用于网络可用性探测
+     * Original API root URL (http/https), used for network availability detection
      */
     private final String baseUrl;
     /**
-     * WebSocket 连接地址（从 baseUrl 推导）
+     * WebSocket connection URL (derived from baseUrl)
      */
     private final String wsUrl;
     /**
-     * 网络探测地址（可选，设置后覆盖 baseUrl 进行探测）
+     * Network detection URL (optional, overrides baseUrl for detection if set)
      */
     private String probeUrl;
     /**
-     * 是否禁用网络探测（禁用后视为始终可用）
+     * Whether to disable network detection (considered always available if disabled)
      */
     private boolean probeDisabled = false;
     /**
-     * WebSocket 主客户端（用于建立与管理 WS 连接）
+     * WebSocket main client (used to establish and manage WS connections)
      */
     private final OkHttpClient client;
     /**
-     * 当前 WebSocket 连接实例
+     * Current WebSocket connection instance
      */
     private WebSocket webSocket;
     /**
-     * 是否已停止管理器（停止后不再进行重连）
+     * Whether the manager has been stopped (no reconnection after stop)
      */
     private volatile boolean stopped = false;
     /**
-     * 当前连接是否已建立
+     * Whether the current connection is established
      */
     private volatile boolean connected = false;
 
     /**
-     * 已尝试的重连次数
+     * Number of reconnection attempts made
      */
     private int reconnectAttempts = 0;
     /**
-     * 当前重连延迟毫秒数（指数退避）初始 1s（可配置）
+     * Current reconnection delay in milliseconds (exponential backoff), initial 1s (configurable)
      */
     private long backoffMs = 1_000L;
     /**
-     * 初始重连延迟毫秒（连接成功后会重置为该值）
+     * Initial reconnection delay in milliseconds (reset to this value after successful connection)
      */
     private long initialBackoffMs = backoffMs;
     /**
-     * 内部最大退避上限毫秒（固定 30s）
+     * Internal maximum backoff limit in milliseconds (fixed at 30s)
      */
     private final long maxBackoffMs = 30_000L;
     /**
-     * 外部配置的最大退避上限毫秒（不超过内部上限）
+     * Externally configured maximum backoff limit in milliseconds (does not exceed internal limit)
      */
     private long configMaxBackoffMs = maxBackoffMs;
     /**
-     * 计划中的重连任务引用
+     * Reference to scheduled reconnection task
      */
     private volatile ScheduledFuture<?> reconnectFuture;
 
 
     /**
-     * 当前网络探测状态（true 表示可用）
+     * Current network detection status (true means available)
      */
     private volatile boolean networkAvailable = true;
     /**
-     * 网络状态检查的间隔秒数（默认 5 秒）
+     * Network status check interval in seconds (default 5 seconds)
      */
     private int networkCheckIntervalSeconds = 5;
     /**
-     * 网络监控任务引用（断线时周期探测）
+     * Network monitoring task reference (periodic detection when disconnected)
      */
     private volatile ScheduledFuture<?> networkMonitorFuture;
     /**
-     * 网络探测用轻量 HTTP 客户端（短超时）
+     * Lightweight HTTP client for network detection (short timeout)
      */
     private final OkHttpClient networkClient;
 
     /**
-     * 活跃订阅集合，按标识符分组存储并去重
+     * Active subscription collection, stored and deduplicated by identifier
      */
     private final Map<String, List<ActiveSubscription>> subscriptions = new ConcurrentHashMap<>();
     /**
-     * 标识符缓存（优化字符串拼接性能）
+     * Identifier cache (optimizes string concatenation performance)
      */
     private final Map<String, String> identifierCache = new ConcurrentHashMap<>();
     /**
-     * 定时任务调度器（用于心跳、重连与网络监控）
+     * Scheduled task scheduler (used for heartbeats, reconnection, and network monitoring)
      */
     private final ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1);
 
     /**
-     * 连接状态监听器：用于通知连接、断开、重连与网络状态变化。
+     * Connection status listener: used to notify connection, disconnection, reconnection, and network status changes.
      */
     public interface ConnectionListener {
         /**
-         * 正在建立连接（包含重连过程）
+         * Connection is being established (includes reconnection process)
          */
         void onConnecting(String url);
 
         /**
-         * 连接已建立
+         * Connection established
          */
         void onConnected(String url);
 
         /**
-         * 连接断开（code/reason/cause 可能为空）
+         * Connection disconnected (code/reason/cause may be null)
          */
         void onDisconnected(String url, int code, String reason, Throwable cause);
 
         /**
-         * 进入重连：attempt 为本次尝试序号（从 1 开始），nextDelayMs 为下一次尝试的延迟毫秒数
+         * Entering reconnection: attempt is the attempt number (starting from 1), nextDelayMs is the delay in milliseconds for the next attempt
          */
         void onReconnecting(String url, int attempt, long nextDelayMs);
 
         /**
-         * 重连失败：超过最大次数
+         * Reconnection failed: exceeded maximum attempts
          */
         void onReconnectFailed(String url, int attempted, Throwable lastError);
 
         /**
-         * 网络不可用
+         * Network unavailable
          */
         void onNetworkUnavailable(String url);
 
         /**
-         * 网络恢复可用
+         * Network recovered
          */
         void onNetworkAvailable(String url);
     }
 
     /**
-     * 连接监听器集合（线程安全）
+     * Connection listener collection (thread-safe)
      */
     private final List<ConnectionListener> connectionListeners = Collections.synchronizedList(new ArrayList<>());
 
     /**
-     * 回调接口
+     * Callback interface
      */
     public interface MessageCallback {
         void onMessage(JsonNode msg);
     }
 
     /**
-     * 回调异常监听接口。
-     * 当用户回调抛出异常时，框架会捕获并通知此监听器。
+     * Callback exception listener interface.
+     * When user callbacks throw exceptions, the framework captures and notifies this listener.
      */
     public interface CallbackErrorListener {
         /**
-         * 用户回调抛出异常时触发。
+         * Triggered when user callback throws an exception.
          *
-         * @param url        当前 WebSocket URL
-         * @param identifier 订阅标识符（由 subscriptionToIdentifier/wsMsgToIdentifier 生成）
-         * @param message    导致异常的消息（原始 JSON）
-         * @param error      异常对象
+         * @param url        Current WebSocket URL
+         * @param identifier Subscription identifier (generated by subscriptionToIdentifier/wsMsgToIdentifier)
+         * @param message    Message that caused the exception (raw JSON)
+         * @param error      Exception object
          */
         void onCallbackError(String url, String identifier, JsonNode message, Throwable error);
     }
 
     /**
-     * 活跃订阅记录
+     * Active subscription record
      */
     public static class ActiveSubscription {
         public final JsonNode subscription;
@@ -196,14 +196,14 @@ public class WebsocketManager {
     }
 
     /**
-     * 回调异常监听器集合（线程安全）
+     * Callback exception listener collection (thread-safe)
      */
     private final List<CallbackErrorListener> callbackErrorListeners = Collections.synchronizedList(new ArrayList<>());
 
     /**
-     * 构造 WebSocket 管理器。
+     * Construct WebSocket manager.
      *
-     * @param baseUrl API 根地址（http/https），会自动转换为 ws/wss
+     * @param baseUrl API root URL (http/https), automatically converted to ws/wss
      */
     public WebsocketManager(String baseUrl) {
         this.baseUrl = baseUrl;
@@ -213,9 +213,9 @@ public class WebsocketManager {
         this.probeUrl = null;
         this.client = new OkHttpClient.Builder()
                 .pingInterval(Duration.ofSeconds(20))
-                .readTimeout(Duration.ofSeconds(0)) // WebSocket 不设 readTimeout
+                .readTimeout(Duration.ofSeconds(0)) // WebSocket does not set readTimeout
                 .build();
-        // 用于网络连通性检查的轻量客户端（短超时）
+        // Lightweight client for network connectivity check (short timeout)
         this.networkClient = new OkHttpClient.Builder()
                 .connectTimeout(Duration.ofSeconds(3))
                 .readTimeout(Duration.ofSeconds(3))
@@ -226,8 +226,8 @@ public class WebsocketManager {
     }
 
     /**
-     * 建立（或重建）WebSocket 连接。
-     * 会在 onOpen 中自动重新发送所有订阅。
+     * Establish (or re-establish) WebSocket connection.
+     * Will automatically resend all subscriptions in onOpen.
      */
     private void connect() {
         notifyConnecting();
@@ -240,7 +240,7 @@ public class WebsocketManager {
                 backoffMs = initialBackoffMs;
                 stopNetworkMonitor();
                 notifyConnected();
-                // 重新订阅
+                // Re-subscribe
                 for (List<ActiveSubscription> list : subscriptions.values()) {
                     for (ActiveSubscription sub : list) {
                         sendSubscribe(sub.subscription);
@@ -258,8 +258,8 @@ public class WebsocketManager {
                             try {
                                 sub.callback.onMessage(msg);
                             } catch (Exception cbEx) {
-                                // 记录日志并触发异常监听器，不影响其他订阅回调
-                                LOG.log(Level.WARNING, "WebSocket 回调异常，identifier=" + identifier, cbEx);
+                                // Log and trigger exception listener, does not affect other subscription callbacks
+                                LOG.log(Level.WARNING, "WebSocket callback exception, identifier=" + identifier, cbEx);
                                 notifyCallbackError(identifier, msg, cbEx);
                             }
                         }
@@ -304,7 +304,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 发送 ping 消息（内部方法，由定时器自动调用）
+     * Send ping message (internal method, automatically called by timer)
      */
     private void sendPing() {
         if (webSocket != null && connected) {
@@ -317,16 +317,16 @@ public class WebsocketManager {
     }
 
     /**
-     * 停止并关闭连接
+     * Stop and close connection
      */
     public void stop() {
         stopped = true;
 
-        // 先取消所有计划任务
+        // Cancel all scheduled tasks first
         cancelTask(reconnectFuture);
         cancelTask(networkMonitorFuture);
 
-        // 关闭 WebSocket 连接
+        // Close WebSocket connection
         if (webSocket != null) {
             try {
                 webSocket.close(1000, "stop");
@@ -335,7 +335,7 @@ public class WebsocketManager {
             webSocket = null;
         }
 
-        // 优雅关闭调度器
+        // Gracefully shut down scheduler
         try {
             scheduler.shutdown();
             if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
@@ -346,7 +346,7 @@ public class WebsocketManager {
             Thread.currentThread().interrupt();
         }
 
-        // 关闭 OkHttpClient 资源（释放连接池和线程池）
+        // Close OkHttpClient resources (release connection pool and thread pool)
         try {
             client.dispatcher().executorService().shutdown();
             client.connectionPool().evictAll();
@@ -361,13 +361,13 @@ public class WebsocketManager {
     }
 
     /**
-     * 安排一次重连尝试（带指数退避，无限重试直到成功）。
-     * 初始 1s，最大 30s，无限重试；同时启动网络监控，当网络恢复时将立即触发一次重连。
+     * Schedule a reconnection attempt (with exponential backoff, unlimited retries until success).
+     * Initial 1s, maximum 30s, unlimited retries; also starts network monitoring, triggers immediate reconnection when network recovers.
      */
     private synchronized void scheduleReconnect(Throwable cause, Integer code, String reason) {
         if (stopped)
             return;
-        // 保守地关闭旧连接资源
+        // Conservatively close old connection resources
         if (webSocket != null) {
             try {
                 webSocket.close(1001, "reconnect");
@@ -376,7 +376,7 @@ public class WebsocketManager {
             webSocket = null;
         }
 
-        long nextDelay = backoffMs + (long) (Math.random() * 250L); // 少量抖动
+        long nextDelay = backoffMs + (long) (Math.random() * 250L); // Small jitter
         notifyReconnecting(reconnectAttempts + 1, nextDelay);
 
         cancelTask(reconnectFuture);
@@ -387,14 +387,14 @@ public class WebsocketManager {
         }, nextDelay, TimeUnit.MILLISECONDS);
 
         reconnectAttempts++;
-        // 退避增长受两层上限约束：内部上限与外部配置上限
+        // Backoff growth is constrained by two limits: internal limit and external configuration limit
         backoffMs = Math.min(Math.min(maxBackoffMs, configMaxBackoffMs), backoffMs * 2);
 
         startNetworkMonitor();
     }
 
     /**
-     * 启动网络状态监控（仅在断线时运行）
+     * Start network status monitoring (only runs when disconnected)
      */
     private synchronized void startNetworkMonitor() {
         if (networkMonitorFuture != null && !networkMonitorFuture.isCancelled())
@@ -406,10 +406,10 @@ public class WebsocketManager {
                     networkAvailable = true;
                     notifyNetworkAvailable();
                 }
-                // 网络可用且当前未连接：尝试快速重连（重置退避与次数）
+                // Network available and currently not connected: attempt quick reconnection (reset backoff and count)
                 if (!connected && !stopped) {
                     backoffMs = initialBackoffMs;
-                    // 网络恢复后重置计数器，允许重新开始重连尝试
+                    // Reset counter after network recovery, allowing reconnection attempts to restart
                     reconnectAttempts = 0;
                     cancelTask(reconnectFuture);
                     notifyReconnecting(1, 0);
@@ -425,18 +425,18 @@ public class WebsocketManager {
     }
 
     /**
-     * 停止网络状态监控
+     * Stop network status monitoring
      */
     private synchronized void stopNetworkMonitor() {
         if (networkMonitorFuture != null) {
             networkMonitorFuture.cancel(false);
             networkMonitorFuture = null;
         }
-        networkAvailable = true; // 停止监控时默认视为可用
+        networkAvailable = true; // Consider available by default when stopping monitoring
     }
 
     /**
-     * 增强的网络可用性探测：HEAD 请求 baseUrl，允许 2xx/3xx，支持重试
+     * Enhanced network availability detection: HEAD request to baseUrl, allows 2xx/3xx, supports retry
      */
     private boolean isNetworkAvailable() {
         if (probeDisabled) {
@@ -455,12 +455,12 @@ public class WebsocketManager {
                     }
                 }
             } catch (Exception e) {
-                // 最后一次尝试失败才返回 false
+                // Only return false on the last attempt failure
                 if (attempt == maxRetries - 1) {
-                    LOG.log(Level.FINE, "网络探测失败，已重试 " + maxRetries + " 次", e);
+                    LOG.log(Level.FINE, "Network detection failed, retried " + maxRetries + " times", e);
                     return false;
                 }
-                // 非最后一次尝试，等待后重试
+                // Not the last attempt, wait and retry
                 try {
                     Thread.sleep(retryDelayMs);
                 } catch (InterruptedException ie) {
@@ -481,7 +481,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 添加连接状态监听器
+     * Add connection status listener
      */
     public void addConnectionListener(ConnectionListener l) {
         if (l != null)
@@ -489,7 +489,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 移除连接状态监听器
+     * Remove connection status listener
      */
     public void removeConnectionListener(ConnectionListener l) {
         if (l != null)
@@ -497,7 +497,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 添加回调异常监听器
+     * Add callback exception listener
      */
     public void addCallbackErrorListener(CallbackErrorListener l) {
         if (l != null)
@@ -505,7 +505,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 移除回调异常监听器
+     * Remove callback exception listener
      */
     public void removeCallbackErrorListener(CallbackErrorListener l) {
         if (l != null)
@@ -513,17 +513,17 @@ public class WebsocketManager {
     }
 
     /**
-     * 设置网络监控检查间隔秒数（默认 5）
+     * Set network monitoring check interval in seconds (default 5)
      */
     public void setNetworkCheckIntervalSeconds(int seconds) {
         this.networkCheckIntervalSeconds = Math.max(1, seconds);
     }
 
     /**
-     * 设置重连指数退避参数。
+     * Set reconnection exponential backoff parameters.
      *
-     * @param initialMs 初始重连延迟毫秒（建议 500ms~2000ms）
-     * @param maxMs     最大重连延迟毫秒（建议不超过 30000ms）
+     * @param initialMs Initial reconnection delay in milliseconds (recommended 500ms~2000ms)
+     * @param maxMs     Maximum reconnection delay in milliseconds (recommended not to exceed 30000ms)
      */
     public void setReconnectBackoffMs(long initialMs, long maxMs) {
         long init = Math.max(100, initialMs);
@@ -534,7 +534,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 安全取消定时任务
+     * Safely cancel scheduled task
      */
     private void cancelTask(ScheduledFuture<?> future) {
         if (future != null && !future.isCancelled()) {
@@ -543,7 +543,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 通用监听器通知方法（防御式，单个监听异常不影响其它监听）
+     * Generic listener notification method (defensive, single listener exception does not affect others)
      */
     private <T> void notifyListeners(List<T> listeners, java.util.function.Consumer<T> action) {
         synchronized (listeners) {
@@ -556,7 +556,7 @@ public class WebsocketManager {
         }
     }
 
-    // 监听器通知封装（使用通用方法减少重复代码）
+    // Listener notification wrapper (use generic method to reduce duplicate code)
     private void notifyConnecting() {
         notifyListeners(connectionListeners, l -> l.onConnecting(wsUrl));
     }
@@ -586,17 +586,17 @@ public class WebsocketManager {
     }
 
     /**
-     * 通知：用户回调异常
+     * Notify: user callback exception
      */
     private void notifyCallbackError(String identifier, JsonNode msg, Throwable error) {
         notifyListeners(callbackErrorListeners, l -> l.onCallbackError(wsUrl, identifier, msg, error));
     }
 
     /**
-     * 订阅消息（类型安全版本，使用 Subscription 实体类）。
+     * Subscribe to messages (type-safe version, using Subscription entity class).
      *
-     * @param subscription 订阅对象（Subscription 实体类）
-     * @param callback     回调
+     * @param subscription Subscription object (Subscription entity class)
+     * @param callback     Callback
      */
     public void subscribe(Subscription subscription, MessageCallback callback) {
         if (stopped) {
@@ -609,16 +609,16 @@ public class WebsocketManager {
             throw new IllegalArgumentException("callback cannot be null");
         }
 
-        // 将 Subscription 对象转换为 JsonNode
+        // Convert Subscription object to JsonNode
         JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
         subscribe(jsonNode, callback);
     }
 
     /**
-     * 订阅消息（兼容版本，使用 JsonNode）。
+     * Subscribe to messages (compatible version, using JsonNode).
      *
-     * @param subscription 订阅对象
-     * @param callback     回调
+     * @param subscription Subscription object
+     * @param callback     Callback
      */
     public void subscribe(JsonNode subscription, MessageCallback callback) {
         if (stopped) {
@@ -656,24 +656,24 @@ public class WebsocketManager {
     }
 
     /**
-     * 取消订阅（类型安全版本，使用 Subscription 实体类）。
+     * Unsubscribe (type-safe version, using Subscription entity class).
      *
-     * @param subscription 订阅对象（Subscription 实体类）
+     * @param subscription Subscription object (Subscription entity class)
      */
     public void unsubscribe(Subscription subscription) {
         if (subscription == null) {
             throw new IllegalArgumentException("subscription cannot be null");
         }
 
-        // 将 Subscription 对象转换为 JsonNode
+        // Convert Subscription object to JsonNode
         JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
         unsubscribe(jsonNode);
     }
 
     /**
-     * 取消订阅（兼容版本，使用 JsonNode）。
+     * Unsubscribe (compatible version, using JsonNode).
      *
-     * @param subscription 订阅对象
+     * @param subscription Subscription object
      */
     public void unsubscribe(JsonNode subscription) {
         if (subscription == null) {
@@ -702,16 +702,16 @@ public class WebsocketManager {
     }
 
     /**
-     * 将订阅对象转换为标识符（用于多订阅去重与路由）。
+     * Convert subscription object to identifier (used for subscription deduplication and routing).
      * <p>
-     * 该方法为包级可见，主要供内部使用和单元测试。
-     * 频道标识符约定：
-     * - l2Book:{coin}，trades:{coin}，bbo:{coin}，candle:{coin},{interval}
-     * - userEvents，orderUpdates，allMids
+     * This method is package-visible, mainly for internal use and unit testing.
+     * Channel identifier conventions:
+     * - l2Book:{coin}, trades:{coin}, bbo:{coin}, candle:{coin},{interval}
+     * - userEvents, orderUpdates, allMids
      * -
-     * userFills:{user}，userFundings:{user}，userNonFundingLedgerUpdates:{user}，webData2:{user}
-     * - activeAssetCtx:{coin}，activeAssetData:{coin},{user}
-     * - coin 可为字符串或整数；字符串统一转换为小写。
+     * userFills:{user}, userFundings:{user}, userNonFundingLedgerUpdates:{user}, webData2:{user}
+     * - activeAssetCtx:{coin}, activeAssetData:{coin},{user}
+     * - coin can be string or integer; strings are uniformly converted to lowercase.
      * </p>
      */
     String subscriptionToIdentifier(JsonNode subscription) {
@@ -767,7 +767,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 提取 Coin 标识符（封装重复逻辑）
+     * Extract Coin identifier (encapsulates duplicate logic)
      */
     private String extractCoinIdentifier(JsonNode coinNode) {
         if (coinNode == null) return null;
@@ -777,7 +777,7 @@ public class WebsocketManager {
     }
 
     /**
-     * 构建带缓存的标识符（优化字符串拼接性能）
+     * Build cached identifier (optimizes string concatenation performance)
      */
     private String buildCachedIdentifier(String type, String suffix) {
         if (suffix == null) return type;
@@ -787,10 +787,10 @@ public class WebsocketManager {
     }
 
     /**
-     * 从消息中提取标识符，与 subscriptionToIdentifier 对应。
+     * Extract identifier from message, corresponding to subscriptionToIdentifier.
      * <p>
-     * 该方法为包级可见，主要供内部使用和单元测试。
-     * 兼容两种消息格式：channel 为字符串或对象（{type: ..., ...}）。
+     * This method is package-visible, mainly for internal use and unit testing.
+     * Compatible with two message formats: channel as string or object ({type: ..., ...}).
      * </p>
      */
     String wsMsgToIdentifier(JsonNode msg) {

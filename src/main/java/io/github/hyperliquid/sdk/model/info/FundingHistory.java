@@ -1,27 +1,27 @@
 package io.github.hyperliquid.sdk.model.info;
 
 /***
- * 资金费率历史记录。
+ * Funding rate history.
  **/
 public class FundingHistory {
 
     /**
-     * 币种名称
+     * Currency name
      **/
     private String coin;
 
     /***
-     * 资金费率
+     * Funding rate
      **/
     private String fundingRate;
 
     /***
-     * 溢价率
+     * Premium rate
      **/
     private String premium;
 
     /***
-     * 时间戳（毫秒）
+     * Timestamp (milliseconds)
      **/
     private Long time;
 

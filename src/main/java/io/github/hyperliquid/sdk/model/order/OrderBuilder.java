@@ -1,11 +1,11 @@
 package io.github.hyperliquid.sdk.model.order;
 
 /**
- * OrderRequest 构建器，提供链式调用的便捷 API。
+ * OrderRequest builder, providing convenient chain call API.
  * <p>
- * 使用示例：
+ * Usage examples:
  * <pre>
- * // 1. 限价开仓
+ * // 1. Limit order open
  * OrderRequest req = OrderRequest.builder()
  *     .perp("ETH")
  *     .buy(0.1)
@@ -13,103 +13,103 @@ package io.github.hyperliquid.sdk.model.order;
  *     .gtc()
  *     .build();
  *
- * // 2. 市价开仓
+ * // 2. Market order open
  * OrderRequest req = OrderRequest.builder()
  *     .spot("PURR")
  *     .sell(100.0)
  *     .market()
  *     .build();
  *
- * // 3. 条件单：价格向上突破 2950 时买入
+ * // 3. Conditional order: buy when price breaks above 2950
  * OrderRequest req = OrderRequest.builder()
  *     .perp("ETH")
  *     .buy(0.1)
- *     .stopAbove(2950.0)  // 向上突破触发
+ *     .stopAbove(2950.0)  // trigger on upward breakout
  *     .limitPrice(3000.0)
  *     .build();
  *
- * // 4. 条件单：价格向下跌破 3100 时卖出
+ * // 4. Conditional order: sell when price breaks below 3100
  * OrderRequest req = OrderRequest.builder()
  *     .perp("ETH")
  *     .sell(0.1)
- *     .stopBelow(3100.0)  // 向下跌破触发
+ *     .stopBelow(3100.0)  // trigger on downward breakdown
  *     .limitPrice(3050.0)
  *     .build();
  *
- * // 5. 平仓止盈（需要先有多仓）
+ * // 5. Close position take-profit (requires existing long position)
  * OrderRequest req = OrderRequest.builder()
  *     .perp("ETH")
  *     .sell(0.5)
- *     .stopAbove(3600.0)  // 止盈触发价
- *     .marketTrigger()    // 触发后市价成交
+ *     .stopAbove(3600.0)  // take-profit trigger price
+ *     .marketTrigger()    // execute at market price after trigger
  *     .reduceOnly()
  *     .build();
  * </pre>
  */
 public class OrderBuilder {
     /**
-     * 交易品种类型（PERP 或 SPOT）
+     * Instrument type (PERP or SPOT)
      */
     private InstrumentType instrumentType;
 
     /**
-     * 币种名称
+     * Currency name
      */
     private String coin;
 
     /**
-     * 是否买入（true=买/做多，false=卖/做空）
+     * Whether to buy (true=buy/long, false=sell/short)
      */
     private Boolean isBuy;
 
     /**
-     * 下单数量（字符串）
+     * Order quantity (string)
      */
     private String sz;
 
     /**
-     * 限价价格（字符串）
+     * Limit price (string)
      */
     private String limitPx;
 
     /**
-     * 订单类型（限价或触发）
+     * Order type (limit or trigger)
      */
     private OrderType orderType;
 
     /**
-     * 仅减仓标记（默认 false）
+     * Reduce-only flag (default false)
      */
     private Boolean reduceOnly = false;
 
     /**
-     * 客户端订单 ID
+     * Client order ID
      */
     private Cloid cloid;
 
     /**
-     * 市价单滑点比例（字符串）
+     * Market order slippage ratio (string)
      */
     private String slippage;
 
-    // 触发单参数
+    // Trigger order parameters
     /**
-     * 触发价格（字符串）
+     * Trigger price (string)
      */
     private String triggerPx;
 
     /**
-     * 触发后是否以市价执行
+     * Whether to execute at market price after trigger
      */
     private Boolean isMarketTrigger;
 
     /**
-     * 触发方向类型（TP=向上突破，SL=向下跌破）
+     * Trigger direction type (TP=break above, SL=break below)
      */
     private TriggerOrderType.TpslType tpsl;
 
     /**
-     * 订单过期时间（毫秒）
+     * Order expiration time (milliseconds)
      */
     private Long expiresAfter;
 

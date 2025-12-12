@@ -24,22 +24,22 @@ public class HypeHttpClient {
     }
 
     /**
-     * 获取基础URL。
+     * Get base URL.
      *
-     * @return 基础URL
+     * @return Base URL
      */
     public String getBaseUrl() {
         return baseUrl;
     }
 
     /**
-     * 发送 POST 请求到指定路径，并返回 JSON 结果。
+     * Send POST request to specified path and return JSON result.
      *
-     * @param path    相对路径，例如 "/info"、"/exchange"
-     * @param payload JSON 可序列化对象（会被 ObjectMapper 序列化）
-     * @return 返回的 JSON 节点
-     * @throws HypeError.ClientHypeError 当响应为 4xx
-     * @throws HypeError.ServerHypeError 当响应为 5xx
+     * @param path    Relative path, e.g., "/info", "/exchange"
+     * @param payload JSON serializable object (will be serialized by ObjectMapper)
+     * @return Returned JSON node
+     * @throws HypeError.ClientHypeError When response is 4xx
+     * @throws HypeError.ServerHypeError When response is 5xx
      */
     public JsonNode post(String path, Object payload) {
         String url = baseUrl + path;
@@ -80,13 +80,13 @@ public class HypeHttpClient {
     }
 
     /**
-     * 带重试的 POST（可选），仅对 5xx 与网络异常进行重试，4xx 不重试。
-     * 使用指数退避策略：backoff = min(backoff * multiplier, maxBackoff).
+     * POST with retry (optional), only retries for 5xx and network exceptions, 4xx are not retried.
+     * Uses exponential backoff strategy: backoff = min(backoff * multiplier, maxBackoff).
      *
-     * @param path    相对路径，例如 "/info"、"/exchange"
-     * @param payload JSON 可序列化对象
-     * @param policy  重试策略配置
-     * @return 返回的 JSON 节点
+     * @param path    Relative path, e.g., "/info", "/exchange"
+     * @param payload JSON serializable object
+     * @param policy  Retry policy configuration
+     * @return Returned JSON node
      */
     public JsonNode postWithRetry(String path, Object payload, RetryPolicy policy) {
         String url = baseUrl + path;
