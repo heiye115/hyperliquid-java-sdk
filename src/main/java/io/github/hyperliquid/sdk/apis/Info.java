@@ -79,7 +79,7 @@ public class Info {
         if (!skipWs) {
             this.wsManager = new WebsocketManager(baseUrl);
         }
-        // 根据配置初始化缓存
+        // Initialize caches according to the configuration
         Caffeine<Object, Object> metaCacheBuilder = Caffeine.newBuilder()
                 .maximumSize(cacheConfig.getMetaCacheMaxSize())
                 .expireAfterWrite(cacheConfig.getExpireAfterWriteMinutes(), TimeUnit.MINUTES);
@@ -109,18 +109,18 @@ public class Info {
      */
     public Integer nameToAsset(String coinName) {
         String normalizedName = coinName.trim().toUpperCase();
-
-        // 优先从映射缓存查询
+        
+        // Prefer querying from the mapping cache first
         Integer assetId = coinToAssetCache.get(normalizedName);
         if (assetId != null) {
             return assetId;
         }
-
-        // 缓存未命中，从 meta 加载并构建映射
+        
+        // Cache miss; load from meta and build mapping
         Meta meta = loadMetaCache();
         buildCoinMappingCache(meta);
-
-        // 再次查询
+        
+        // Query again
         assetId = coinToAssetCache.get(normalizedName);
         if (assetId == null) {
             throw new HypeError("Unknown currency name:" + normalizedName);
@@ -194,7 +194,7 @@ public class Info {
         String cacheKey = buildMetaCacheKey(dex);
         return metaCache.get(cacheKey, key -> {
             Meta meta = meta(dex);
-            // 加载 meta 后自动构建币种映射缓存
+            // Automatically build coin mapping cache after loading meta
             buildCoinMappingCache(meta);
             return meta;
         });
@@ -209,7 +209,7 @@ public class Info {
     public Meta refreshMetaCache(String dex) {
         String cacheKey = buildMetaCacheKey(dex);
         metaCache.invalidate(cacheKey);
-        // 清空币种映射缓存，强制重建
+        // Clear coin mapping cache to force rebuild
         coinToAssetCache.clear();
         assetToSzDecimalsCache.clear();
         return loadMetaCache(dex);
@@ -290,7 +290,7 @@ public class Info {
      * @throws HypeError Thrown when name does not exist
      */
     public Meta.Universe getMetaUniverse(String coinName) {
-        // 通过 nameToAsset 获取资产 ID（会自动利用缓存）
+        // Get asset ID via nameToAsset (automatically uses cache)
         Integer assetId = nameToAsset(coinName);
         List<Meta.Universe> universe = loadMetaCache().getUniverse();
         if (assetId >= 0 && assetId < universe.size()) {
@@ -311,21 +311,21 @@ public class Info {
      * @throws HypeError Thrown when name does not exist or precision is not defined
      */
     public Integer getSzDecimals(String coinName) {
-        // 通过 nameToAsset 获取资产 ID（会自动利用缓存）
+        // Get asset ID via nameToAsset (automatically uses cache)
         Integer assetId = nameToAsset(coinName);
-        // 优先从精度缓存查询
+        // Prefer querying from the precision cache first
         Integer szDecimals = assetToSzDecimalsCache.get(assetId);
         if (szDecimals != null) {
             return szDecimals;
         }
-        // 缓存未命中，从 meta 加载
+        // Cache miss; load from meta
         Meta.Universe universe = getMetaUniverse(coinName);
         szDecimals = universe.getSzDecimals();
 
         if (szDecimals == null) {
             throw new HypeError("szDecimals not defined for coin: " + coinName);
         }
-        // 更新缓存
+        // Update cache
         assetToSzDecimalsCache.put(assetId, szDecimals);
         return szDecimals;
     }
@@ -419,8 +419,10 @@ public class Info {
      * </p>
      */
     public void warmUpCache() {
-        loadMetaCache();       // 预加载默认 meta
-        loadSpotMetaCache();   // 预加载 spotMeta
+        loadMetaCache();
+        // Preload default meta
+        loadSpotMetaCache();
+        // Preload spotMeta
     }
 
     /**
@@ -434,12 +436,12 @@ public class Info {
             return;
         }
 
-        // 预加载指定 dex 的 meta
+        // Preload meta for specified dex
         for (String dex : dexList) {
             loadMetaCache(dex);
         }
 
-        // 预加载 spotMeta
+        // Preload spotMeta
         loadSpotMetaCache();
     }
 
@@ -506,7 +508,7 @@ public class Info {
      * @throws HypeError Thrown when parameters are invalid
      */
     public List<Candle> candleSnapshot(String coin, CandleInterval interval, Long startTime, Long endTime) {
-        // 参数校验
+        // Parameter validation
         if (coin == null || coin.trim().isEmpty()) {
             throw new HypeError("Coin name cannot be null or empty");
         }
@@ -547,7 +549,7 @@ public class Info {
      */
     public Candle candleSnapshotLatest(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
-        // 查询最近 2 个周期，确保获取到已完成的 K 线
+        // Query the last two periods to ensure a completed candlestick is obtained
         long startTime = endTime - (interval.toMillis() * 2);
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
         return !candles.isEmpty() ? candles.getLast() : null;
@@ -575,11 +577,11 @@ public class Info {
         }
 
         long endTime = System.currentTimeMillis();
-        // 增加 2 个周期的缓冲时间，确保数据完整性
+        // Add a buffer of 2 periods to ensure data integrity
         long startTime = endTime - (interval.toMillis() * (count + 2));
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
 
-        // 如果返回的数据多于请求数量，截取最后 count 根
+        // If the returned data exceeds the requested quantity, keep the last 'count' entries
         if (candles.size() > count) {
             return candles.subList(candles.size() - count, candles.size());
         }
@@ -605,7 +607,8 @@ public class Info {
         }
 
         long endTime = System.currentTimeMillis();
-        long startTime = endTime - (days * 24 * 60 * 60 * 1000L);  // days * 毫秒数
+        long startTime = endTime - (days * 24 * 60 * 60 * 1000L);
+        // days in milliseconds
         return candleSnapshot(coin, interval, startTime, endTime);
     }
 
@@ -635,7 +638,7 @@ public class Info {
             throw new HypeError("Invalid day: " + day);
         }
 
-        // 构造 UTC 时区的起始和结束时间
+        // Construct start and end times in the UTC timezone
         long startTime = java.time.LocalDate.of(year, month, day)
                 .atStartOfDay(java.time.ZoneOffset.UTC)
                 .toInstant()
@@ -662,11 +665,11 @@ public class Info {
      */
     public Candle candleSnapshotCurrent(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
-        // 查询当前周期和上一个周期，确保能获取到数据
+        // Query the current and previous periods to ensure data availability
         long startTime = endTime - (interval.toMillis() * 2);
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
-
-        // 返回最后一根（当前正在生成的 K 线）
+        
+        // Return the last candlestick (currently being generated)
         return !candles.isEmpty() ? candles.getLast() : null;
     }
 
@@ -1127,9 +1130,9 @@ public class Info {
      * @return JSON response
      */
     public JsonNode querySpotDeployAuctionStatus() {
-        // 该接口在 Python SDK 中对应 spotDeployState(user)，Java SDK 已提供
+        // This interface corresponds to spotDeployState(user) in the Python SDK; the Java SDK already provides it
         // spotDeployState(address)
-        // 保持方法以避免破坏现有调用，但服务器不支持无用户的 spotDeploy 查询，返回空对象以避免 4xx
+        // Keep this method to avoid breaking existing calls, but the server does not support spotDeploy queries without a user; return an empty object to avoid 4xx
         try {
             return JSONUtil.readTree("{}");
         } catch (Exception e) {

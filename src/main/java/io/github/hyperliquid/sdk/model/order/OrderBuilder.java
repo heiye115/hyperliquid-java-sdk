@@ -117,13 +117,13 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 7. 过期时间
+    // 7. Expiration Time
     // ========================================
 
     /**
-     * 设置订单过期时间。
+     * Sets the order expiration time.
      *
-     * @param expiresAfter 过期时间（毫秒）
+     * @param expiresAfter Expiration time (milliseconds)
      * @return this
      */
     public OrderBuilder expiresAfter(Long expiresAfter) {
@@ -132,13 +132,13 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 1. 交易品种
+    // 1. Instrument Type
     // ========================================
 
     /**
-     * 设置为永续合约。
+     * Sets the instrument type to perpetual contract.
      *
-     * @param coin 币种名称（如 "ETH"）
+     * @param coin Currency name (e.g., "ETH")
      * @return this
      */
     public OrderBuilder perp(String coin) {
@@ -148,9 +148,9 @@ public class OrderBuilder {
     }
 
     /**
-     * 设置为现货。
+     * Sets the instrument type to spot trading.
      *
-     * @param coin 币种名称（如 "PURR"）
+     * @param coin Currency name (e.g., "PURR")
      * @return this
      */
     public OrderBuilder spot(String coin) {
@@ -160,13 +160,13 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 2. 方向与数量
+    // 2. Direction and Quantity
     // ========================================
 
     /**
-     * 买入指定数量。
+     * Buys the specified quantity.
      *
-     * @param sz 数量（字符串）
+     * @param sz Quantity (string)
      * @return this
      */
     public OrderBuilder buy(String sz) {
@@ -176,9 +176,9 @@ public class OrderBuilder {
     }
 
     /**
-     * 卖出指定数量。
+     * Sells the specified quantity.
      *
-     * @param sz 数量（字符串）
+     * @param sz Quantity (string)
      * @return this
      */
     public OrderBuilder sell(String sz) {
@@ -188,13 +188,13 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 3. 价格设置
+    // 3. Price Settings
     // ========================================
 
     /**
-     * 设置限价价格。
+     * Sets the limit price.
      *
-     * @param limitPx 限价（字符串）
+     * @param limitPx Limit price (string)
      * @return this
      */
     public OrderBuilder limitPrice(String limitPx) {
@@ -203,7 +203,7 @@ public class OrderBuilder {
     }
 
     /**
-     * 市价单（无需设置限价，内部会自动计算占位价）。
+     * Market order (no need to set limit price, placeholder price will be automatically calculated internally).
      *
      * @return this
      */
@@ -214,9 +214,9 @@ public class OrderBuilder {
     }
 
     /**
-     * 市价单，自定义滑点。
+     * Market order with custom slippage.
      *
-     * @param slippage 滑点比例（字符串，例如 "0.05" 表示 5%）
+     * @param slippage Slippage ratio (string, e.g., "0.05" for 5%)
      * @return this
      */
     public OrderBuilder market(String slippage) {
@@ -227,26 +227,26 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 4. 触发条件（Trigger）
+    // 4. Trigger Conditions
     // ========================================
 
     /**
-     * 价格向上突破时触发（适合止盈或做多突破）。
+     * Triggers when price breaks above (suitable for take-profit or long breakout).
      *
-     * @param triggerPx 触发价格（字符串）
+     * @param triggerPx Trigger price (string)
      * @return this
      */
     public OrderBuilder stopAbove(String triggerPx) {
         this.triggerPx = triggerPx;
         this.tpsl = TriggerOrderType.TpslType.TP;
-        this.isMarketTrigger = false; // 默认触发后挂限价单
+        this.isMarketTrigger = false; // Default to placing limit order after trigger
         return this;
     }
 
     /**
-     * 价格向下跌破时触发（适合止损或做空突破）。
+     * Triggers when price breaks below (suitable for stop-loss or short breakout).
      *
-     * @param triggerPx 触发价格（字符串）
+     * @param triggerPx Trigger price (string)
      * @return this
      */
     public OrderBuilder stopBelow(String triggerPx) {
@@ -257,7 +257,7 @@ public class OrderBuilder {
     }
 
     /**
-     * 触发后以市价成交（需先调用 stopAbove 或 stopBelow）。
+     * Executes at market price after trigger (requires calling stopAbove or stopBelow first).
      *
      * @return this
      */
@@ -267,11 +267,11 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 5. TIF 策略
+    // 5. TIF Strategies
     // ========================================
 
     /**
-     * Good Til Cancel（GTC）。
+     * Good Til Cancel (GTC).
      *
      * @return this
      */
@@ -283,7 +283,7 @@ public class OrderBuilder {
     }
 
     /**
-     * Immediate or Cancel（IOC）。
+     * Immediate or Cancel (IOC).
      *
      * @return this
      */
@@ -295,7 +295,7 @@ public class OrderBuilder {
     }
 
     /**
-     * Add Liquidity Only（ALO）。
+     * Add Liquidity Only (ALO).
      *
      * @return this
      */
@@ -307,11 +307,11 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 6. 其他选项
+    // 6. Other Options
     // ========================================
 
     /**
-     * 仅减仓（平仓单）。
+     * Reduce-only (close position order).
      *
      * @return this
      */
@@ -321,7 +321,7 @@ public class OrderBuilder {
     }
 
     /**
-     * 设置客户端订单 ID。
+     * Sets the client order ID.
      *
      * @param cloid Cloid
      * @return this
@@ -332,7 +332,7 @@ public class OrderBuilder {
     }
 
     /**
-     * 自动生成客户端订单 ID。
+     * Automatically generates a client order ID.
      *
      * @return this
      */
@@ -342,17 +342,17 @@ public class OrderBuilder {
     }
 
     // ========================================
-    // 7. 构建
+    // 7. Build
     // ========================================
 
     /**
-     * 构建 OrderRequest 对象。
+     * Builds the OrderRequest object.
      *
-     * @return OrderRequest 实例
-     * @throws IllegalStateException 当必填字段缺失时抛出
+     * @return OrderRequest instance
+     * @throws IllegalStateException Thrown when required fields are missing
      */
     public OrderRequest build() {
-        // 校验必填字段
+        // Validate required fields
         if (coin == null || coin.isEmpty()) {
             throw new IllegalStateException("coin is required");
         }
@@ -363,17 +363,17 @@ public class OrderBuilder {
             throw new IllegalStateException("size is required");
         }
 
-        // 构建 OrderType
+        // Build OrderType
         if (triggerPx != null) {
-            // 触发单
+            // Trigger order
             if (tpsl == null) {
                 throw new IllegalStateException("tpsl is required for trigger order (call stopAbove() or stopBelow())");
             }
             this.orderType = new OrderType(new TriggerOrderType(triggerPx, isMarketTrigger != null && isMarketTrigger, tpsl));
         } else {
-            // 普通限价/市价单
+            // Regular limit/market order
             if (this.orderType == null) {
-                // 默认 GTC
+                // Default GTC
                 this.orderType = new OrderType(new LimitOrderType(Tif.GTC));
             }
         }

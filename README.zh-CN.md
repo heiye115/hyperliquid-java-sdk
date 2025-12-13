@@ -23,6 +23,25 @@
 - **🌐 强大的 WebSocket:** 支持自动重连、指数退避和类型安全的实时数据订阅。
 - **🧩 流畅直观的 API:** 简洁、现代的 API 设计，旨在提供卓越的开发者体验。
 
+## 🛠️ 安装部署
+
+- **环境要求**: JDK `21+`，Maven 或 Gradle。
+- **Maven**:
+
+```xml
+<dependency>
+    <groupId>io.github.heiye115</groupId>
+    <artifactId>hyperliquid-java-sdk</artifactId>
+    <version>0.2.5</version> <!-- 建议替换为最新版本 -->
+</dependency>
+```
+
+- **Gradle (Groovy)**:
+
+```gradle
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.5' // 建议替换为最新版本
+```
+
 ## ⚡ 5分钟快速体验
 
 通过这个完整的、可运行的示例，在几分钟内快速上手。
@@ -180,7 +199,7 @@ LOGGER.info("总保证金使用量: {}", userState.getMarginSummary().getTotalMa
 **获取未结订单:**
 
 ```java
-List<Order> openOrders = info.openOrders("0x您的地址");
+List<OpenOrder> openOrders = info.openOrders("0x您的地址");
 LOGGER.info("用户有 {} 个未结订单。", openOrders.size());
 ```
 
@@ -280,24 +299,6 @@ try {
 }
 ```
 
-## 🛠️ 安装部署
-
-- **环境要求**: JDK `21+`，Maven 或 Gradle。
-- **Maven**:
-
-```xml
-<dependency>
-    <groupId>io.github.heiye115</groupId>
-    <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.4</version> <!-- 建议替换为最新版本 -->
-</dependency>
-```
-
-- **Gradle (Groovy)**:
-
-```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.4' // 建议替换为最新版本
-```
 
 ## 🤝 贡献指南
 

@@ -23,6 +23,25 @@ This SDK provides a comprehensive, pure Java solution for interacting with the H
 - **🌐 Powerful WebSocket:** Auto-reconnect, exponential backoff, and type-safe real-time data subscriptions.
 - **🧩 Fluent & Intuitive API:** A clean, modern API designed for an excellent developer experience.
 
+## 🛠️ Installation
+
+- **Requirements**: JDK `21+`, Maven or Gradle.
+- **Maven**:
+
+```xml
+<dependency>
+    <groupId>io.github.heiye115</groupId>
+    <artifactId>hyperliquid-java-sdk</artifactId>
+    <version>0.2.5</version> <!-- Replace with the latest version -->
+</dependency>
+```
+
+- **Gradle (Groovy)**:
+
+```gradle
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.5' // Replace with the latest version
+```
+
 ## ⚡ 5-Minute Quick Start
 
 Get up and running in minutes with this complete, runnable example.
@@ -172,7 +191,7 @@ LOGGER.info("Total margin usage: {}", userState.getMarginSummary().getTotalMargi
 **Get Open Orders:**
 
 ```java
-List<Order> openOrders = info.openOrders("0xYourAddress");
+List<OpenOrder> openOrders = info.openOrders("0xYourAddress");
 LOGGER.info("User has {} open orders.", openOrders.size());
 ```
 
@@ -271,24 +290,6 @@ try {
 }
 ```
 
-## 🛠️ Installation
-
-- **Requirements**: JDK `21+`, Maven or Gradle.
-- **Maven**:
-
-```xml
-<dependency>
-    <groupId>io.github.heiye115</groupId>
-    <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.4</version> <!-- Replace with the latest version -->
-</dependency>
-```
-
-- **Gradle (Groovy)**:
-
-```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.4' // Replace with the latest version
-```
 
 ## 🤝 Contributing
 

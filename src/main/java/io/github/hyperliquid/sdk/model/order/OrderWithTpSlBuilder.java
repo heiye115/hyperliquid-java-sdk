@@ -112,13 +112,13 @@ public class OrderWithTpSlBuilder {
     }
 
     // ========================================
-    // 5. 过期时间
+    // 5. Expiration Time
     // ========================================
 
     /**
-     * 设置订单过期时间。
+     * Sets the order expiration time.
      *
-     * @param expiresAfter 过期时间（毫秒）
+     * @param expiresAfter Expiration time (milliseconds)
      * @return this
      */
     public OrderWithTpSlBuilder expiresAfter(Long expiresAfter) {
@@ -127,13 +127,13 @@ public class OrderWithTpSlBuilder {
     }
 
     // ========================================
-    // 1. 交易品种
+    // 1. Instrument Type
     // ========================================
 
     /**
-     * 设置为永续合约。
+     * Sets the instrument type to perpetual contract.
      *
-     * @param coin 币种名称
+     * @param coin Currency name
      * @return this
      */
     public OrderWithTpSlBuilder perp(String coin) {
@@ -143,9 +143,9 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 设置为现货。
+     * Sets the instrument type to spot trading.
      *
-     * @param coin 币种名称
+     * @param coin Currency name
      * @return this
      */
     public OrderWithTpSlBuilder spot(String coin) {
@@ -155,13 +155,13 @@ public class OrderWithTpSlBuilder {
     }
 
     // ========================================
-    // 2. 方向与数量
+    // 2. Direction and Quantity
     // ========================================
 
     /**
-     * 买入开仓。
+     * Buys to open a position.
      *
-     * @param sz 数量（字符串）
+     * @param sz Quantity (string)
      * @return this
      */
     public OrderWithTpSlBuilder buy(String sz) {
@@ -171,9 +171,9 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 卖出开仓。
+     * Sells to open a position.
      *
-     * @param sz 数量（字符串）
+     * @param sz Quantity (string)
      * @return this
      */
     public OrderWithTpSlBuilder sell(String sz) {
@@ -183,29 +183,29 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 平仓模式（用于 positionTpsl）。
+     * Close position mode (used for positionTpsl).
      * <p>
-     * 当你已经持有仓位，想为仓位添加止盈止损时使用。
+     * Used when you already hold a position and want to add take-profit/stop-loss to it.
      *
-     * @param sz             仓位数量（字符串）
-     * @param isLongPosition 是否多仓（true=多仓，false=空仓）
+     * @param sz             Position quantity (string)
+     * @param isLongPosition Whether it's a long position (true=long, false=short)
      * @return this
      */
     public OrderWithTpSlBuilder closePosition(String sz, boolean isLongPosition) {
-        this.isBuy = isLongPosition; // 多仓需要卖出平仓，空仓需要买入平仓
+        this.isBuy = isLongPosition; // Long positions need to sell to close, short positions need to buy to close
         this.sz = sz;
-        this.entryPrice = null; // 不需要开仓价
+        this.entryPrice = null; // No entry price needed
         return this;
     }
 
     // ========================================
-    // 3. 价格设置
+    // 3. Price Settings
     // ========================================
 
     /**
-     * 设置开仓限价。
+     * Sets the entry limit price.
      *
-     * @param entryPrice 开仓价格（字符串）
+     * @param entryPrice Entry price (string)
      * @return this
      */
     public OrderWithTpSlBuilder entryPrice(String entryPrice) {
@@ -214,9 +214,9 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 设置止盈价格。
+     * Sets the take-profit price.
      *
-     * @param tpPrice 止盈价（字符串）
+     * @param tpPrice Take-profit price (string)
      * @return this
      */
     public OrderWithTpSlBuilder takeProfit(String tpPrice) {
@@ -225,9 +225,9 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 设置止损价格。
+     * Sets the stop-loss price.
      *
-     * @param slPrice 止损价（字符串）
+     * @param slPrice Stop-loss price (string)
      * @return this
      */
     public OrderWithTpSlBuilder stopLoss(String slPrice) {
@@ -236,13 +236,13 @@ public class OrderWithTpSlBuilder {
     }
 
     // ========================================
-    // 4. 其他选项
+    // 4. Other Options
     // ========================================
 
     /**
-     * 设置开仓单的 TIF 策略。
+     * Sets the TIF strategy for the entry order.
      *
-     * @param tif TIF 策略
+     * @param tif TIF strategy
      * @return this
      */
     public OrderWithTpSlBuilder entryTif(Tif tif) {
@@ -251,7 +251,7 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 设置客户端订单 ID。
+     * Sets the client order ID.
      *
      * @param cloid Cloid
      * @return this
@@ -262,56 +262,56 @@ public class OrderWithTpSlBuilder {
     }
 
     // ========================================
-    // 5. 构建
+    // 5. Build
     // ========================================
 
     /**
-     * 构建 normalTpsl 订单组（开仓 + TP + SL）。
+     * Builds a normalTpsl order group (entry + TP + SL).
      * <p>
-     * 返回的 OrderGroup 会自动携带 grouping="normalTpsl" 类型信息。
-     * 在调用 exchange.bulkOrders(orderGroup) 时会自动推断使用 normalTpsl 分组。
+     * The returned OrderGroup will automatically carry grouping="normalTpsl" type information.
+     * When calling exchange.bulkOrders(orderGroup), it will automatically infer the use of normalTpsl grouping.
      *
-     * @return OrderGroup 包含订单列表和分组类型
-     * @throws IllegalStateException 当必填字段缺失时抛出
+     * @return OrderGroup containing order list and grouping type
+     * @throws IllegalStateException Thrown when required fields are missing
      */
     public OrderGroup buildNormalTpsl() {
         return new OrderGroup(buildOrderList(true), GroupingType.NORMAL_TPSL);
     }
 
     /**
-     * 构建 positionTpsl 订单组（仅 TP + SL，不含开仓单）。
+     * Builds a positionTpsl order group (TP + SL only, no entry order).
      * <p>
-     * 返回的 OrderGroup 会自动携带 grouping="positionTpsl" 类型信息。
-     * 用于为已有仓位添加或修改止盈止损。
+     * The returned OrderGroup will automatically carry grouping="positionTpsl" type information.
+     * Used to add or modify take-profit/stop-loss for existing positions.
      * <p>
-     * <b>自动推断仓位功能：</b>
+     * <b>Automatic position inference feature:</b>
      * <ul>
-     *   <li>如果调用了 closePosition(sz, isLong) - 手动指定仓位方向和数量</li>
-     *   <li>如果未调用 closePosition() - Exchange 会自动查询账户持仓并推断方向和数量</li>
+     *   <li>If closePosition(sz, isLong) is called - manually specify position direction and quantity</li>
+     *   <li>If closePosition() is not called - Exchange will automatically query account positions and infer direction and quantity</li>
      * </ul>
      *
-     * @return OrderGroup 包含订单列表和分组类型
-     * @throws IllegalStateException 当必填字段缺失时抛出
+     * @return OrderGroup containing order list and grouping type
+     * @throws IllegalStateException Thrown when required fields are missing
      */
     public OrderGroup buildPositionTpsl() {
         return new OrderGroup(buildOrderList(false), GroupingType.POSITION_TPSL);
     }
 
     /**
-     * 构建订单列表。
+     * Builds the order list.
      *
-     * @param includeEntry 是否包含开仓单（true=normalTpsl，false=positionTpsl）
-     * @return 订单列表
+     * @param includeEntry Whether to include the entry order (true=normalTpsl, false=positionTpsl)
+     * @return Order list
      */
     private List<OrderRequest> buildOrderList(boolean includeEntry) {
         validate(includeEntry);
         List<OrderRequest> orders = new ArrayList<>();
         
-        // 1. 开仓单（仅在 normalTpsl 模式下添加）
+        // 1. Entry order (only added in normalTpsl mode)
         if (includeEntry) {
             OrderRequest entry;
             if (entryPrice == null) {
-            // 市价单 - 创建一个占位请求，后续在Exchange中会通过marketOpenTransition方法处理
+            // Market order - Creates a placeholder request, which will be processed by the marketOpenTransition method in Exchange
             entry = new OrderRequest();
             entry.setInstrumentType(instrumentType != null ? instrumentType : InstrumentType.PERP);
             entry.setCoin(coin);
@@ -319,12 +319,12 @@ public class OrderWithTpSlBuilder {
             entry.setSz(sz);
             entry.setReduceOnly(false);
             entry.setCloid(cloid);
-            // 设置为 IOC 市价单，价格将在Exchange.marketOpenTransition中计算
+            // Set as IOC market order, price will be calculated in Exchange.marketOpenTransition
             LimitOrderType limitOrderType = new LimitOrderType(Tif.IOC);
             OrderType orderType = new OrderType(limitOrderType);
             entry.setOrderType(orderType);
         } else {
-            // 限价单
+            // Limit order
             entry = new OrderRequest(
                     instrumentType != null ? instrumentType : InstrumentType.PERP,
                     coin,
@@ -341,12 +341,12 @@ public class OrderWithTpSlBuilder {
             }
             orders.add(entry);
         }
-        // 2. 止盈单（平仓）
+        // 2. Take-profit order (close position)
         if (takeProfitPrice != null) {
             OrderRequest tp = new OrderRequest(
                     instrumentType != null ? instrumentType : InstrumentType.PERP,
                     coin,
-                    isBuy != null ? !isBuy : null,  // 反向平仓（如果 isBuy 为 null，则保持 null）
+                    isBuy != null ? !isBuy : null,  // Reverse close position (if isBuy is null, keep it null)
                     sz,
                     takeProfitPrice,
                     new OrderType(new TriggerOrderType(takeProfitPrice, true, TriggerOrderType.TpslType.TP)),
@@ -360,7 +360,7 @@ public class OrderWithTpSlBuilder {
             orders.add(tp);
         }
 
-        // 3. 止损单（平仓）
+        // 3. Stop-loss order (close position)
         if (stopLossPrice != null) {
             OrderRequest sl = new OrderRequest(
                     instrumentType != null ? instrumentType : InstrumentType.PERP,
@@ -383,16 +383,16 @@ public class OrderWithTpSlBuilder {
     }
 
     /**
-     * 校验必填字段。
+     * Validates required fields.
      *
-     * @param isNormalTpsl 是否为 normalTpsl 模式（true=normalTpsl，false=positionTpsl）
+     * @param isNormalTpsl Whether it's normalTpsl mode (true=normalTpsl, false=positionTpsl)
      */
     private void validate(boolean isNormalTpsl) {
         if (coin == null || coin.isEmpty()) {
             throw new IllegalStateException("coin is required");
         }
         
-        // normalTpsl 模式：必须指定方向和数量
+        // normalTpsl mode: direction and quantity must be specified
         if (isNormalTpsl) {
             if (isBuy == null) {
                 throw new IllegalStateException("direction is required for normalTpsl (call buy() or sell())");
@@ -401,8 +401,8 @@ public class OrderWithTpSlBuilder {
                 throw new IllegalStateException("size is required for normalTpsl (call buy() or sell())");
             }
         }
-        // positionTpsl 模式：允许 isBuy 和 sz 为 null（由 Exchange 自动推断）
-        // 但如果设置了 sz，则不能为空字符串
+        // positionTpsl mode: allows isBuy and sz to be null (automatically inferred by Exchange)
+        // But if sz is set, it cannot be an empty string
         else {
             if (sz != null && sz.isEmpty()) {
                 throw new IllegalStateException("size cannot be empty if specified");

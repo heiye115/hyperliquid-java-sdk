@@ -160,11 +160,11 @@ public class Exchange {
      */
     private void formatOrderSize(OrderRequest req) {
         if (req == null || req.getSz() == null || req.getSz().isEmpty()) return;
-        // 优化：直接从缓存获取 szDecimals，避免每次都获取完整 Universe 对象
+        // Optimization: fetch szDecimals directly from cache to avoid retrieving the full Universe every time
         Integer szDecimals = info.getSzDecimals(req.getCoin());
         if (szDecimals == null) return;
         try {
-            // 使用 BigDecimal 按精度四舍五入，向下取整更安全
+            // Use BigDecimal to round according to precision; flooring is safer
             BigDecimal bd = new BigDecimal(req.getSz()).setScale(szDecimals, RoundingMode.DOWN);
             req.setSz(bd.toPlainString());
         } catch (NumberFormatException e) {
@@ -182,18 +182,18 @@ public class Exchange {
      */
     private void formatOrderPrice(OrderRequest req) {
         if (req == null) return;
-        // 优化：直接从缓存获取 szDecimals，避免每次都获取完整 Universe 对象
+        // Optimization: fetch szDecimals directly from cache to avoid retrieving the full Universe every time
         Integer szDecimals = info.getSzDecimals(req.getCoin());
         if (szDecimals == null) return;
         boolean isSpot = req.getInstrumentType() == InstrumentType.SPOT;
 
-        // 计算小数位：现货 8-szDecimals，永续 6-szDecimals
+        // Compute decimal places: spot = 8 - szDecimals; perp = 6 - szDecimals
         int decimals = (isSpot ? 8 : 6) - szDecimals;
         if (decimals < 0) {
             decimals = 0;
         }
 
-        // 1. 格式化限价（limitPx）
+        // 1. Format limit price (limitPx)
         if (req.getLimitPx() != null && !req.getLimitPx().isEmpty()) {
             try {
                 BigDecimal bd = new BigDecimal(req.getLimitPx()).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
@@ -203,7 +203,7 @@ public class Exchange {
             }
         }
 
-        // 2. 格式化触发价（triggerPx）
+        // 2. Format trigger price (triggerPx)
         if (req.getOrderType() != null && req.getOrderType().getTrigger() != null) {
             String triggerPx = req.getOrderType().getTrigger().getTriggerPx();
             if (triggerPx != null && !triggerPx.isEmpty()) {
@@ -638,8 +638,7 @@ public class Exchange {
             int assetId = ensureAssetId(mr.getCoinName());
             OrderWire wire = Signing.orderRequestToOrderWire(assetId, mr.getNewOrder());
             Map<String, Object> modify = new LinkedHashMap<>();
-
-            // 支持 OID 或 Cloid
+            // Support OID or Cloid
             if (mr.getOid() != null) {
                 modify.put("oid", mr.getOid());
             } else if (mr.getCloid() != null) {
@@ -667,7 +666,7 @@ public class Exchange {
      */
     private Map<String, Object> buildOrderAction(List<OrderWire> wires, Map<String, Object> builder) {
         Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
-        // 保持 Signing.orderWiresToOrderAction 中的默认分组 "na"，不覆写
+        // Keep default group "na" in Signing.orderWiresToOrderAction; do not override
         if (builder != null && !builder.isEmpty()) {
             Map<String, Object> filtered = validateAndFilterBuilder(builder);
             if (!filtered.isEmpty()) {
@@ -764,8 +763,7 @@ public class Exchange {
                 payloadTypes,
                 "HyperliquidTransaction:UserDexAbstraction",
                 isMainnet());
-
-        // 与 _post_action 一致进行发送（不重新进行 L1 签名）
+        // Send in line with _post_action (without redoing L1 signing)
         return postActionWithSignature(action, signature, nonce);
     }
 
@@ -811,7 +809,8 @@ public class Exchange {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "usdSend");
         action.put("destination", destination);
-        action.put("amount", amount);  // 直接使用字符串
+        action.put("amount", amount);
+        // Use the string directly
         action.put("time", time);
 
         List<Map<String, Object>> payloadTypes = List.of(
@@ -843,7 +842,8 @@ public class Exchange {
         action.put("type", "spotSend");
         action.put("destination", destination);
         action.put("token", token);
-        action.put("amount", amount);  // 直接使用字符串
+        action.put("amount", amount);
+        // Use the string directly
         action.put("time", time);
 
         List<Map<String, Object>> payloadTypes = List.of(
@@ -874,7 +874,8 @@ public class Exchange {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "withdraw3");
         action.put("destination", destination);
-        action.put("amount", amount);  // 直接使用字符串
+        action.put("amount", amount);
+        // Use the string directly
         action.put("time", time);
 
         List<Map<String, Object>> payloadTypes = List.of(
@@ -903,7 +904,8 @@ public class Exchange {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "usdClassTransfer");
-        String strAmount = amount;  // 已经是字符串
+        String strAmount = amount;
+        // Already a string
         if (this.vaultAddress != null && !this.vaultAddress.isEmpty()) {
             strAmount = strAmount + " subaccount:" + this.vaultAddress;
         }
@@ -1324,7 +1326,7 @@ public class Exchange {
      * @return Server response and generated Agent private key/address
      */
     public ApproveAgentResult approveAgent(String name) {
-        // 生成 32 字节随机私钥（0x 前缀）
+        // Generate a 32-byte random private key (0x prefix)
         byte[] bytes = new byte[32];
         new java.security.SecureRandom().nextBytes(bytes);
         String agentPrivateKey = "0x" + org.web3j.utils.Numeric.toHexStringNoPrefix(bytes);
@@ -1646,22 +1648,22 @@ public class Exchange {
      * @throws HypeError Thrown when there is no position to close
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid) {
-        // 查询当前仓位
+        // Query current position
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
         }
 
-        // 推断平仓方向：持有多仓则卖出，持有空仓则买入
+        // Infer closing direction: sell if long; buy if short
         boolean isBuy = szi < 0;
 
-        // 确定平仓数量
+        // Determine closing quantity
         String closeSz = (sz != null && !sz.isEmpty()) ? sz : String.valueOf(Math.abs(szi));
 
-        // 构建市价平仓请求
+        // Build market close request
         OrderRequest req = OrderRequest.Close.market(coin, isBuy, closeSz, cloid);
 
-        // 设置滑点（如果提供）
+        // Set slippage (if provided)
         if (slippage != null && !slippage.isEmpty()) {
             req.setSlippage(slippage);
         }
@@ -1735,13 +1737,13 @@ public class Exchange {
      * @throws HypeError Thrown when there are no positions to close
      */
     public JsonNode closeAllPositions() {
-        // 查询当前账户所有仓位
+        // Query all positions for the current account
         ClearinghouseState state = info.userState(apiWallet.getPrimaryWalletAddress().toLowerCase());
         if (state == null || state.getAssetPositions() == null || state.getAssetPositions().isEmpty()) {
             throw new HypeError("No positions to close");
         }
 
-        // 构建所有平仓订单
+        // Build all closing orders
         List<OrderRequest> closeOrders = new ArrayList<>();
         for (ClearinghouseState.AssetPositions ap : state.getAssetPositions()) {
             ClearinghouseState.Position pos = ap.getPosition();
@@ -1753,29 +1755,30 @@ public class Exchange {
             try {
                 szi = Double.parseDouble(pos.getSzi());
             } catch (Exception e) {
-                continue; // 解析失败跳过
-            }
-
-            // 跳过没有仓位的币种
-            if (szi == 0.0) {
                 continue;
+                // Skip if parsing fails
             }
 
-            // 推断平仓方向：持有多仓则卖出，持有空仓则买入
+        // Skip coins without positions
+        if (szi == 0.0) {
+            continue;
+        }
+
+            // Infer closing direction: sell if long; buy if short
             boolean isBuy = szi < 0;
             double closeSz = Math.abs(szi);
 
-            // 构建市价平仓请求
+            // Build market close request
             OrderRequest req = OrderRequest.Close.market(pos.getCoin(), isBuy, String.valueOf(closeSz), null);
             closeOrders.add(req);
         }
 
-        // 检查是否有需要平仓的订单
+        // Check whether there are orders that need closing
         if (closeOrders.isEmpty()) {
             throw new HypeError("No positions to close (all positions are zero)");
         }
 
-        // 批量下单平仓
+        // Place batch close orders
         return bulkOrders(closeOrders);
     }
 
@@ -1810,7 +1813,8 @@ public class Exchange {
         action.put("subAccountUser", subAccountUser == null ? null : subAccountUser.toLowerCase());
         action.put("isDeposit", isDeposit);
         action.put("token", token);
-        action.put("amount", amount);  // 直接使用字符串
+        action.put("amount", amount);
+        // Use the string directly
 
         return postAction(action);
     }
@@ -1838,20 +1842,20 @@ public class Exchange {
             long nonce,
             String vaultAddress
     ) {
-        // 构造 multiSig action
+        // Build multiSig action
         Map<String, Object> multiSigAction = new LinkedHashMap<>();
         multiSigAction.put("type", "multiSig");
         multiSigAction.put("signatureChainId", "0x66eee");
         multiSigAction.put("signatures", signatures);
 
-        // 构造 payload
+        // Build payload
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("multiSigUser", multiSigUser.toLowerCase());
         payload.put("outerSigner", apiWallet.getPrimaryWalletAddress().toLowerCase());
         payload.put("action", innerAction);
         multiSigAction.put("payload", payload);
 
-        // 签名
+        // Sign
         Map<String, Object> signature = Signing.signMultiSigAction(
                 apiWallet.getCredentials(),
                 multiSigAction,
@@ -1861,7 +1865,7 @@ public class Exchange {
                 null // expiresAfter
         );
 
-        // 发送请求
+        // Send request
         return postActionWithSignature(multiSigAction, signature, nonce);
     }
 
@@ -1903,7 +1907,7 @@ public class Exchange {
             List<Map<String, String>> allMarkPxs,
             Map<String, String> externalPerpPxs
     ) {
-        // 1. 排序 oraclePxs
+        // 1. Sort oraclePxs
         List<List<String>> oraclePxsWire = new ArrayList<>();
         if (oraclePxs != null) {
             List<Map.Entry<String, String>> sorted = new ArrayList<>(oraclePxs.entrySet());
@@ -1913,7 +1917,7 @@ public class Exchange {
             }
         }
 
-        // 2. 排序 markPxs
+        // 2. Sort markPxs
         List<List<List<String>>> markPxsWire = new ArrayList<>();
         if (allMarkPxs != null) {
             for (Map<String, String> markPxs : allMarkPxs) {
@@ -1927,7 +1931,7 @@ public class Exchange {
             }
         }
 
-        // 3. 排序 externalPerpPxs
+        // 3. Sort externalPerpPxs
         List<List<String>> externalPerpPxsWire = new ArrayList<>();
         if (externalPerpPxs != null) {
             List<Map.Entry<String, String>> sorted = new ArrayList<>(externalPerpPxs.entrySet());
@@ -1937,7 +1941,7 @@ public class Exchange {
             }
         }
 
-        // 4. 构造 action
+        // 4. Construct action
         Map<String, Object> setOracle = new LinkedHashMap<>();
         setOracle.put("dex", dex);
         setOracle.put("oraclePxs", oraclePxsWire);
@@ -2010,13 +2014,13 @@ public class Exchange {
         profile.put("commission_bps", commissionBps);
         profile.put("signer", signer);
 
-        // 构造 register
+        // Build register
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("profile", profile);
         register.put("unjailed", unjailed);
         register.put("initial_wei", initialWei);
 
-        // 构造 action
+        // Build action
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "CValidatorAction");
         action.put("register", register);
@@ -2066,7 +2070,7 @@ public class Exchange {
         changeProfile.put("commission_bps", commissionBps);
         changeProfile.put("signer", signer);
 
-        // 构造 action
+        // Build action
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "CValidatorAction");
         action.put("changeProfile", changeProfile);
@@ -2143,7 +2147,7 @@ public class Exchange {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "noop");
 
-        // 使用自定义 nonce 进行签名
+        // Sign with a custom nonce
         String effectiveVault = vaultAddress;
         if (effectiveVault != null) {
             effectiveVault = effectiveVault.toLowerCase();
