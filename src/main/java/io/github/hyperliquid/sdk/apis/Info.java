@@ -21,14 +21,38 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Info client, providing market data, order book, user status, and other queries.
+ * Info client for the Hyperliquid SDK, providing access to market data, order
+ * books, user status, and other queries.
+ * <p>
+ * This class offers comprehensive functionality for retrieving data from the
+ * Hyperliquid exchange, including:
+ * </p>
+ * <ul>
+ * <li>Market data (allMids, meta, spotMeta)</li>
+ * <li>Order book snapshots (L2 order book)</li>
+ * <li>Candlestick data with various intervals</li>
+ * <li>User-specific information (open orders, fills, account state)</li>
+ * <li>Staking and delegation details</li>
+ * <li>WebSocket subscription management</li>
+ * </ul>
  */
 public class Info {
 
+    /**
+     * Flag to indicate whether WebSocket connection should be skipped.
+     * When set to true, WebSocket-related functionalities will be disabled.
+     */
     private final boolean skipWs;
 
+    /**
+     * WebSocket manager for handling real-time data subscriptions.
+     * This is null if skipWs is true.
+     */
     private WebsocketManager wsManager;
 
+    /**
+     * HTTP client used for making REST API requests.
+     */
     private final HypeHttpClient hypeHttpClient;
 
     /**
@@ -38,7 +62,7 @@ public class Info {
     private final Cache<String, Meta> metaCache;
 
     /**
-     * SpotMeta cache
+     * SpotMeta cache for storing spot market metadata.
      */
     private final Cache<String, SpotMeta> spotMetaCache;
 
@@ -59,7 +83,8 @@ public class Info {
      *
      * @param baseUrl        API root URL
      * @param hypeHttpClient HTTP client instance
-     * @param skipWs         Whether to skip creating WebSocket connection (for testing)
+     * @param skipWs         Whether to skip creating WebSocket connection (for
+     *                       testing)
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs) {
         this(baseUrl, hypeHttpClient, skipWs, CacheConfig.defaultConfig());
@@ -70,7 +95,8 @@ public class Info {
      *
      * @param baseUrl        API root URL
      * @param hypeHttpClient HTTP client instance
-     * @param skipWs         Whether to skip creating WebSocket connection (for testing)
+     * @param skipWs         Whether to skip creating WebSocket connection (for
+     *                       testing)
      * @param cacheConfig    Cache configuration
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig) {
@@ -100,7 +126,8 @@ public class Info {
     /**
      * Map coin name to asset ID (based on meta.universe).
      * <p>
-     * Optimization: Query memory mapping cache first, load from meta cache and build mapping if not hit.
+     * Optimization: Query memory mapping cache first, load from meta cache and
+     * build mapping if not hit.
      * </p>
      *
      * @param coinName Coin name (case insensitive)
@@ -109,17 +136,17 @@ public class Info {
      */
     public Integer nameToAsset(String coinName) {
         String normalizedName = coinName.trim().toUpperCase();
-        
+
         // Prefer querying from the mapping cache first
         Integer assetId = coinToAssetCache.get(normalizedName);
         if (assetId != null) {
             return assetId;
         }
-        
+
         // Cache miss; load from meta and build mapping
         Meta meta = loadMetaCache();
         buildCoinMappingCache(meta);
-        
+
         // Query again
         assetId = coinToAssetCache.get(normalizedName);
         if (assetId == null) {
@@ -130,9 +157,14 @@ public class Info {
 
     /**
      * Internal wrapper for sending /info requests.
+     * <p>
+     * This method is used internally by other methods in this class to send
+     * requests
+     * to the /info endpoint of the Hyperliquid API.
+     * </p>
      *
      * @param payload Request body object (Map or POJO)
-     * @return JSON response
+     * @return JSON response from the API
      */
     public JsonNode postInfo(Object payload) {
         return hypeHttpClient.post("/info", payload);
@@ -151,7 +183,8 @@ public class Info {
             payload.put("dex", dex);
         }
         JsonNode node = postInfo(payload);
-        return JSONUtil.convertValue(node, TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
+        return JSONUtil.convertValue(node,
+                TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
     }
 
     /**
@@ -184,7 +217,11 @@ public class Info {
     /**
      * Get/refresh locally cached meta (support specifying dex).
      * <p>
-     * Improvement: Support multiple DEX caches, cache key format is "meta:default" or "meta:dexName".
+     * This method retrieves metadata from the cache, loading it from the API if not
+     * present.
+     * It supports multiple DEX caches using keys in the format "meta:default" or
+     * "meta:dexName".
+     * After loading the meta data, it automatically builds the coin mapping cache.
      * </p>
      *
      * @param dex Perp dex name (null or empty string means default dex)
@@ -248,6 +285,16 @@ public class Info {
      * @param dex Perp dex name
      * @return Cache key string
      */
+    /**
+     * Build meta cache key based on DEX name.
+     * <p>
+     * This helper method generates cache keys for meta data storage.
+     * </p>
+     *
+     * @param dex Perp DEX name (can be null or empty for default DEX)
+     * @return Cache key string ("meta:default" for default DEX, "meta:{dex}" for
+     * named DEX)
+     */
     private String buildMetaCacheKey(String dex) {
         return (dex == null || dex.isEmpty()) ? "meta:default" : "meta:" + dex;
     }
@@ -255,12 +302,22 @@ public class Info {
     /**
      * Build coin mapping cache from Meta (internal method).
      * <p>
-     * Build two mapping tables:
-     * 1. coinToAssetCache: Coin name (uppercase) -> Asset ID
-     * 2. assetToSzDecimalsCache: Asset ID -> szDecimals
+     * This method constructs two mapping tables to optimize data retrieval:
+     * </p>
+     * <ul>
+     * <li>coinToAssetCache: Maps coin names (uppercase) to their corresponding
+     * asset IDs</li>
+     * <li>assetToSzDecimalsCache: Maps asset IDs to their quantity precision
+     * (szDecimals)</li>
+     * </ul>
+     * <p>
+     * The mappings are built by iterating through the universe list in the Meta
+     * object.
+     * For each universe element with a valid name, it creates entries in both
+     * caches.
      * </p>
      *
-     * @param meta Meta object
+     * @param meta Meta object containing universe data
      */
     private void buildCoinMappingCache(Meta meta) {
         if (meta == null || meta.getUniverse() == null) {
@@ -282,7 +339,8 @@ public class Info {
     /**
      * Get universe element from meta by coin name.
      * <p>
-     * Optimization: Query asset ID from mapping cache first, then get corresponding Universe element.
+     * Optimization: Query asset ID from mapping cache first, then get corresponding
+     * Universe element.
      * </p>
      *
      * @param coinName Coin name
@@ -302,13 +360,16 @@ public class Info {
     /**
      * Quickly get szDecimals (quantity precision) by coin name.
      * <p>
-     * Optimization: Query from assetToSzDecimalsCache cache first to avoid getting complete Universe object every time.
-     * This method is mainly used for order formatting scenarios (formatOrderSize/formatOrderPrice).
+     * Optimization: Query from assetToSzDecimalsCache cache first to avoid getting
+     * complete Universe object every time.
+     * This method is mainly used for order formatting scenarios
+     * (formatOrderSize/formatOrderPrice).
      * </p>
      *
      * @param coinName Coin name
      * @return szDecimals quantity precision
      * @throws HypeError Thrown when name does not exist or precision is not defined
+     *                   for the coin
      */
     public Integer getSzDecimals(String coinName) {
         // Get asset ID via nameToAsset (automatically uses cache)
@@ -346,7 +407,8 @@ public class Info {
     }
 
     /**
-     * Get perpetual asset related information (including pricing, current funding, open contracts, etc.)
+     * Get perpetual asset related information (including pricing, current funding,
+     * open contracts, etc.)
      */
     public JsonNode metaAndAssetCtxs() {
         Map<String, Object> payload = Map.of("type", "metaAndAssetCtxs");
@@ -408,7 +470,6 @@ public class Info {
         return spotMetaCache.stats();
     }
 
-
     /**
      * Warm up cache (call at application startup to preload commonly used data).
      * <p>
@@ -428,7 +489,8 @@ public class Info {
     /**
      * Warm up cache (support specifying dex list).
      *
-     * @param dexList List of dex names to preload (null or empty list means only load default dex)
+     * @param dexList List of dex names to preload (null or empty list means only
+     *                load default dex)
      */
     public void warmUpCache(List<String> dexList) {
         if (dexList == null || dexList.isEmpty()) {
@@ -457,11 +519,14 @@ public class Info {
 
     /**
      * L2 order book snapshot.
-     * Optional aggregation parameters for controlling significant digits and mantissa (mantissa can only be set to 1/2/5 when nSigFigs is 5).
+     * Optional aggregation parameters for controlling significant digits and
+     * mantissa (mantissa can only be set to 1/2/5 when nSigFigs is 5).
      *
      * @param coin     Coin name
-     * @param nSigFigs Aggregate to specified significant digits (optional: 2, 3, 4, 5 or null)
-     * @param mantissa Mantissa aggregation (only allowed when nSigFigs=5, values 1/2/5)
+     * @param nSigFigs Aggregate to specified significant digits (optional: 2, 3, 4,
+     *                 5 or null)
+     * @param mantissa Mantissa aggregation (only allowed when nSigFigs=5, values
+     *                 1/2/5)
      * @return Typed model L2Book
      */
     public L2Book l2Book(String coin, Integer nSigFigs, Integer mantissa) {
@@ -496,8 +561,10 @@ public class Info {
      * Candlestick snapshot (typed return, supports passing coin name).
      *
      * <p>
-     * In some environments, the server may require the coin field in the request body to be a string (e.g., "BTC" or "@107").
-     * To improve compatibility, this overload method is provided to make requests directly using coin names.
+     * In some environments, the server may require the coin field in the request
+     * body to be a string (e.g., "BTC" or "@107").
+     * To improve compatibility, this overload method is provided to make requests
+     * directly using coin names.
      * </p>
      *
      * @param coin      Coin name (e.g., "BTC", or internal identifier like "@107")
@@ -539,8 +606,10 @@ public class Info {
     /**
      * Get the most recent completed candlestick.
      * <p>
-     * Query the time range of the last 2 periods to ensure at least the previous completed candlestick is obtained.
-     * If the current candlestick is not yet completed, return the previous one; if the current candlestick is completed, return the current one.
+     * Query the time range of the last 2 periods to ensure at least the previous
+     * completed candlestick is obtained.
+     * If the current candlestick is not yet completed, return the previous one; if
+     * the current candlestick is completed, return the current one.
      * </p>
      *
      * @param coin     Coin name
@@ -558,15 +627,18 @@ public class Info {
     /**
      * Get recent candlestick list by quantity.
      * <p>
-     * Additional buffer time (count + 2 periods) is added during query to ensure sufficient data is obtained before truncation.
+     * Additional buffer time (count + 2 periods) is added during query to ensure
+     * sufficient data is obtained before truncation.
      * Note: Hyperliquid API only provides the latest 5000 candlesticks.
      * </p>
      *
      * @param coin     Coin name
      * @param interval Interval enum
      * @param count    Required quantity (>0, recommended ≤5000)
-     * @return Recent candlestick list (in ascending time order, last one is the newest)
-     * @throws HypeError Thrown when count <= 0 or count > 5000
+     * @return Recent candlestick list (in ascending time order, last one is the
+     * newest)
+     * @throws HypeError Thrown when count is less than or equal to 0, or greater
+     *                   than 5000
      */
     public List<Candle> candleSnapshotByCount(String coin, CandleInterval interval, int count) {
         if (count <= 0) {
@@ -581,7 +653,8 @@ public class Info {
         long startTime = endTime - (interval.toMillis() * (count + 2));
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
 
-        // If the returned data exceeds the requested quantity, keep the last 'count' entries
+        // If the returned data exceeds the requested quantity, keep the last 'count'
+        // entries
         if (candles.size() > count) {
             return candles.subList(candles.size() - count, candles.size());
         }
@@ -591,8 +664,10 @@ public class Info {
     /**
      * Get candlestick data for the last N days.
      * <p>
-     * Calculate the time range based on the specified period and number of days, and query all candlesticks within that time period.
-     * For example: Querying 1-hour candlesticks for the last 7 days will return approximately 168 candlesticks.
+     * Calculate the time range based on the specified period and number of days,
+     * and query all candlesticks within that time period.
+     * For example: Querying 1-hour candlesticks for the last 7 days will return
+     * approximately 168 candlesticks.
      * </p>
      *
      * @param coin     Coin name
@@ -616,7 +691,11 @@ public class Info {
      * Get all candlestick data for a specified date (UTC timezone).
      * <p>
      * Query all candlesticks between the specified date 00:00:00 and 23:59:59.
-     * Note: Time is based on UTC timezone, convert to other timezones if needed.
+     * </p>
+     * <p>
+     * NOTE: Time is based on UTC timezone. If you need to use a different timezone,
+     * you should convert the year/month/day parameters accordingly before calling
+     * this method.
      * </p>
      *
      * @param coin     Coin name
@@ -655,8 +734,10 @@ public class Info {
     /**
      * Get the current candlestick being generated (incomplete candlestick).
      * <p>
-     * Query candlestick data for the current period, which may not yet be completed (still being updated in real-time).
-     * For example: If it's a 1-hour candlestick and the current time is 14:35, it returns the 14:00-15:00 candlestick that is currently being generated.
+     * Query candlestick data for the current period, which may not yet be completed
+     * (still being updated in real-time).
+     * For example: If it's a 1-hour candlestick and the current time is 14:35, it
+     * returns the 14:00-15:00 candlestick that is currently being generated.
      * </p>
      *
      * @param coin     Coin name
@@ -668,7 +749,7 @@ public class Info {
         // Query the current and previous periods to ensure data availability
         long startTime = endTime - (interval.toMillis() * 2);
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
-        
+
         // Return the last candlestick (currently being generated)
         return !candles.isEmpty() ? candles.getLast() : null;
     }
@@ -779,10 +860,14 @@ public class Info {
 
     /**
      * Convert asset ID to /info API coin field format (e.g., "@107").
+     * <p>
+     * This helper method converts an internal asset ID to the string format
+     * required by the /info API endpoints.
+     * </p>
      *
      * @param coinId Asset ID
      * @return String in the format "@<id>"
-     * @throws HypeError Thrown when ID is invalid
+     * @throws HypeError Thrown when ID is invalid (negative or out of range)
      */
     private String coinIdToInfoCoinString(int coinId) {
         Meta meta = loadMetaCache();
@@ -933,7 +1018,8 @@ public class Info {
 
     /**
      * Query all perpetual dexs (typed return).
-     * Elements may be null or objects, use Map to receive to adapt to field changes.
+     * Elements may be null or objects, use Map to receive to adapt to field
+     * changes.
      *
      * @return Perp dex list (elements are Map or null)
      */
@@ -1130,9 +1216,12 @@ public class Info {
      * @return JSON response
      */
     public JsonNode querySpotDeployAuctionStatus() {
-        // This interface corresponds to spotDeployState(user) in the Python SDK; the Java SDK already provides it
+        // This interface corresponds to spotDeployState(user) in the Python SDK; the
+        // Java SDK already provides it
         // spotDeployState(address)
-        // Keep this method to avoid breaking existing calls, but the server does not support spotDeploy queries without a user; return an empty object to avoid 4xx
+        // Keep this method to avoid breaking existing calls, but the server does not
+        // support spotDeploy queries without a user; return an empty object to avoid
+        // 4xx
         try {
             return JSONUtil.readTree("{}");
         } catch (Exception e) {
@@ -1200,11 +1289,19 @@ public class Info {
     /**
      * Subscribe to WebSocket (type-safe version, using Subscription entity class).
      * <p>
-     * Recommended to use this method, provides compile-time type checking and better code readability.
+     * Recommended to use this method, provides compile-time type checking and
+     * better code readability.
+     * </p>
+     * <p>
+     * NOTE: This method will throw an exception if WebSocket functionality is
+     * disabled
+     * via the skipWs flag during initialization.
      * </p>
      *
      * @param subscription Subscription object (Subscription entity class)
      * @param callback     Message callback
+     * @throws HypeError Thrown when WebSocket functionality is disabled
+     *                   (skipWs=true)
      */
     public void subscribe(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
@@ -1215,7 +1312,8 @@ public class Info {
     /**
      * Subscribe to WebSocket (compatible version, using JsonNode).
      * <p>
-     * For better type safety, it is recommended to use the {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} method.
+     * For better type safety, it is recommended to use the
+     * {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} method.
      * </p>
      *
      * @param subscription Subscription object
@@ -1229,6 +1327,14 @@ public class Info {
 
     /**
      * Get WebSocket subscriptions.
+     * <p>
+     * NOTE: This method will throw an exception if WebSocket functionality is
+     * disabled
+     * via the skipWs flag during initialization.
+     * </p>
+     *
+     * @throws HypeError Thrown when WebSocket functionality is disabled
+     *                   (skipWs=true)
      */
     public Map<String, List<WebsocketManager.ActiveSubscription>> getSubscriptions() {
         if (skipWs)
@@ -1267,7 +1373,8 @@ public class Info {
     }
 
     /**
-     * Add connection status listener (connect/disconnect/reconnect/network status changes).
+     * Add connection status listener (connect/disconnect/reconnect/network status
+     * changes).
      *
      * @param listener Listener implementation
      */
@@ -1305,8 +1412,10 @@ public class Info {
     /**
      * Set reconnection exponential backoff parameters.
      *
-     * @param initialMs Initial reconnection delay milliseconds (recommended 500~2000)
-     * @param maxMs     Maximum reconnection delay milliseconds (recommended not to exceed 5000~30000)
+     * @param initialMs Initial reconnection delay milliseconds (recommended
+     *                  500~2000)
+     * @param maxMs     Maximum reconnection delay milliseconds (recommended not to
+     *                  exceed 5000~30000)
      */
     public void setReconnectBackoffMs(long initialMs, long maxMs) {
         if (skipWs)
@@ -1318,8 +1427,10 @@ public class Info {
     /**
      * Set custom network probe URL.
      * <p>
-     * By default, the WebSocket manager uses the API baseUrl for network availability probing.
-     * In some enterprise environments or special network configurations, a dedicated probe address may be required.
+     * By default, the WebSocket manager uses the API baseUrl for network
+     * availability probing.
+     * In some enterprise environments or special network configurations, a
+     * dedicated probe address may be required.
      * </p>
      *
      * @param url Custom network probe URL (e.g., "https://www.google.com")
@@ -1334,11 +1445,15 @@ public class Info {
     /**
      * Enable or disable network probing functionality.
      * <p>
-     * Network probing is used to periodically check network availability when WebSocket is disconnected, and automatically triggers reconnection when the network is restored.
-     * In some scenarios (such as always-available intranet environments), probing can be disabled to reduce unnecessary HTTP requests.
+     * Network probing is used to periodically check network availability when
+     * WebSocket is disconnected, and automatically triggers reconnection when the
+     * network is restored.
+     * In some scenarios (such as always-available intranet environments), probing
+     * can be disabled to reduce unnecessary HTTP requests.
      * </p>
      *
-     * @param disabled true=disable network probing, false=enable network probing (default enabled)
+     * @param disabled true=disable network probing, false=enable network probing
+     *                 (default enabled)
      */
     public void setNetworkProbeDisabled(boolean disabled) {
         if (skipWs)
@@ -1371,7 +1486,6 @@ public class Info {
             wsManager.removeCallbackErrorListener(listener);
     }
 
-
     /**
      * Get WebSocket manager instance.
      *
@@ -1380,7 +1494,6 @@ public class Info {
     public WebsocketManager getWsManager() {
         return wsManager;
     }
-
 
     /**
      * Query user staking summary (delegatorSummary).
@@ -1393,15 +1506,15 @@ public class Info {
      * <ul>
      * <li>delegated - Delegated amount (float string)</li>
      * <li>undelegated - Undelegated amount (float string)</li>
-     * <li>totalPendingWithdrawal - Total pending withdrawal amount (float string)</li>
+     * <li>totalPendingWithdrawal - Total pending withdrawal amount (float
+     * string)</li>
      * <li>nPendingWithdrawals - Number of pending withdrawals (int)</li>
      * </ul>
      */
     public JsonNode userStakingSummary(String address) {
         Map<String, Object> payload = Map.of(
                 "type", "delegatorSummary",
-                "user", address
-        );
+                "user", address);
         return postInfo(payload);
     }
 
@@ -1422,8 +1535,7 @@ public class Info {
     public JsonNode userStakingDelegations(String address) {
         Map<String, Object> payload = Map.of(
                 "type", "delegations",
-                "user", address
-        );
+                "user", address);
         return postInfo(payload);
     }
 
@@ -1440,12 +1552,13 @@ public class Info {
      * <li>source - Reward source (string)</li>
      * <li>totalAmount - Total reward amount (float string)</li>
      * </ul>
+     * @throws HypeError Thrown when the address is not a valid 42-character
+     *                   hexadecimal format
      */
     public JsonNode userStakingRewards(String address) {
         Map<String, Object> payload = Map.of(
                 "type", "delegatorRewards",
-                "user", address
-        );
+                "user", address);
         return postInfo(payload);
     }
 
@@ -1456,13 +1569,14 @@ public class Info {
      * </p>
      *
      * @param user User address (42-character hexadecimal format)
-     * @return JSON response containing detailed history of delegation and undelegation events, including timestamps, transaction hashes, and detailed delta information
+     * @return JSON response containing detailed history of delegation and
+     * undelegation events, including timestamps, transaction hashes, and
+     * detailed delta information
      */
     public JsonNode delegatorHistory(String user) {
         Map<String, Object> payload = Map.of(
                 "type", "delegatorHistory",
-                "user", user
-        );
+                "user", user);
         return postInfo(payload);
     }
 }

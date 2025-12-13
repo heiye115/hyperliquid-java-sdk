@@ -15,8 +15,24 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ExchangeClient client, responsible for order placement, cancellation, transfers, and other L1/L2 operations.
- * The current version implements core order placement and batch orders, with other L1 operations to be added later.
+ * Exchange client for Hyperliquid SDK, responsible for order placement,
+ * cancellation,
+ * transfers, and other L1/L2 operations.
+ *
+ * <p>
+ * This class provides comprehensive functionality for interacting with the
+ * Hyperliquid exchange,
+ * including:
+ * </p>
+ * <ul>
+ * <li>Order management (placement, cancellation, modification)</li>
+ * <li>Batch order operations with grouping support</li>
+ * <li>Position management (opening, closing, TP/SL)</li>
+ * <li>Asset transfers (USD, spot tokens, vault operations)</li>
+ * <li>Leverage and margin adjustments</li>
+ * <li>Advanced features (builders, agents, multi-signature)</li>
+ * <li>Validator operations and protocol-level interactions</li>
+ * </ul>
  */
 public class Exchange {
 
@@ -64,7 +80,8 @@ public class Exchange {
     private final Map<String, String> defaultSlippageByCoin = new ConcurrentHashMap<>();
 
     /**
-     * Default slippage, used to calculate slippage price (string, e.g., "0.05" for 5%)
+     * Default slippage, used to calculate slippage price (string, e.g., "0.05" for
+     * 5%)
      */
     private String defaultSlippage = "0.05";
 
@@ -85,7 +102,8 @@ public class Exchange {
     /**
      * Schedule cancellation (scheduleCancel).
      *
-     * @param timeMs Millisecond timestamp for cancellation execution; null means immediate execution
+     * @param timeMs Millisecond timestamp for cancellation execution; null means
+     *               immediate execution
      * @return JSON response
      */
     public JsonNode scheduleCancel(Long timeMs) {
@@ -119,7 +137,6 @@ public class Exchange {
         return JSONUtil.convertValue(postAction(actions), UpdateLeverage.class);
     }
 
-
     /**
      * Single order placement (normal order scenario)
      *
@@ -133,12 +150,14 @@ public class Exchange {
     /**
      * Place order (single).
      *
-     * @param req    Order request
+     * @param req     Order request
      * @param builder Optional builder parameters (can be null)
-     *                 - "b": Builder address (0x prefix string)
-     *                 - "f": Builder fee (non-negative integer)
-     *                 For example: When the user wants to utilize a specific Builder's customized liquidity, specific trading strategies,
-     *                 or pay Builder fees, then the builder parameter needs to be set.
+     *                - "b": Builder address (0x prefix string)
+     *                - "f": Builder fee (non-negative integer)
+     *                For example: When the user wants to utilize a specific
+     *                Builder's customized liquidity, specific trading strategies,
+     *                or pay Builder fees, then the builder parameter needs to be
+     *                set.
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
         OrderRequest effective = prepareRequest(req);
@@ -159,10 +178,13 @@ public class Exchange {
      * Format order quantity based on asset precision
      */
     private void formatOrderSize(OrderRequest req) {
-        if (req == null || req.getSz() == null || req.getSz().isEmpty()) return;
-        // Optimization: fetch szDecimals directly from cache to avoid retrieving the full Universe every time
+        if (req == null || req.getSz() == null || req.getSz().isEmpty())
+            return;
+        // Optimization: fetch szDecimals directly from cache to avoid retrieving the
+        // full Universe every time
         Integer szDecimals = info.getSzDecimals(req.getCoin());
-        if (szDecimals == null) return;
+        if (szDecimals == null)
+            return;
         try {
             // Use BigDecimal to round according to precision; flooring is safer
             BigDecimal bd = new BigDecimal(req.getSz()).setScale(szDecimals, RoundingMode.DOWN);
@@ -181,10 +203,13 @@ public class Exchange {
      * </p>
      */
     private void formatOrderPrice(OrderRequest req) {
-        if (req == null) return;
-        // Optimization: fetch szDecimals directly from cache to avoid retrieving the full Universe every time
+        if (req == null)
+            return;
+        // Optimization: fetch szDecimals directly from cache to avoid retrieving the
+        // full Universe every time
         Integer szDecimals = info.getSzDecimals(req.getCoin());
-        if (szDecimals == null) return;
+        if (szDecimals == null)
+            return;
         boolean isSpot = req.getInstrumentType() == InstrumentType.SPOT;
 
         // Compute decimal places: spot = 8 - szDecimals; perp = 6 - szDecimals
@@ -196,7 +221,8 @@ public class Exchange {
         // 1. Format limit price (limitPx)
         if (req.getLimitPx() != null && !req.getLimitPx().isEmpty()) {
             try {
-                BigDecimal bd = new BigDecimal(req.getLimitPx()).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+                BigDecimal bd = new BigDecimal(req.getLimitPx()).round(new MathContext(5, RoundingMode.HALF_UP))
+                        .setScale(decimals, RoundingMode.HALF_UP);
                 req.setLimitPx(bd.stripTrailingZeros().toPlainString());
             } catch (NumberFormatException e) {
                 throw new HypeError("Invalid limit price format: " + req.getLimitPx() + ". Must be a valid number.");
@@ -208,7 +234,8 @@ public class Exchange {
             String triggerPx = req.getOrderType().getTrigger().getTriggerPx();
             if (triggerPx != null && !triggerPx.isEmpty()) {
                 try {
-                    BigDecimal bd = new BigDecimal(triggerPx).round(new MathContext(5, RoundingMode.HALF_UP)).setScale(decimals, RoundingMode.HALF_UP);
+                    BigDecimal bd = new BigDecimal(triggerPx).round(new MathContext(5, RoundingMode.HALF_UP))
+                            .setScale(decimals, RoundingMode.HALF_UP);
                     String newPx = bd.stripTrailingZeros().toPlainString();
                     TriggerOrderType oldTrig = req.getOrderType().getTrigger();
                     TriggerOrderType newTrig = new TriggerOrderType(newPx, oldTrig.isMarket(), oldTrig.getTpslEnum());
@@ -220,7 +247,6 @@ public class Exchange {
             }
         }
     }
-
 
     /**
      * Prepare order request:
@@ -234,46 +260,97 @@ public class Exchange {
                 req.getOrderType() != null &&
                 req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = req.getSlippage() != null ? req.getSlippage()
+                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
             return req;
         }
         // Market close position inference
         if (isClosePositionMarket(req)) {
-            if (req.getIsBuy() != null && req.getSz() != null) {
-                return req;
-            }
-            double szi = inferSignedPosition(req.getCoin());
-            if (szi == 0.0) {
-                throw new HypeError("No position to close for coin " + req.getCoin());
-            }
-            boolean isBuy = szi < 0.0;
-            String sz = (req.getSz() != null && !req.getSz().isEmpty()) ? req.getSz() : String.valueOf(Math.abs(szi));
-            return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
+            return prepareMarketCloseRequest(req);
         }
         // Limit close position inference
         if (isClosePositionLimit(req)) {
-            double signedPosition = inferSignedPosition(req.getCoin());
-            if (signedPosition == 0.0) {
-                throw new HypeError("No position to close for coin " + req.getCoin());
-            }
-            boolean isBuy = signedPosition < 0.0;
-            // Infer position direction and set isBuy
-            req.setIsBuy(isBuy);
-            return req;
+            return prepareLimitCloseRequest(req);
         }
         // Conditional order inference
         if (isTriggerOrder(req)) {
-            if (req.getLimitPx() == null) {
-                Map<String, String> mids = info.allMids();
-                String midStr = mids.get(req.getCoin());
-                if (midStr == null) {
-                    throw new HypeError("No mid for coin " + req.getCoin());
-                }
-                req.setLimitPx(midStr);
-            }
+            return prepareTriggerOrderRequest(req);
+        }
+        return req;
+    }
+
+    /**
+     * Prepare market close position request by inferring position direction and
+     * size.
+     * <p>
+     * If isBuy or sz is not specified, automatically infer:
+     * 1. Query user's current position for the coin
+     * 2. Determine closing direction (opposite to current position)
+     * 3. Calculate closing size (absolute value of position size)
+     * </p>
+     *
+     * @param req Original order request
+     * @return Processed order request with inferred parameters
+     * @throws HypeError If no position exists for the specified coin
+     */
+    private OrderRequest prepareMarketCloseRequest(OrderRequest req) {
+        if (req.getIsBuy() != null && req.getSz() != null) {
             return req;
+        }
+        double szi = inferSignedPosition(req.getCoin());
+        if (szi == 0.0) {
+            throw new HypeError("No position to close for coin " + req.getCoin());
+        }
+        boolean isBuy = szi < 0.0;
+        String sz = (req.getSz() != null && !req.getSz().isEmpty()) ? req.getSz() : String.valueOf(Math.abs(szi));
+        return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
+    }
+
+    /**
+     * Prepare limit close position request by inferring position direction.
+     * <p>
+     * Automatically determines the closing direction based on current position:
+     * - If holding a short position (negative size), set isBuy=true to close
+     * - If holding a long position (positive size), set isBuy=false to close
+     * </p>
+     *
+     * @param req Original order request
+     * @return Processed order request with inferred direction
+     * @throws HypeError If no position exists for the specified coin
+     */
+    private OrderRequest prepareLimitCloseRequest(OrderRequest req) {
+        double signedPosition = inferSignedPosition(req.getCoin());
+        if (signedPosition == 0.0) {
+            throw new HypeError("No position to close for coin " + req.getCoin());
+        }
+        boolean isBuy = signedPosition < 0.0;
+        req.setIsBuy(isBuy);
+        return req;
+    }
+
+    /**
+     * Prepare trigger order request by setting limit price to current market mid
+     * price if not specified.
+     * <p>
+     * For trigger orders, if limit price is not provided:
+     * 1. Fetch current market mid price for the coin
+     * 2. Set the limit price to the mid price as default
+     * </p>
+     *
+     * @param req Original order request
+     * @return Processed order request with limit price set if needed
+     * @throws HypeError If no market mid price is available for the specified coin
+     */
+    private OrderRequest prepareTriggerOrderRequest(OrderRequest req) {
+        if (req.getLimitPx() == null) {
+            Map<String, String> mids = info.allMids();
+            String midStr = mids.get(req.getCoin());
+            if (midStr == null) {
+                throw new HypeError("No mid for coin " + req.getCoin());
+            }
+            req.setLimitPx(midStr);
         }
         return req;
     }
@@ -328,7 +405,8 @@ public class Exchange {
      * Infer the current account's "signed position size" for the specified coin.
      *
      * <p>
-     * Positive numbers indicate long positions, negative numbers indicate short positions;
+     * Positive numbers indicate long positions, negative numbers indicate short
+     * positions;
      * returns 0.0 when there is no position or parsing fails.
      * </p>
      *
@@ -353,7 +431,8 @@ public class Exchange {
     }
 
     /**
-     * Automatically infer and fill position direction and quantity for positionTpsl order groups.
+     * Automatically infer and fill position direction and quantity for positionTpsl
+     * order groups.
      * <p>
      * When isBuy or sz in the order is null:
      * - Automatically query account positions
@@ -365,7 +444,8 @@ public class Exchange {
      * @throws HypeError Thrown when there is no position
      */
     private void inferAndFillPositionTpslOrders(List<OrderRequest> orders) {
-        // Get the coin of the first order (positionTpsl all orders should be the same coin)
+        // Get the coin of the first order (positionTpsl all orders should be the same
+        // coin)
         OrderRequest firstOrder = orders.getFirst();
         String coin = firstOrder.getCoin();
 
@@ -379,7 +459,8 @@ public class Exchange {
         // Automatically query position and infer
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
-            throw new HypeError("No position found for " + coin + ". Cannot auto-infer direction and size for positionTpsl.");
+            throw new HypeError(
+                    "No position found for " + coin + ". Cannot auto-infer direction and size for positionTpsl.");
         }
 
         // Infer direction and quantity
@@ -391,7 +472,7 @@ public class Exchange {
             if (order.getIsBuy() == null) {
                 // For take-profit/stop-loss orders, need to reverse direction
                 if (order.getReduceOnly() != null && order.getReduceOnly()) {
-                    order.setIsBuy(!isBuy);  // Reverse direction to close position
+                    order.setIsBuy(!isBuy); // Reverse direction to close position
                 } else {
                     order.setIsBuy(isBuy);
                 }
@@ -401,7 +482,6 @@ public class Exchange {
             }
         }
     }
-
 
     /**
      * Update isolated margin
@@ -425,7 +505,6 @@ public class Exchange {
         }
     }
 
-
     /**
      * Batch order placement (with grouping support).
      *
@@ -444,7 +523,8 @@ public class Exchange {
      *                 3. "positionTpsl" - Position take-profit/stop-loss group
      *                 Usage scenarios:
      *                 ✅ Set or modify TP/SL for existing positions
-     *                 ✅ Don't open new positions, only set protection for existing positions
+     *                 ✅ Don't open new positions, only set protection for existing
+     *                 positions
      * @return Response JSON
      */
     public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
@@ -466,30 +546,31 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * Batch order placement (with OrderGroup automatic grouping inference).
      * <p>
-     * Automatically identifies grouping type through OrderGroup, no need to manually specify grouping parameter.
+     * Automatically identifies grouping type through OrderGroup, no need to
+     * manually specify grouping parameter.
      * <p>
      * Usage examples:
+     *
      * <pre>
      * // Automatically infer grouping="normalTpsl"
      * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
-     *     .perp("ETH")
-     *     .buy(0.1)
-     *     .entryPrice(3500.0)
-     *     .takeProfit(3600.0)
-     *     .stopLoss(3400.0)
-     *     .buildNormalTpsl();
+     *         .perp("ETH")
+     *         .buy(0.1)
+     *         .entryPrice(3500.0)
+     *         .takeProfit(3600.0)
+     *         .stopLoss(3400.0)
+     *         .buildNormalTpsl();
      * JsonNode result = exchange.bulkOrders(orderGroup);
      *
      * // Automatically infer grouping="positionTpsl"
      * OrderGroup orderGroup2 = OrderRequest.entryWithTpSl()
-     *     .perp("ETH")
-     *     .closePosition(0.5, true)
-     *     .takeProfit(3600.0)
-     *     .buildPositionTpsl();
+     *         .perp("ETH")
+     *         .closePosition(0.5, true)
+     *         .takeProfit(3600.0)
+     *         .buildPositionTpsl();
      * JsonNode result2 = exchange.bulkOrders(orderGroup2);
      * </pre>
      *
@@ -504,7 +585,8 @@ public class Exchange {
      * Batch order placement (with OrderGroup and builder support).
      * <p>
      * For positionTpsl type order groups, if isBuy or sz in the order is null,
-     * it will automatically query account positions and fill in direction and quantity.
+     * it will automatically query account positions and fill in direction and
+     * quantity.
      *
      * @param orderGroup Order group (contains order list and grouping type)
      * @param builder    Optional builder
@@ -525,15 +607,16 @@ public class Exchange {
     /**
      * Batch order placement (normal orders, default grouping="na").
      * <p>
-     * Used to submit multiple normal orders in batch, with no correlation between orders.
+     * Used to submit multiple normal orders in batch, with no correlation between
+     * orders.
      * <p>
      * Usage example:
+     *
      * <pre>
      * // Batch orders for multiple coins
      * List<OrderRequest> orders = Arrays.asList(
-     *     OrderRequest.builder().perp("BTC").buy(0.01).limitPrice(95000.0).build(),
-     *     OrderRequest.builder().perp("ETH").buy(0.1).limitPrice(3500.0).build()
-     * );
+     *         OrderRequest.builder().perp("BTC").buy(0.01).limitPrice(95000.0).build(),
+     *         OrderRequest.builder().perp("ETH").buy(0.1).limitPrice(3500.0).build());
      * JsonNode result = exchange.bulkOrders(orders);
      * </pre>
      *
@@ -563,7 +646,8 @@ public class Exchange {
     }
 
     /**
-     * Cancel order by Cloid (maintain consistency with Python cancel_by_cloid behavior).
+     * Cancel order by Cloid (maintain consistency with Python cancel_by_cloid
+     * behavior).
      *
      * @param coinName Coin name
      * @param cloid    Client order ID
@@ -616,12 +700,12 @@ public class Exchange {
      * Batch modify orders (aligned with Python bulk_modify_orders_new).
      * <p>
      * Usage example:
+     *
      * <pre>
      * // Modify multiple orders
      * List<ModifyRequest> modifies = Arrays.asList(
-     *     ModifyRequest.byOid("ETH", 123456L, newReq1),
-     *     ModifyRequest.byCloid("BTC", cloid, newReq2)
-     * );
+     *         ModifyRequest.byOid("ETH", 123456L, newReq1),
+     *         ModifyRequest.byCloid("BTC", cloid, newReq2));
      * JsonNode result = exchange.bulkModifyOrders(modifies);
      * </pre>
      *
@@ -710,7 +794,8 @@ public class Exchange {
             if (f < 0) {
                 throw new HypeError("builder.f cannot be negative");
             }
-            // Limit a reasonable upper bound to avoid mistakenly passing oversized numbers that cause backend rejection (can be adjusted according to business)
+            // Limit a reasonable upper bound to avoid mistakenly passing oversized numbers
+            // that cause backend rejection (can be adjusted according to business)
             if (f > 1_000_000L) {
                 throw new HypeError("builder.f is too large, please verify the unit and value range");
             }
@@ -721,10 +806,13 @@ public class Exchange {
     }
 
     /**
-     * Enable Agent-side Dex Abstraction (consistent with Python exchange.agent_enable_dex_abstraction).
+     * Enable Agent-side Dex Abstraction (consistent with Python
+     * exchange.agent_enable_dex_abstraction).
      * Description:
-     * - The server will create/enable an API Wallet (Agent) based on this action for L1 order placement and other operations.
-     * - This is an L1 action, directly using signL1Action for signing and submission.
+     * - The server will create/enable an API Wallet (Agent) based on this action
+     * for L1 order placement and other operations.
+     * - This is an L1 action, directly using signL1Action for signing and
+     * submission.
      *
      * @return JSON response
      */
@@ -736,7 +824,8 @@ public class Exchange {
     }
 
     /**
-     * User-side Dex Abstraction switch (consistent with Python exchange.user_dex_abstraction).
+     * User-side Dex Abstraction switch (consistent with Python
+     * exchange.user_dex_abstraction).
      *
      * @param user    User address (0x prefix)
      * @param enabled Whether to enable
@@ -896,7 +985,8 @@ public class Exchange {
     /**
      * USD category transfer (Spot ⇄ Perp).
      *
-     * @param toPerp true means transfer from Spot to Perp; false means transfer from Perp to Spot
+     * @param toPerp true means transfer from Spot to Perp; false means transfer
+     *               from Perp to Spot
      * @param amount Amount (string)
      * @return JSON response
      */
@@ -1129,7 +1219,8 @@ public class Exchange {
      * SpotDeploy: User genesis allocation (userGenesis).
      *
      * @param token               Token ID
-     * @param userAndWei          User and Wei amount list, in the form [[user,addressLower],[wei,string]]
+     * @param userAndWei          User and Wei amount list, in the form
+     *                            [[user,addressLower],[wei,string]]
      * @param existingTokenAndWei Existing token and Wei amount list, in the form
      *                            [[tokenId,int],[wei,string]]
      * @return JSON response
@@ -1316,11 +1407,14 @@ public class Exchange {
      * User authorization and creation of new Agent (API Wallet).
      * Consistent with Python Exchange.approve_agent:
      * - Randomly generate 32-byte private key to get agentAddress;
-     * - Construct {type:"approveAgent", agentAddress, agentName?, nonce} user signed action;
-     * - Sign using signUserSignedAction(primaryType="HyperliquidTransaction:ApproveAgent");
+     * - Construct {type:"approveAgent", agentAddress, agentName?, nonce} user
+     * signed action;
+     * - Sign using
+     * signUserSignedAction(primaryType="HyperliquidTransaction:ApproveAgent");
      * - Send to /exchange and return server response with new private key.
      * <p>
-     * Note: When name is null, the agentName field is not included in the action (aligned with Python).
+     * Note: When name is null, the agentName field is not included in the action
+     * (aligned with Python).
      *
      * @param name Optional Agent name (for display purposes), can be null
      * @return Server response and generated Agent private key/address
@@ -1366,7 +1460,8 @@ public class Exchange {
      * <p>
      * Rules:
      * - nonce uses millisecond timestamp (consistent with Python get_timestamp_ms);
-     * - usdClassTransfer/sendAsset type actions do not include vaultAddress (maintain Python behavior consistency);
+     * - usdClassTransfer/sendAsset type actions do not include vaultAddress
+     * (maintain Python behavior consistency);
      * - Other actions use the set vaultAddress and expiresAfter;
      * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
@@ -1382,12 +1477,14 @@ public class Exchange {
      * <p>
      * Rules:
      * - nonce uses millisecond timestamp (consistent with Python get_timestamp_ms);
-     * - usdClassTransfer/sendAsset type actions do not include vaultAddress (maintain Python behavior consistency);
+     * - usdClassTransfer/sendAsset type actions do not include vaultAddress
+     * (maintain Python behavior consistency);
      * - Other actions use the set vaultAddress;
      * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
      * @param action       L1 action (Map)
-     * @param expiresAfter Order expiration time (milliseconds), uses default value 120000ms when null
+     * @param expiresAfter Order expiration time (milliseconds), uses default value
+     *                     120000ms when null
      * @return JSON response
      */
     public JsonNode postAction(Map<String, Object> action, Long expiresAfter) {
@@ -1424,11 +1521,14 @@ public class Exchange {
     }
 
     /**
-     * Unified wrapper: Use existing signature (user signature or other signature) to send to /exchange.
-     * The difference from postAction is: the signature is not generated within this method, but accepts an externally passed signature.
+     * Unified wrapper: Use existing signature (user signature or other signature)
+     * to send to /exchange.
+     * The difference from postAction is: the signature is not generated within this
+     * method, but accepts an externally passed signature.
      *
      * @param action    Action Map
-     * @param signature Existing r/s/v signature (corresponding to EIP-712 TypedData)
+     * @param signature Existing r/s/v signature (corresponding to EIP-712
+     *                  TypedData)
      * @param nonce     Timestamp/random number
      * @return JSON response
      */
@@ -1498,7 +1598,8 @@ public class Exchange {
     /**
      * Determine if the action is a user signature type.
      * <p>
-     * User signature actions use EIP-712 TypedData signature, different from L1 action signatures.
+     * User signature actions use EIP-712 TypedData signature, different from L1
+     * action signatures.
      * </p>
      *
      * @param actionType Action type
@@ -1518,7 +1619,6 @@ public class Exchange {
                 || "convertToMultiSigUser".equals(actionType);
     }
 
-
     /**
      * Parse Dex Abstraction enabled status.
      *
@@ -1526,8 +1626,10 @@ public class Exchange {
      * @return Returns true if enabled, false otherwise
      */
     private boolean isDexEnabled(JsonNode node) {
-        if (node == null) return false;
-        if (node.has("enabled")) return node.get("enabled").asBoolean(false);
+        if (node == null)
+            return false;
+        if (node.has("enabled"))
+            return node.get("enabled").asBoolean(false);
         if (node.has("data") && node.get("data").has("enabled"))
             return node.get("data").get("enabled").asBoolean(false);
         String s = node.toString().toLowerCase();
@@ -1557,17 +1659,20 @@ public class Exchange {
     }
 
     /**
-     * Market open placeholder conversion: Calculate placeholder limit price for IOC market orders.
+     * Market open placeholder conversion: Calculate placeholder limit price for IOC
+     * market orders.
      *
      * @param req Order request
      */
     private void marketOpenTransition(OrderRequest req) {
-        if (req == null) return;
+        if (req == null)
+            return;
         if (req.getLimitPx() == null &&
                 req.getOrderType() != null &&
                 req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = req.getSlippage() != null ? req.getSlippage()
+                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
@@ -1580,7 +1685,8 @@ public class Exchange {
         Map<String, String> mids = info.allMids();
         String midStr = mids.get(coin);
         if (midStr == null) {
-            throw new HypeError("Failed to get mid price for coin " + coin + " (allMids returned empty or does not contain the coin)");
+            throw new HypeError("Failed to get mid price for coin " + coin
+                    + " (allMids returned empty or does not contain the coin)");
         }
         try {
             double basePx = Double.parseDouble(midStr);
@@ -1613,7 +1719,8 @@ public class Exchange {
     }
 
     /**
-     * Market close all positions for specified coin (automatically infer direction and quantity based on current account position).
+     * Market close all positions for specified coin (automatically infer direction
+     * and quantity based on current account position).
      *
      * @param coin Coin name
      * @return Server order response
@@ -1624,11 +1731,14 @@ public class Exchange {
     }
 
     /**
-     * Market close position for specified coin (supports partial closing and custom slippage).
+     * Market close position for specified coin (supports partial closing and custom
+     * slippage).
      * <p>
-     * Automatically queries account position, infers closing direction (sell long/buy short), and closes at market price.
+     * Automatically queries account position, infers closing direction (sell
+     * long/buy short), and closes at market price.
      * <p>
      * Usage examples:
+     *
      * <pre>
      * // Complete closing
      * Order result = exchange.closePositionMarket("ETH", null, null, null);
@@ -1681,7 +1791,8 @@ public class Exchange {
      * @param builder  Builder information (can be null)
      * @return Order response
      */
-    public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid, Map<String, Object> builder) {
+    public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid,
+                                     Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
@@ -1699,7 +1810,8 @@ public class Exchange {
     }
 
     /**
-     * Limit close all positions for specified coin (automatically infer direction and quantity based on current account position).
+     * Limit close all positions for specified coin (automatically infer direction
+     * and quantity based on current account position).
      *
      * @param tif     TIF strategy
      * @param coin    Coin name
@@ -1718,15 +1830,18 @@ public class Exchange {
         return order(req);
     }
 
-
     /**
-     * Market close all positions for all coins (automatically infer long/short directions).
+     * Market close all positions for all coins (automatically infer long/short
+     * directions).
      * <p>
-     * Query all account positions, automatically infer closing direction and quantity for each coin, batch order to close all at once.
-     * Supports closing multiple long and short positions across different coins simultaneously.
+     * Query all account positions, automatically infer closing direction and
+     * quantity for each coin, batch order to close all at once.
+     * Supports closing multiple long and short positions across different coins
+     * simultaneously.
      * </p>
      * <p>
      * Usage example:
+     *
      * <pre>
      * // One-click close all positions
      * JsonNode result = exchange.closeAllPositions();
@@ -1759,10 +1874,10 @@ public class Exchange {
                 // Skip if parsing fails
             }
 
-        // Skip coins without positions
-        if (szi == 0.0) {
-            continue;
-        }
+            // Skip coins without positions
+            if (szi == 0.0) {
+                continue;
+            }
 
             // Infer closing direction: sell if long; buy if short
             boolean isBuy = szi < 0;
@@ -1791,17 +1906,19 @@ public class Exchange {
         return Constants.MAINNET_API_URL.equals(hypeHttpClient.getBaseUrl());
     }
 
-
-     // ==================== Spot Sub Account Transfer ====================
+    // ==================== Spot Sub Account Transfer ====================
 
     /**
-     * Spot sub account transfer (aligned with Python SDK's sub_account_spot_transfer).
+     * Spot sub account transfer (aligned with Python SDK's
+     * sub_account_spot_transfer).
      * <p>
      * Used to transfer spot tokens between main account and Spot sub account.
      * </p>
      *
-     * @param subAccountUser Sub account user address (42-character hexadecimal format)
-     * @param isDeposit      true means transfer from main account to sub account, false means transfer from sub account to main account
+     * @param subAccountUser Sub account user address (42-character hexadecimal
+     *                       format)
+     * @param isDeposit      true means transfer from main account to sub account,
+     *                       false means transfer from sub account to main account
      * @param token          Token name (e.g., "USDC", "ETH", etc.)
      * @param amount         Transfer quantity (string format)
      * @return JSON response
@@ -1819,16 +1936,17 @@ public class Exchange {
         return postAction(action);
     }
 
-
     // ==================== Multi-Signature Operations ====================
 
     /**
      * Multi-signature operation (aligned with Python SDK's multi_sig).
      * <p>
-     * Used for multi-signature accounts to execute operations, requiring signatures from multiple signers.
+     * Used for multi-signature accounts to execute operations, requiring signatures
+     * from multiple signers.
      * </p>
      *
-     * @param multiSigUser Multi-signature account address (42-character hexadecimal format)
+     * @param multiSigUser Multi-signature account address (42-character hexadecimal
+     *                     format)
      * @param innerAction  Inner action (actual operation to be executed)
      * @param signatures   List of all signers' signatures (sorted by address)
      * @param nonce        Random number/timestamp
@@ -1840,8 +1958,7 @@ public class Exchange {
             Map<String, Object> innerAction,
             List<Map<String, Object>> signatures,
             long nonce,
-            String vaultAddress
-    ) {
+            String vaultAddress) {
         // Build multiSig action
         Map<String, Object> multiSigAction = new LinkedHashMap<>();
         multiSigAction.put("type", "multiSig");
@@ -1882,14 +1999,13 @@ public class Exchange {
             String multiSigUser,
             Map<String, Object> innerAction,
             List<Map<String, Object>> signatures,
-            long nonce
-    ) {
+            long nonce) {
         return multiSig(multiSigUser, innerAction, signatures, nonce, this.vaultAddress);
     }
 
-
     /**
-     * PerpDeploy Oracle settings (aligned with Python SDK's perp_deploy_set_oracle).
+     * PerpDeploy Oracle settings (aligned with Python SDK's
+     * perp_deploy_set_oracle).
      * <p>
      * Used for Oracle price updates in Builder-deployed perp dex.
      * </p>
@@ -1897,7 +2013,8 @@ public class Exchange {
      * @param dex             Perp dex name
      * @param oraclePxs       Oracle price Map (coin name -> price string)
      * @param allMarkPxs      Mark price list (each element is Map<coin, price>)
-     * @param externalPerpPxs External perpetual price Map (coin name -> price string)
+     * @param externalPerpPxs External perpetual price Map (coin name -> price
+     *                        string)
      * @return JSON response
      */
 
@@ -1905,8 +2022,7 @@ public class Exchange {
             String dex,
             Map<String, String> oraclePxs,
             List<Map<String, String>> allMarkPxs,
-            Map<String, String> externalPerpPxs
-    ) {
+            Map<String, String> externalPerpPxs) {
         // 1. Sort oraclePxs
         List<List<String>> oraclePxsWire = new ArrayList<>();
         if (oraclePxs != null) {
@@ -1955,7 +2071,6 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * EVM BigBlocks switch (aligned with Python SDK's use_big_blocks).
      * <p>
@@ -1973,24 +2088,42 @@ public class Exchange {
         return postAction(action);
     }
 
-
-    // ==================== C Validator Operations (Professional Features) ====================
+    // ==================== C Validator Operations (Professional Features)
+    // ====================
 
     /**
      * C Validator registration (aligned with Python SDK's c_validator_register).
      * <p>
-     * Used to register new validator nodes.
+     * Used to register new validator nodes in the Hyperliquid consensus protocol.
+     * This is a professional feature for advanced users who want to participate
+     * in network validation and earn rewards.
      * </p>
      *
-     * @param nodeIp              Node IP address
-     * @param name                Validator name
-     * @param description         Validator description
-     * @param delegationsDisabled Whether to disable delegations
-     * @param commissionBps       Commission ratio (basis points, 1 bps = 0.01%)
-     * @param signer              Signer address
-     * @param unjailed            Whether to unjail
-     * @param initialWei          Initial staking amount (wei)
-     * @return JSON response
+     * <p>
+     * <strong>Important considerations:</strong>
+     * </p>
+     * <ul>
+     * <li>Requires significant technical expertise to operate a validator node</li>
+     * <li>Validators must maintain high uptime and network connectivity</li>
+     * <li>Risks include slashing penalties for malicious or negligent behavior</li>
+     * <li>Initial staking amount should be carefully considered</li>
+     * <li>Commission rates affect validator competitiveness and earnings</li>
+     * </ul>
+     *
+     * @param nodeIp              Node IP address (publicly accessible endpoint)
+     * @param name                Validator name (public identifier)
+     * @param description         Validator description (public information)
+     * @param delegationsDisabled Whether to disable delegations from other users
+     * @param commissionBps       Commission ratio in basis points (1 bps = 0.01%)
+     * @param signer              Signer address (responsible for signing blocks)
+     * @param unjailed            Whether to unjail (set to false for new
+     *                            validators)
+     * @param initialWei          Initial staking amount in wei (minimum required
+     *                            stake)
+     * @return JSON response containing transaction details and validator status
+     * @see #cValidatorChangeProfile(String, String, String, boolean, Boolean,
+     * Integer, String)
+     * @see #cValidatorUnregister()
      */
     public JsonNode cValidatorRegister(
             String nodeIp,
@@ -2000,8 +2133,7 @@ public class Exchange {
             int commissionBps,
             String signer,
             boolean unjailed,
-            long initialWei
-    ) {
+            long initialWei) {
         // Construct profile
         Map<String, Object> nodeIpMap = new LinkedHashMap<>();
         nodeIpMap.put("Ip", nodeIp);
@@ -2029,9 +2161,11 @@ public class Exchange {
     }
 
     /**
-     * C Validator change configuration (aligned with Python SDK's c_validator_change_profile).
+     * C Validator change configuration (aligned with Python SDK's
+     * c_validator_change_profile).
      * <p>
-     * Used to modify validator node configuration information. All parameters can be null, only non-null parameters are updated.
+     * Used to modify validator node configuration information. All parameters can
+     * be null, only non-null parameters are updated.
      * </p>
      *
      * @param nodeIp             Node IP address (can be null)
@@ -2050,8 +2184,7 @@ public class Exchange {
             boolean unjailed,
             Boolean disableDelegations,
             Integer commissionBps,
-            String signer
-    ) {
+            String signer) {
         // Construct changeProfile
         Map<String, Object> changeProfile = new LinkedHashMap<>();
 
@@ -2079,7 +2212,8 @@ public class Exchange {
     }
 
     /**
-     * C Validator unregistration (aligned with Python SDK's c_validator_unregister).
+     * C Validator unregistration (aligned with Python SDK's
+     * c_validator_unregister).
      * <p>
      * Used to unregister validator nodes.
      * </p>
@@ -2093,7 +2227,6 @@ public class Exchange {
 
         return postAction(action);
     }
-
 
     /**
      * C Signer jail self (aligned with Python SDK's c_signer_jail_self).
@@ -2133,11 +2266,11 @@ public class Exchange {
         return postAction(action);
     }
 
-
     /**
      * Noop test operation (aligned with Python SDK's noop).
      * <p>
-     * Used to test signatures and network connectivity, without executing any actual operations.
+     * Used to test signatures and network connectivity, without executing any
+     * actual operations.
      * </p>
      *
      * @param nonce Random number/timestamp
