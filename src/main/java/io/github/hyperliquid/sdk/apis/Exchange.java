@@ -255,13 +255,16 @@ public class Exchange {
      * 3. Infer conditional order limit price
      */
     private OrderRequest prepareRequest(OrderRequest req) {
+        if (req == null) {
+            throw new HypeError("OrderRequest cannot be null");
+        }
         // Infer market order price with slippage
         if (req.getLimitPx() == null &&
                 req.getOrderType() != null &&
                 req.getOrderType().getLimit() != null &&
+                Boolean.FALSE.equals(req.getReduceOnly()) &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC) {
-            String slip = req.getSlippage() != null ? req.getSlippage()
-                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
             return req;
@@ -304,8 +307,19 @@ public class Exchange {
             throw new HypeError("No position to close for coin " + req.getCoin());
         }
         boolean isBuy = szi < 0.0;
+        if (req.getIsBuy() == null) {
+            req.setIsBuy(isBuy);
+        }
         String sz = (req.getSz() != null && !req.getSz().isEmpty()) ? req.getSz() : String.valueOf(Math.abs(szi));
-        return OrderRequest.Close.market(req.getCoin(), isBuy, sz, req.getCloid());
+        if (req.getSz() == null) {
+            req.setSz(sz);
+        }
+        if (req.getLimitPx() == null) {
+            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
+            req.setLimitPx(slipPx);
+        }
+        return req;
     }
 
     /**

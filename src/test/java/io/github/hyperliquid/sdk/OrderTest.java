@@ -61,7 +61,7 @@ public class OrderTest {
      **/
     @Test
     public void testLimitOrder() {
-        OrderRequest req = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.01", "1800.0");
+        OrderRequest req = OrderRequest.Open.limit("ETH", false, "0.01", "3500.0");
         Order order = client.getExchange().order(req);
         System.out.println(order);
     }
@@ -71,7 +71,7 @@ public class OrderTest {
      **/
     @Test
     public void testLimitCloseOrder() {
-        OrderRequest req = OrderRequest.Close.limit("ETH", "0.01", "2000.0", Cloid.auto());
+        OrderRequest req = OrderRequest.Close.limit("ETH", "0.01", "3500.0", Cloid.auto());
         Order order = client.getExchange().order(req);
         System.out.println(order);
     }
