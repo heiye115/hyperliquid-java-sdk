@@ -232,7 +232,7 @@ JsonNode cancelResponse = exchange.cancel("ETH", oid);
 **Update Leverage:**
 
 ```java
-JsonNode leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20x leverage, non-cross-margin
+UpdateLeverage leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20x leverage, non-cross-margin
 ```
 
 ### Real-time Data (WebSocket)

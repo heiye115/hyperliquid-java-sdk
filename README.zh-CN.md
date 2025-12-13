@@ -240,7 +240,7 @@ JsonNode cancelResponse = exchange.cancel("ETH", oid);
 **更新杠杆:**
 
 ```java
-JsonNode leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20倍杠杆，非全仓模式
+UpdateLeverage leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20倍杠杆，非全仓模式
 ```
 
 ### 实时数据 (WebSocket)
