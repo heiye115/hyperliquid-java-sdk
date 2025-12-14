@@ -18,10 +18,12 @@ import io.github.hyperliquid.sdk.utils.HypeError;
 public class CloseAllExample {
     public static void main(String[] args) {
         // Recommended: Use API Wallet for better security
-        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
-        // Main Private Key: Direct use of main wallet private key, full control, higher risk
-        String primaryWalletAddress = System.getenv("PRIMARY_WALLET_ADDRESS");  // Primary wallet address
-        String apiWalletPrivateKey = System.getenv("API_WALLET_PRIVATE_KEY");   // API wallet private key
+        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions,
+        // main private key not exposed
+        // Main Private Key: Direct use of main wallet private key, full control, higher
+        // risk
+        String primaryWalletAddress = System.getenv("PRIMARY_WALLET_ADDRESS"); // Primary wallet address
+        String apiWalletPrivateKey = System.getenv("API_WALLET_PRIVATE_KEY"); // API wallet private key
         if (primaryWalletAddress == null || apiWalletPrivateKey == null)
             throw new IllegalStateException("Set PRIMARY_WALLET_ADDRESS and API_WALLET_PRIVATE_KEY");
 
@@ -31,16 +33,10 @@ public class CloseAllExample {
                 .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
                 .build();
 
-        // Alternative: Build client with main private key (Not recommended for production)
-        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        // HyperliquidClient client = HyperliquidClient.builder()
-        //         .testNetUrl()
-        //         .addPrivateKey(pk)
-        //         .build();
-
         Exchange ex = client.getExchange();
 
-        // Example 1: Close entire ETH position at market (auto-infer direction and size)
+        // Example 1: Close entire ETH position at market (auto-infer direction and
+        // size)
         try {
             Order mkt = ex.closePositionMarket("ETH");
             System.out.println("Market close status: " + mkt.getStatus());
@@ -65,4 +61,3 @@ public class CloseAllExample {
         }
     }
 }
-

@@ -30,13 +30,6 @@ public class LimitOpenExample {
                 .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
                 .build();
 
-        // Alternative: Build client with main private key (Not recommended for production)
-        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        // HyperliquidClient client = HyperliquidClient.builder()
-        //         .testNetUrl()
-        //         .addPrivateKey(pk)
-        //         .build();
-
         Exchange ex = client.getExchange();
 
         // Example 1: Open long position with limit order (GTC - Good Till Cancel)
@@ -67,4 +60,3 @@ public class LimitOpenExample {
         }
     }
 }
-

@@ -32,14 +32,6 @@ public class MarketOpenExample {
                 .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
                 .build();
 
-        // Alternative: Build client with main private key (Not recommended for
-        // production)
-        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        // HyperliquidClient client = HyperliquidClient.builder()
-        // .testNetUrl()
-        // .addPrivateKey(pk)
-        // .build();
-
         Exchange ex = client.getExchange();
 
         // Open long position at market: Buy 0.01 ETH

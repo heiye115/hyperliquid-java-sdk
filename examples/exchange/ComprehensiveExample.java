@@ -46,14 +46,6 @@ public class ComprehensiveExample {
                 .timeout(15)   // Set timeout to 15 seconds
                 .build();
 
-        // Alternative: Build client with main private key (Not recommended for production)
-        // String pk = System.getenv("HYPERLIQUID_PRIVATE_KEY");
-        // HyperliquidClient client = HyperliquidClient.builder()
-        //         .testNetUrl()
-        //         .addPrivateKey(pk)
-        //         .timeout(15)
-        //         .build();
-
         Info info = client.getInfo();
         Exchange exchange = client.getExchange();
         String address = client.getSingleAddress();
@@ -170,4 +162,3 @@ public class ComprehensiveExample {
         System.out.println("\n=== ComprehensiveExample execution completed ===");
     }
 }
-
