@@ -90,7 +90,54 @@ public class CloseAdvancedExample {
             System.err.println("Limit close failed: " + e.getMessage());
         }
 
+        // ==================== 4. Take-profit helpers for long/short positions ====================
+        System.out.println("\n--- Close: take-profit helpers for long/short positions ---");
+        try {
+            // Take-profit for a long position: internally sends a sell order when trigger price is reached
+            OrderRequest tpLong = OrderRequest.Close.takeProfitForLong(
+                    "ETH",
+                    "0.01",
+                    "3900.0"
+            );
+            Order tpLongOrder = exchange.order(tpLong);
+            System.out.println("Take-profit for long status: " + tpLongOrder.getStatus());
+
+            // Take-profit for a short position: internally sends a buy order when trigger price is reached
+            OrderRequest tpShort = OrderRequest.Close.takeProfitForShort(
+                    "ETH",
+                    "0.01",
+                    "3500.0"
+            );
+            Order tpShortOrder = exchange.order(tpShort);
+            System.out.println("Take-profit for short status: " + tpShortOrder.getStatus());
+        } catch (HypeError e) {
+            System.err.println("Take-profit helpers failed: " + e.getMessage());
+        }
+
+        // ==================== 5. Stop-loss helpers for long/short positions ====================
+        System.out.println("\n--- Close: stop-loss helpers for long/short positions ---");
+        try {
+            // Stop-loss for a long position: internally sends a sell order when trigger price is reached
+            OrderRequest slLong = OrderRequest.Close.stopLossForLong(
+                    "ETH",
+                    "0.01",
+                    "3400.0"
+            );
+            Order slLongOrder = exchange.order(slLong);
+            System.out.println("Stop-loss for long status: " + slLongOrder.getStatus());
+
+            // Stop-loss for a short position: internally sends a buy order when trigger price is reached
+            OrderRequest slShort = OrderRequest.Close.stopLossForShort(
+                    "ETH",
+                    "0.01",
+                    "3650.0"
+            );
+            Order slShortOrder = exchange.order(slShort);
+            System.out.println("Stop-loss for short status: " + slShortOrder.getStatus());
+        } catch (HypeError e) {
+            System.err.println("Stop-loss helpers failed: " + e.getMessage());
+        }
+
         System.out.println("\n=== CloseAdvancedExample execution completed ===");
     }
 }
-

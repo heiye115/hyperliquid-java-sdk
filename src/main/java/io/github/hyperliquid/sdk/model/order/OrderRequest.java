@@ -100,6 +100,13 @@ public class OrderRequest {
      */
     private Long expiresAfter;
 
+    /**
+     * Default constructor.
+     * <p>
+     * Typically used together with setter methods or static helper methods when
+     * building the request step by step.
+     * </p>
+     */
     public OrderRequest() {
     }
 
@@ -126,6 +133,19 @@ public class OrderRequest {
         this.cloid = cloid;
     }
 
+    /**
+     * Constructs an order request with custom slippage parameter.
+     *
+     * @param instrumentType Instrument type (PERP or SPOT)
+     * @param coin           Currency name (e.g., "ETH")
+     * @param isBuy          Whether to buy (true=buy/long, false=sell/short)
+     * @param sz             Quantity (string)
+     * @param limitPx        Limit price (string, can be null)
+     * @param orderType      Order type (can be null)
+     * @param reduceOnly     Reduce-only flag
+     * @param cloid          Client order ID (can be null)
+     * @param slippage       Market order slippage ratio (string)
+     */
     public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, String sz, String limitPx,
             OrderType orderType, Boolean reduceOnly, Cloid cloid, String slippage) {
         this.instrumentType = instrumentType;
@@ -147,7 +167,7 @@ public class OrderRequest {
      * Creates an order builder (Builder pattern).
      * <p>
      * Usage examples:
-     * 
+     *
      * <pre>
      * // Limit order entry
      * OrderRequest req = OrderRequest.builder()
@@ -199,82 +219,182 @@ public class OrderRequest {
         return new OrderWithTpSlBuilder();
     }
 
+    /**
+     * Gets the instrument type.
+     *
+     * @return Instrument type
+     */
     public InstrumentType getInstrumentType() {
         return instrumentType;
     }
 
+    /**
+     * Sets the instrument type.
+     *
+     * @param instrumentType Instrument type
+     */
     public void setInstrumentType(InstrumentType instrumentType) {
         this.instrumentType = instrumentType;
     }
 
+    /**
+     * Gets the currency name.
+     *
+     * @return Currency name
+     */
     public String getCoin() {
         return coin;
     }
 
+    /**
+     * Sets the currency name.
+     *
+     * @param coin Currency name
+     */
     public void setCoin(String coin) {
         this.coin = coin;
     }
 
+    /**
+     * Gets the buy flag.
+     *
+     * @return Whether to buy (true=buy/long, false=sell/short)
+     */
     public Boolean getIsBuy() {
         return isBuy;
     }
 
+    /**
+     * Sets the buy flag.
+     *
+     * @param isBuy Whether to buy (true=buy/long, false=sell/short)
+     */
     public void setIsBuy(Boolean isBuy) {
         this.isBuy = isBuy;
     }
 
+    /**
+     * Gets the order quantity.
+     *
+     * @return Quantity (string)
+     */
     public String getSz() {
         return sz;
     }
 
+    /**
+     * Sets the order quantity.
+     *
+     * @param sz Quantity (string)
+     */
     public void setSz(String sz) {
         this.sz = sz;
     }
 
+    /**
+     * Gets the limit price.
+     *
+     * @return Limit price (string)
+     */
     public String getLimitPx() {
         return limitPx;
     }
 
+    /**
+     * Sets the limit price.
+     *
+     * @param limitPx Limit price (string)
+     */
     public void setLimitPx(String limitPx) {
         this.limitPx = limitPx;
     }
 
+    /**
+     * Gets the order type.
+     *
+     * @return Order type
+     */
     public OrderType getOrderType() {
         return orderType;
     }
 
+    /**
+     * Sets the order type.
+     *
+     * @param orderType Order type
+     */
     public void setOrderType(OrderType orderType) {
         this.orderType = orderType;
     }
 
+    /**
+     * Gets the reduce-only flag.
+     *
+     * @return Reduce-only flag
+     */
     public Boolean getReduceOnly() {
         return reduceOnly;
     }
 
+    /**
+     * Sets the reduce-only flag.
+     *
+     * @param reduceOnly Reduce-only flag
+     */
     public void setReduceOnly(Boolean reduceOnly) {
         this.reduceOnly = reduceOnly;
     }
 
+    /**
+     * Gets the client order ID.
+     *
+     * @return Client order ID
+     */
     public Cloid getCloid() {
         return cloid;
     }
 
+    /**
+     * Sets the client order ID.
+     *
+     * @param cloid Client order ID
+     */
     public void setCloid(Cloid cloid) {
         this.cloid = cloid;
     }
 
+    /**
+     * Gets the market order slippage ratio.
+     *
+     * @return Slippage ratio (string)
+     */
     public String getSlippage() {
         return slippage;
     }
 
+    /**
+     * Sets the market order slippage ratio.
+     *
+     * @param slippage Slippage ratio (string)
+     */
     public void setSlippage(String slippage) {
         this.slippage = slippage;
     }
 
+    /**
+     * Gets the order expiration time.
+     *
+     * @return Expiration time (milliseconds)
+     */
     public Long getExpiresAfter() {
         return expiresAfter;
     }
 
+    /**
+     * Sets the order expiration time.
+     *
+     * @param expiresAfter Expiration time (milliseconds)
+     */
     public void setExpiresAfter(Long expiresAfter) {
         this.expiresAfter = expiresAfter;
     }
@@ -575,6 +695,35 @@ public class OrderRequest {
         }
 
         /**
+         * Creates a spot limit buy order with custom TIF (without cloid).
+         *
+         * @param tif     Time in force
+         * @param coin    Currency name
+         * @param sz      Quantity (string)
+         * @param limitPx Limit price (string)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest spotLimitBuy(Tif tif, String coin, String sz, String limitPx) {
+            return spotLimitBuy(tif, coin, sz, limitPx, null);
+        }
+
+        /**
+         * Creates a spot limit buy order with custom TIF.
+         *
+         * @param tif     Time in force
+         * @param coin    Currency name
+         * @param sz      Quantity (string)
+         * @param limitPx Limit price (string)
+         * @param cloid   Client order ID (can be null)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest spotLimitBuy(Tif tif, String coin, String sz, String limitPx, Cloid cloid) {
+            OrderRequest req = createLimit(InstrumentType.SPOT, tif, coin, true, sz, limitPx);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        /**
          * Creates a spot limit sell order (without cloid).
          *
          * @param coin    Currency name
@@ -597,6 +746,35 @@ public class OrderRequest {
          */
         public static OrderRequest spotLimitSell(String coin, String sz, String limitPx, Cloid cloid) {
             OrderRequest req = createLimit(InstrumentType.SPOT, Tif.GTC, coin, false, sz, limitPx);
+            req.setCloid(cloid);
+            return req;
+        }
+
+        /**
+         * Creates a spot limit sell order with custom TIF (without cloid).
+         *
+         * @param tif     Time in force
+         * @param coin    Currency name
+         * @param sz      Quantity (string)
+         * @param limitPx Limit price (string)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest spotLimitSell(Tif tif, String coin, String sz, String limitPx) {
+            return spotLimitSell(tif, coin, sz, limitPx, null);
+        }
+
+        /**
+         * Creates a spot limit sell order with custom TIF.
+         *
+         * @param tif     Time in force
+         * @param coin    Currency name
+         * @param sz      Quantity (string)
+         * @param limitPx Limit price (string)
+         * @param cloid   Client order ID (can be null)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest spotLimitSell(Tif tif, String coin, String sz, String limitPx, Cloid cloid) {
+            OrderRequest req = createLimit(InstrumentType.SPOT, tif, coin, false, sz, limitPx);
             req.setCloid(cloid);
             return req;
         }
@@ -823,6 +1001,38 @@ public class OrderRequest {
         }
 
         /**
+         * Creates a take-profit close order for a long position.
+         * <p>
+         * Internally uses a sell order (isBuy=false) to close the long position when
+         * the trigger price is reached.
+         * </p>
+         *
+         * @param coin      Currency name
+         * @param sz        Quantity (string)
+         * @param triggerPx Take-profit trigger price (string)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest takeProfitForLong(String coin, String sz, String triggerPx) {
+            return takeProfit(coin, false, sz, triggerPx, null);
+        }
+
+        /**
+         * Creates a take-profit close order for a short position.
+         * <p>
+         * Internally uses a buy order (isBuy=true) to close the short position when
+         * the trigger price is reached.
+         * </p>
+         *
+         * @param coin      Currency name
+         * @param sz        Quantity (string)
+         * @param triggerPx Take-profit trigger price (string)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest takeProfitForShort(String coin, String sz, String triggerPx) {
+            return takeProfit(coin, true, sz, triggerPx, null);
+        }
+
+        /**
          * Creates a take-profit close order (triggers when price breaks above, executes
          * at market).
          * <p>
@@ -863,6 +1073,38 @@ public class OrderRequest {
          */
         public static OrderRequest stopLoss(String coin, Boolean isBuy, String sz, String triggerPx) {
             return stopLoss(coin, isBuy, sz, triggerPx, null);
+        }
+
+        /**
+         * Creates a stop-loss close order for a long position.
+         * <p>
+         * Internally uses a sell order (isBuy=false) to close the long position when
+         * the trigger price is reached.
+         * </p>
+         *
+         * @param coin      Currency name
+         * @param sz        Quantity (string)
+         * @param triggerPx Stop-loss trigger price (string)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest stopLossForLong(String coin, String sz, String triggerPx) {
+            return stopLoss(coin, false, sz, triggerPx, null);
+        }
+
+        /**
+         * Creates a stop-loss close order for a short position.
+         * <p>
+         * Internally uses a buy order (isBuy=true) to close the short position when
+         * the trigger price is reached.
+         * </p>
+         *
+         * @param coin      Currency name
+         * @param sz        Quantity (string)
+         * @param triggerPx Stop-loss trigger price (string)
+         * @return OrderRequest instance
+         */
+        public static OrderRequest stopLossForShort(String coin, String sz, String triggerPx) {
+            return stopLoss(coin, true, sz, triggerPx, null);
         }
 
         /**
