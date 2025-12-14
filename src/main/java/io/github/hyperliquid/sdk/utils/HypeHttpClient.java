@@ -17,7 +17,6 @@ public class HypeHttpClient {
 
     private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
 
-
     public HypeHttpClient(String baseUrl, OkHttpClient client) {
         this.baseUrl = baseUrl;
         this.client = client;
@@ -56,8 +55,8 @@ public class HypeHttpClient {
                     .build();
 
             try (Response response = client.newCall(request).execute()) {
-                // Unified response body handling to avoid duplicate reads
-                String responseBody = response.body() != null ? response.body().string() : "{}";
+                ResponseBody responseBodyObj = response.body();
+                String responseBody = responseBodyObj != null ? responseBodyObj.string() : "{}";
 
                 if (!response.isSuccessful()) {
                     int code = response.code();
@@ -80,8 +79,10 @@ public class HypeHttpClient {
     }
 
     /**
-     * POST with retry (optional), only retries for 5xx and network exceptions, 4xx are not retried.
-     * Uses exponential backoff strategy: backoff = min(backoff * multiplier, maxBackoff).
+     * POST with retry (optional), only retries for 5xx and network exceptions, 4xx
+     * are not retried.
+     * Uses exponential backoff strategy: backoff = min(backoff * multiplier,
+     * maxBackoff).
      *
      * @param path    Relative path, e.g., "/info", "/exchange"
      * @param payload JSON serializable object
@@ -92,10 +93,13 @@ public class HypeHttpClient {
         String url = baseUrl + path;
         String json = "";
         int attempt = 0;
-        long backoff = policy == null ? RetryPolicy.defaultPolicy().getInitialBackoffMillis() : policy.getInitialBackoffMillis();
+        long backoff = policy == null ? RetryPolicy.defaultPolicy().getInitialBackoffMillis()
+                : policy.getInitialBackoffMillis();
         int maxRetries = policy == null ? RetryPolicy.defaultPolicy().getMaxRetries() : policy.getMaxRetries();
-        double multiplier = policy == null ? RetryPolicy.defaultPolicy().getBackoffMultiplier() : policy.getBackoffMultiplier();
-        long maxBackoff = policy == null ? RetryPolicy.defaultPolicy().getMaxBackoffMillis() : policy.getMaxBackoffMillis();
+        double multiplier = policy == null ? RetryPolicy.defaultPolicy().getBackoffMultiplier()
+                : policy.getBackoffMultiplier();
+        long maxBackoff = policy == null ? RetryPolicy.defaultPolicy().getMaxBackoffMillis()
+                : policy.getMaxBackoffMillis();
 
         while (true) {
             try {
@@ -110,7 +114,8 @@ public class HypeHttpClient {
                         .build();
 
                 try (Response response = client.newCall(request).execute()) {
-                    String responseBody = response.body() != null ? response.body().string() : "{}";
+                    ResponseBody responseBodyObj = response.body();
+                    String responseBody = responseBodyObj != null ? responseBodyObj.string() : "{}";
 
                     if (!response.isSuccessful()) {
                         int code = response.code();
