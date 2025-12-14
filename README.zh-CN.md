@@ -56,7 +56,7 @@ implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.6' // 建议替换�
 export HYPERLIQUID_TESTNET_PRIVATE_KEY="0x您的私钥"
 ```
 
-**可运行的示例:**
+### 可运行示例
 
 此示例将演示如何：
 
@@ -66,20 +66,6 @@ export HYPERLIQUID_TESTNET_PRIVATE_KEY="0x您的私钥"
 4. 处理潜在的 API 错误 (`HypeError`)。
 
 ```java
-import com.fasterxml.jackson.databind.JsonNode;
-import io.github.hyperliquid.sdk.HyperliquidClient;
-import io.github.hyperliquid.sdk.apis.Exchange;
-import io.github.hyperliquid.sdk.apis.Info;
-import io.github.hyperliquid.sdk.model.info.L2Book;
-import io.github.hyperliquid.sdk.model.order.OrderRequest;
-import io.github.hyperliquid.sdk.model.order.Tif;
-import io.github.hyperliquid.sdk.utils.HypeError;
-import io.github.hyperliquid.sdk.utils.JSONUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigDecimal;
-
 public class QuickStart {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(QuickStart.class);
@@ -155,7 +141,7 @@ public class QuickStart {
 // 完整配置示例
 HyperliquidClient client = HyperliquidClient.builder()
         // 选择网络 (或提供自定义 URL)
-        .testNetUrl() // 或 .mainNetUrl(), .baseUrl("http://...")
+        .testNetUrl() // 或 .baseUrl("https://api.hyperliquid.xyz")
         
         // --- 钱包管理 ---
         // 方案一: 添加单个主私钥
@@ -167,14 +153,14 @@ HyperliquidClient client = HyperliquidClient.builder()
         .addApiWallet("0x您的主钱包地址2", "0x您的API私钥2")
         
         // --- 性能优化 ---
-        // 启动时预先将市场元数据加载到缓存中
-        .autoWarmUpCache(true)
+        // 启动时会自动预热缓存，仅在对启动耗时极其敏感时才建议关闭
+        // .disableAutoWarmUpCache()
         
-        // --- 网络设置 ---
-        // 为底层的 OkHttpClient 设置自定义超时 (单位：毫秒)
-        .connectTimeout(15_000)
-        .readTimeout(15_000)
-        .writeTimeout(15_000)
+        // --- (可选)网络设置 ---
+        // 设置自定义HTTP客户端
+        .okHttpClient(customClient)
+        // 为底层 OkHttpClient 设置统一超时（单位：秒，作用于连接/读/写）
+        .timeout(15)
         
         // 构建不可变的客户端实例
         .build();

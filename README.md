@@ -56,7 +56,7 @@ Get up and running in minutes with this complete, runnable example.
 export HYPERLIQUID_TESTNET_PRIVATE_KEY="0xYourPrivateKey"
 ```
 
-**Runnable Example:**
+### Runnable Example
 
 This example demonstrates how to:
 
@@ -66,20 +66,6 @@ This example demonstrates how to:
 4. Handle potential API errors (`HypeError`).
 
 ```java
-import com.fasterxml.jackson.databind.JsonNode;
-import io.github.hyperliquid.sdk.HyperliquidClient;
-import io.github.hyperliquid.sdk.apis.Exchange;
-import io.github.hyperliquid.sdk.apis.Info;
-import io.github.hyperliquid.sdk.model.info.L2Book;
-import io.github.hyperliquid.sdk.model.order.OrderRequest;
-import io.github.hyperliquid.sdk.model.order.Tif;
-import io.github.hyperliquid.sdk.utils.HypeError;
-import io.github.hyperliquid.sdk.utils.JSONUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigDecimal;
-
 public class QuickStart {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(QuickStart.class);
@@ -147,7 +133,7 @@ The `HyperliquidClient.builder()` provides a fluent API for configuration.
 // Full configuration example
 HyperliquidClient client = HyperliquidClient.builder()
         // Select network (or provide a custom URL)
-        .testNetUrl() // .mainNetUrl() or .baseUrl("http://...")
+        .testNetUrl() // or .baseUrl("https://api.hyperliquid.xyz")
 
         // --- Wallet Management ---
         // Option 1: Add a single main private key
@@ -159,14 +145,14 @@ HyperliquidClient client = HyperliquidClient.builder()
         .addApiWallet("0xYourMainAddress2", "0xYourApiPrivateKey2")
 
         // --- Performance ---
-        // Pre-fetch market metadata into cache upon startup
-        .autoWarmUpCache(true)
+        // Cache warm-up is enabled by default; disable only when startup latency is critical
+        // .disableAutoWarmUpCache()
 
-        // --- Network ---
-        // Set custom timeouts for the underlying OkHttpClient (in milliseconds)
-        .connectTimeout(15_000)
-        .readTimeout(15_000)
-        .writeTimeout(15_000)
+        // --- (optional)Network ---
+        // Set custom HTTP client
+        .okHttpClient(customClient)
+        // Set timeout (seconds) for the underlying OkHttpClient (applies to connect/read/write)
+        .timeout(15)
 
         // Build the immutable client instance
         .build();
