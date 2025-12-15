@@ -32,14 +32,14 @@ This SDK provides a comprehensive, pure Java solution for interacting with the H
 <dependency>
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.6</version> <!-- Replace with the latest version -->
+    <version>0.2.7</version> <!-- Replace with the latest version -->
 </dependency>
 ```
 
 - **Gradle (Groovy)**:
 
 ```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.6' // Replace with the latest version
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.7' // Replace with the latest version
 ```
 
 ## ⚡ 5-Minute Quick Start
