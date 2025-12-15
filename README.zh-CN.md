@@ -8,11 +8,11 @@
 [![Stars](https://img.shields.io/github/stars/heiye115/hyperliquid-java-sdk?style=social)](https://github.com/heiye115/hyperliquid-java-sdk)
 [![Issues](https://img.shields.io/github/issues/heiye115/hyperliquid-java-sdk)](https://github.com/heiye115/hyperliquid-java-sdk/issues)
 
-一个专业的、类型安全的、功能丰富的 Hyperliquid L1 链 Java SDK，专为高性能交易与数据流而设计。
+一个类型安全、功能完善的 Java SDK，用于 Hyperliquid 交易与实时行情数据。
 
 ## 🎯 项目概述
 
-本 SDK 为 Hyperliquid 去中心化交易所提供了一个全面的、纯 Java 的交互解决方案。它使开发者能够轻松、自信地构建复杂的交易机器人、数据分析工具和平台集成应用。
+本 SDK 提供了一个与 Hyperliquid 去中心化交易所交互的纯 Java 客户端，帮助你轻松构建交易机器人、数据分析流水线和平台集成应用。
 
 ### ✨ 功能亮点
 

@@ -8,11 +8,11 @@
 [![Stars](https://img.shields.io/github/stars/heiye115/hyperliquid-java-sdk?style=social)](https://github.com/heiye115/hyperliquid-java-sdk)
 [![Issues](https://img.shields.io/github/issues/heiye115/hyperliquid-java-sdk)](https://github.com/heiye115/hyperliquid-java-sdk/issues)
 
-A professional, type-safe, and feature-rich Java SDK for the Hyperliquid L1, designed for high-performance trading and data streaming.
+Type-safe, feature-rich Java SDK for Hyperliquid trading and real-time market data.
 
 ## 🎯 Overview
 
-This SDK provides a comprehensive, pure Java solution for interacting with the Hyperliquid decentralized exchange. It empowers developers to build sophisticated trading bots, data analysis tools, and platform integrations with ease and confidence.
+This SDK is a pure Java client for the Hyperliquid decentralized exchange, making it easy to build trading bots, analytics pipelines, and platform integrations.
 
 ### ✨ Feature Highlights
 
