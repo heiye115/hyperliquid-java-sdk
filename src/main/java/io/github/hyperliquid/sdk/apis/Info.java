@@ -1239,7 +1239,7 @@ public class Info {
         try {
             return JSONUtil.readTree("{}");
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse empty JSON", e);
+            throw new HypeError("Failed to parse empty JSON", e);
         }
     }
 

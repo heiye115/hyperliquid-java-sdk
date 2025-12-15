@@ -315,7 +315,8 @@ public class WebsocketManager {
             Map<String, Object> payload = Map.of("method", "ping");
             try {
                 webSocket.send(JSONUtil.writeValueAsString(payload));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.log(Level.FINE, "Failed to send ping message", e);
             }
         }
     }
@@ -334,7 +335,8 @@ public class WebsocketManager {
         if (webSocket != null) {
             try {
                 webSocket.close(1000, "stop");
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.log(Level.FINE, "Error while closing WebSocket on stop", e);
             }
             webSocket = null;
         }
@@ -354,13 +356,15 @@ public class WebsocketManager {
         try {
             client.dispatcher().executorService().shutdown();
             client.connectionPool().evictAll();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.log(Level.FINE, "Error while shutting down WebSocket client", e);
         }
 
         try {
             networkClient.dispatcher().executorService().shutdown();
             networkClient.connectionPool().evictAll();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.log(Level.FINE, "Error while shutting down network client", e);
         }
     }
 
@@ -375,7 +379,8 @@ public class WebsocketManager {
         if (webSocket != null) {
             try {
                 webSocket.close(1001, "reconnect");
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.log(Level.FINE, "Error while closing WebSocket for reconnect", e);
             }
             webSocket = null;
         }
@@ -554,7 +559,8 @@ public class WebsocketManager {
             for (T listener : listeners) {
                 try {
                     action.accept(listener);
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    LOG.log(Level.WARNING, "Listener callback threw exception: " + listener, e);
                 }
             }
         }
@@ -655,7 +661,8 @@ public class WebsocketManager {
         payload.put("subscription", subscription);
         try {
             webSocket.send(JSONUtil.writeValueAsString(payload));
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.log(Level.FINE, "Failed to send subscribe message: " + subscription, e);
         }
     }
 
@@ -701,7 +708,8 @@ public class WebsocketManager {
         payload.put("subscription", subscription);
         try {
             webSocket.send(JSONUtil.writeValueAsString(payload));
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.log(Level.FINE, "Failed to send unsubscribe message: " + subscription, e);
         }
     }
 

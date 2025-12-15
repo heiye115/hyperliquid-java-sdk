@@ -509,8 +509,8 @@ public class Exchange {
      *
      * <p>
      * Positive numbers indicate long positions, negative numbers indicate short
-     * positions;
-     * returns 0.0 when there is no position or parsing fails.
+     * positions; returns 0.0 when there is no position. Parsing failures are
+     * treated as fatal and will throw HypeError.
      * </p>
      *
      * @param coin Coin name
@@ -525,8 +525,8 @@ public class Exchange {
             if (pos != null && coin.equalsIgnoreCase(pos.getCoin())) {
                 try {
                     return Double.parseDouble(pos.getSzi());
-                } catch (Exception ignored) {
-                    return 0.0;
+                } catch (Exception e) {
+                    throw new HypeError("Failed to parse position size: " + pos.getSzi(), e);
                 }
             }
         }

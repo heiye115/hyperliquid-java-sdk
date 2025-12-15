@@ -850,7 +850,7 @@ public final class Signing {
             String typedDataJson = JSONUtil.writeValueAsString(typedData);
             return signTypedData(wallet, typedDataJson);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to sign multi-sig action", e);
+            throw new HypeError("Failed to sign multi-sig action", e);
         }
     }
 }
