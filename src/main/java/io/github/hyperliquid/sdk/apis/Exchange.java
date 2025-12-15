@@ -160,11 +160,7 @@ public class Exchange {
      *                set.
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
-        OrderRequest effective = prepareRequest(req);
-        // Format order quantity precision
-        formatOrderSize(effective);
-        // Format order price precision
-        formatOrderPrice(effective);
+        OrderRequest effective = preprocessOrder(req);
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
@@ -249,6 +245,32 @@ public class Exchange {
     }
 
     /**
+     * Preprocess a single order request before signing and submission.
+     * <p>
+     * This helper centralizes the common preparation pipeline shared by
+     * {@link #order(OrderRequest, java.util.Map)} and
+     * {@link #bulkOrders(java.util.List, java.util.Map, String)}:
+     * </p>
+     * <ol>
+     * <li>Invoke {@link #prepareRequest(OrderRequest)} to infer direction,
+     * size, market placeholder prices and trigger defaults when necessary.</li>
+     * <li>Normalize order size precision via
+     * {@link #formatOrderSize(OrderRequest)}.</li>
+     * <li>Normalize limit and trigger price precision via
+     * {@link #formatOrderPrice(OrderRequest)}.</li>
+     * </ol>
+     *
+     * @param req Original order request (must not be null)
+     * @return Prepared order request used for signing and posting
+     */
+    private OrderRequest preprocessOrder(OrderRequest req) {
+        OrderRequest effective = prepareRequest(req);
+        formatOrderSize(effective);
+        formatOrderPrice(effective);
+        return effective;
+    }
+
+    /**
      * Prepare order request before serialization and submission.
      * <p>
      * Centralizes pre-processing logic for the single {@link #order(OrderRequest)}
@@ -322,7 +344,8 @@ public class Exchange {
                 req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC &&
                 Boolean.FALSE.equals(req.getReduceOnly())) {
-            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = req.getSlippage() != null ? req.getSlippage()
+                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
             return true;
@@ -608,14 +631,12 @@ public class Exchange {
      * @return Response JSON
      */
     public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
-        // Prepare requests
-        requests.forEach(this::prepareRequest);
-        // Format order quantity precision
-        requests.forEach(this::formatOrderSize);
-        // Format order price precision
-        requests.forEach(this::formatOrderPrice);
-        List<OrderWire> wires = new ArrayList<>();
+        List<OrderRequest> effectiveRequests = new ArrayList<>(requests.size());
         for (OrderRequest r : requests) {
+            effectiveRequests.add(preprocessOrder(r));
+        }
+        List<OrderWire> wires = new ArrayList<>();
+        for (OrderRequest r : effectiveRequests) {
             int assetId = ensureAssetId(r.getCoin());
             wires.add(Signing.orderRequestToOrderWire(assetId, r));
         }
@@ -1110,7 +1131,7 @@ public class Exchange {
      * @return JSON response
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
-                              String fromSubAccount) {
+            String fromSubAccount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "sendAsset");
@@ -1280,7 +1301,7 @@ public class Exchange {
      * SpotDeploy: Register Token (registerToken2)
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-                                            String fullName) {
+            String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -1451,7 +1472,7 @@ public class Exchange {
      * @return JSON response
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
-                                                     Integer nSeededLevels) {
+            Integer nSeededLevels) {
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("spot", spot);
         register.put("startPx", String.valueOf(startPx));
@@ -1852,7 +1873,7 @@ public class Exchange {
      * @return Order response
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid,
-                                     Map<String, Object> builder) {
+            Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
@@ -1945,7 +1966,8 @@ public class Exchange {
 
             // Build market close request
             OrderRequest req = OrderRequest.Close.market(pos.getCoin(), isBuy, String.valueOf(closeSz), null);
-            String slip = req.getSlippage() != null ? req.getSlippage() : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = req.getSlippage() != null ? req.getSlippage()
+                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
             closeOrders.add(req);
@@ -2185,7 +2207,7 @@ public class Exchange {
      *                            stake)
      * @return JSON response containing transaction details and validator status
      * @see #cValidatorChangeProfile(String, String, String, boolean, Boolean,
-     * Integer, String)
+     *      Integer, String)
      * @see #cValidatorUnregister()
      */
     public JsonNode cValidatorRegister(
