@@ -2,6 +2,8 @@ package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.github.hyperliquid.sdk.apis.Info;
+import io.github.hyperliquid.sdk.model.info.OrderStatus;
 import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import org.junit.jupiter.api.Test;
@@ -242,5 +244,12 @@ public class OrderTest {
         assertEquals(Boolean.TRUE, tpShort.getIsBuy());
         assertEquals(Boolean.FALSE, slLong.getIsBuy());
         assertEquals(Boolean.TRUE, slShort.getIsBuy());
+    }
+
+    @Test
+    public void testOrderStatus() throws JsonProcessingException {
+        Info info = client.getInfo();
+        OrderStatus orderStatus = info.orderStatus("0x...", 00000L);
+        System.out.println(JSONUtil.writeValueAsString(orderStatus));
     }
 }
