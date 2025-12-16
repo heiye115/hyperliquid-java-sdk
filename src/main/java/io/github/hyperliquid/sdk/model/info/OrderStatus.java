@@ -21,6 +21,11 @@ public class OrderStatus {
 
     public static class Order {
         /**
+         * Order status description (filled)
+         */
+        private String status;
+
+        /**
          * Order details
          */
         private OrderDetail order;
@@ -240,6 +245,14 @@ public class OrderStatus {
 
         public void setStatusTimestamp(Long statusTimestamp) {
             this.statusTimestamp = statusTimestamp;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
         }
     }
 
