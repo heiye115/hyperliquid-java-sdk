@@ -36,7 +36,7 @@ public class OrderTest {
      **/
     @Test
     public void testMarketOrder() throws JsonProcessingException {
-        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.02");
+        OrderRequest req = OrderRequest.Open.market("ETH", false, "0.02");
         Order order = client.getExchange().order(req);
         System.out.println(JSONUtil.writeValueAsString(order));
     }
@@ -45,10 +45,10 @@ public class OrderTest {
      * Market close position
      **/
     @Test
-    public void testMarketCloseOrder() {
+    public void testMarketCloseOrder() throws JsonProcessingException {
         OrderRequest req = OrderRequest.Close.market("ETH", "0.01", Cloid.auto());
         Order order = client.getExchange().order(req);
-        System.out.println(order);
+        System.out.println(JSONUtil.writeValueAsString(order));
     }
 
     /**
