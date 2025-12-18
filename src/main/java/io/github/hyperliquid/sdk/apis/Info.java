@@ -203,11 +203,32 @@ public class Info {
         return allMids(null);
     }
 
+    /**
+     * Get cached allMids data with optional dex specification.
+     * <p>
+     * This method retrieves the allMids data from the cache, loading it from the API if not present.
+     * The data is cached with a short expiration time (1 second) to ensure relatively fresh data
+     * while reducing API load.
+     * </p>
+     *
+     * @param dex Perp dex name (can be empty or null for default dex)
+     * @return Coin to mid price mapping from cache
+     */
     public Map<String, String> getCachedAllMids(String dex) {
         String cacheKey = buildAllMidsCacheKey(dex);
         return allMidsCache.get(cacheKey, key -> allMids(dex));
     }
 
+    /**
+     * Get cached allMids data (default dex).
+     * <p>
+     * This method retrieves the allMids data from the cache for the default dex,
+     * loading it from the API if not present. The data is cached with a short 
+     * expiration time (1 second) to ensure relatively fresh data while reducing API load.
+     * </p>
+     *
+     * @return Coin to mid price mapping from cache for default dex
+     */
     public Map<String, String> getCachedAllMids() {
         return getCachedAllMids(null);
     }
@@ -309,6 +330,16 @@ public class Info {
         return (dex == null || dex.isEmpty()) ? "meta:default" : "meta:" + dex;
     }
 
+    /**
+     * Build allMids cache key based on DEX name.
+     * <p>
+     * This helper method generates cache keys for allMids data storage.
+     * </p>
+     *
+     * @param dex Perp DEX name (can be null or empty for default DEX)
+     * @return Cache key string ("allMids:default" for default DEX, "allMids:{dex}" for
+     * named DEX)
+     */
     private String buildAllMidsCacheKey(String dex) {
         return (dex == null || dex.isEmpty()) ? "allMids:default" : "allMids:" + dex;
     }
@@ -421,8 +452,12 @@ public class Info {
     }
 
     /**
-     * Get perpetual asset related information (including pricing, current funding,
-     * open contracts, etc.)
+     * Retrieves perpetual asset-related information from the Hyperliquid API.
+     * <p>
+     * This includes details such as pricing, current funding rates, open contracts,
+     * and other contextual data for perpetual markets. The raw JSON response is returned.
+     * </p>
+     * @return A {@link JsonNode} containing the raw JSON response with perpetual asset information.
      */
     public JsonNode metaAndAssetCtxs() {
         Map<String, Object> payload = Map.of("type", "metaAndAssetCtxs");
@@ -557,36 +592,37 @@ public class Info {
     }
 
     /**
-     * L2 order book snapshot (default full precision).
-     *
-     * @param coin Coin name
-     * @return Typed model L2Book
+     * Retrieves an L2 order book snapshot for a specified coin with default full precision.
+     * <p>
+     * This is a convenience method that calls {@link #l2Book(String, Integer, Integer)}
+     * without any aggregation parameters, effectively requesting the full precision Level 2 order book.
+     * </p>
+     * @param coin The name of the cryptocurrency for which to retrieve the order book (e.g., "BTC").
+     * @return An {@link L2Book} object representing the Level 2 order book snapshot with full precision.
      */
     public L2Book l2Book(String coin) {
         return l2Book(coin, null, null);
     }
 
     /**
-     * Candle snapshot
-     * Only the most recent 5000 candles are available
+     * Retrieves a snapshot of candlestick data for a specified coin and time range.
      * <p>
-     * Supported intervals: "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h",
-     * "12h", "1d", "3d", "1w", "1M"
-     * Candlestick snapshot (typed return, supports passing coin name).
-     *
-     * <p>
-     * In some environments, the server may require the coin field in the request
-     * body to be a string (e.g., "BTC" or "@107").
-     * To improve compatibility, this overload method is provided to make requests
-     * directly using coin names.
+     * This method fetches historical candlestick data, which is useful for technical analysis.
+     * Only the most recent 5000 candles are available from the API.
+     * Supported intervals include: "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h",
+     * "12h", "1d", "3d", "1w", "1M".
      * </p>
-     *
-     * @param coin      Coin name (e.g., "BTC", or internal identifier like "@107")
-     * @param interval  Interval string (e.g., "1m", "15m", "1h", "1d", etc.)
-     * @param startTime Start milliseconds
-     * @param endTime   End milliseconds
-     * @return Candle list
-     * @throws HypeError Thrown when parameters are invalid
+     * <p>
+     * The method performs parameter validation to ensure that the coin name, interval,
+     * start time, and end time are valid. It then constructs a request payload and
+     * sends it to the /info endpoint, returning a list of {@link Candle} objects.
+     * </p>
+     * @param coin The name of the cryptocurrency (e.g., "BTC") or an internal identifier (e.g., "@107").
+     * @param interval The desired candlestick interval (e.g., {@link CandleInterval#ONE_MINUTE}).
+     * @param startTime The start time of the period in milliseconds (inclusive).
+     * @param endTime The end time of the period in milliseconds (inclusive).
+     * @return A {@link List} of {@link Candle} objects representing the candlestick data.
+     * @throws HypeError If any of the input parameters are invalid (e.g., null coin name, invalid time range).
      */
     public List<Candle> candleSnapshot(String coin, CandleInterval interval, Long startTime, Long endTime) {
         // Parameter validation
@@ -796,6 +832,59 @@ public class Info {
     }
 
     /**
+     * Query user fills (by time range) with default parameters.
+     * <p>
+     * Returns up to 2000 entries; only the latest 10000 entries are available.
+     * This is a convenience method that calls 
+     * {@link #userFillsByTime(String, Long, Long, Boolean)} with null values
+     * for endTime and aggregateByTime.
+     * </p>
+     *
+     * @param address   User address
+     * @param startTime Start milliseconds
+     * @return Fill list
+     */
+    public List<UserFill> userFillsByTime(String address, Long startTime) {
+        return userFillsByTime(address, startTime, null, null);
+    }
+
+    /**
+     * Query user fills (by time range) without aggregation.
+     * <p>
+     * Returns up to 2000 entries; only the latest 10000 entries are available.
+     * This is a convenience method that calls 
+     * {@link #userFillsByTime(String, Long, Long, Boolean)} with a null value
+     * for aggregateByTime.
+     * </p>
+     *
+     * @param address   User address
+     * @param startTime Start milliseconds
+     * @param endTime   End milliseconds
+     * @return Fill list
+     */
+    public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime) {
+        return userFillsByTime(address, startTime, endTime, null);
+    }
+
+    /**
+     * Query user fills (by time range) with optional time aggregation.
+     * <p>
+     * Returns up to 2000 entries; only the latest 10000 entries are available.
+     * This is a convenience method that calls 
+     * {@link #userFillsByTime(String, Long, Long, Boolean)} with a null value
+     * for endTime.
+     * </p>
+     *
+     * @param address         User address
+     * @param startTime       Start milliseconds
+     * @param aggregateByTime Whether to aggregate by time
+     * @return Fill list
+     */
+    public List<UserFill> userFillsByTime(String address, Long startTime, Boolean aggregateByTime) {
+        return userFillsByTime(address, startTime, null, aggregateByTime);
+    }
+
+    /**
      * Query user fills (by time range).
      * Returns up to 2000 entries; only the latest 10000 entries are available.
      *
@@ -817,18 +906,6 @@ public class Info {
             payload.put("aggregateByTime", aggregateByTime);
         }
         return JSONUtil.toList(postInfo(payload), UserFill.class);
-    }
-
-    public List<UserFill> userFillsByTime(String address, Long startTime) {
-        return userFillsByTime(address, startTime, null, null);
-    }
-
-    public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime) {
-        return userFillsByTime(address, startTime, endTime, null);
-    }
-
-    public List<UserFill> userFillsByTime(String address, Long startTime, Boolean aggregateByTime) {
-        return userFillsByTime(address, startTime, null, aggregateByTime);
     }
 
     /**
@@ -860,7 +937,35 @@ public class Info {
     }
 
     /**
-     * Query user funding rate history (by asset ID).
+     * Query user funding rate history with optional end time.
+     * <p>
+     * This is a convenience method that calls 
+     * {@link #userFundingHistory(String, long, Long)} with a null value
+     * for endMs, allowing the API to use its default end time.
+     * </p>
+     *
+     * @param address User address
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds (optional, can be null)
+     * @return JSON response
+     */
+    public JsonNode userFundingHistory(String address, long startMs, Long endMs) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", "userFunding");
+        payload.put("user", address);
+        payload.put("startTime", startMs);
+        if (endMs != null) {
+            payload.put("endTime", endMs);
+        }
+        return postInfo(payload);
+    }
+
+    /**
+     * Query user funding rate history by asset ID.
+     * <p>
+     * This method converts the asset ID to the required coin string format
+     * and delegates to {@link #userFundingHistory(String, String, long, long)}.
+     * </p>
      *
      * @param address User address
      * @param coin    Asset ID
@@ -907,17 +1012,6 @@ public class Info {
         payload.put("user", address);
         payload.put("startTime", startMs);
         payload.put("endTime", endMs);
-        return postInfo(payload);
-    }
-
-    public JsonNode userFundingHistory(String address, long startMs, Long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userFunding");
-        payload.put("user", address);
-        payload.put("startTime", startMs);
-        if (endMs != null) {
-            payload.put("endTime", endMs);
-        }
         return postInfo(payload);
     }
 
