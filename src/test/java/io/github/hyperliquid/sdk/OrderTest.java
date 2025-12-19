@@ -36,7 +36,7 @@ public class OrderTest {
      **/
     @Test
     public void testMarketOrder() throws JsonProcessingException {
-        OrderRequest req = OrderRequest.Open.market("ETH", false, "0.02");
+        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.02");
         Order order = client.getExchange().order(req);
         System.out.println(JSONUtil.writeValueAsString(order));
     }
@@ -89,12 +89,18 @@ public class OrderTest {
         System.out.println(order);
     }
 
+    /**
+     * Test order cancellation by coin and order ID.
+     */
     @Test
     public void testCancel() {
         JsonNode node = client.getExchange().cancel("ETH", 42988070692L);
         System.out.println(node.toPrettyString());
     }
 
+    /**
+     * Test placing a market order and then immediately closing the position.
+     */
     @Test
     public void testMarketOrderALL() {
         OrderRequest req = OrderRequest.Open.market("ETH", true, "0.01");
@@ -104,6 +110,12 @@ public class OrderTest {
         System.out.println(closeOrder);
     }
 
+    /**
+     * Test placing a trigger order (breakout above).
+     * <p>
+     * Uses breakoutAbove instead of the removed trigger method.
+     * </p>
+     */
     @Test
     public void testTriggerOrderALL() {
         // Use breakoutAbove instead of the removed trigger method
@@ -246,10 +258,53 @@ public class OrderTest {
         assertEquals(Boolean.TRUE, slShort.getIsBuy());
     }
 
+    /**
+     * Test querying order status by address and order ID.
+     */
     @Test
     public void testOrderStatus() throws JsonProcessingException {
         Info info = client.getInfo();
         OrderStatus orderStatus = info.orderStatus("0x...", 00000L);
         System.out.println(JSONUtil.writeValueAsString(orderStatus));
+    }
+
+    /**
+     * Test take profit orders.
+     * <p>
+     * Includes both regular limit take profit and conditional limit take profit.
+     * </p>
+     */
+    @Test
+    public void testTakeProfit2() throws JsonProcessingException {
+        // Conditional limit take profit order
+        OrderRequest req2 = OrderRequest.builder()
+                .perp("ETH")
+                .sell("0.01") // or .buy("0.01")
+                .limitPrice("3000.0") // Take profit price
+                .stopAbove("3000.0") // Trigger price
+                .reduceOnly() // Reduce only
+                .build();
+        Order order2 = client.getExchange().order(req2);
+        System.out.println(JSONUtil.writeValueAsString(order2));
+    }
+
+    /**
+     * Test stop loss orders.
+     * <p>
+     * Specifically tests conditional limit stop loss orders.
+     * </p>
+     */
+    @Test
+    public void testStopLoss2() throws JsonProcessingException {
+        // Conditional limit stop loss order
+        OrderRequest req2 = OrderRequest.builder()
+                .perp("ETH")
+                .sell("0.01") // or .buy("0.01")
+                .limitPrice("2900.0") // Stop loss price
+                .stopBelow("2900.0") // Trigger price
+                .reduceOnly() // Reduce only
+                .build();
+        Order order2 = client.getExchange().order(req2);
+        System.out.println(JSONUtil.writeValueAsString(order2));
     }
 }
