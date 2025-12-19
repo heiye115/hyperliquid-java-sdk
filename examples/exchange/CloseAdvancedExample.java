@@ -138,6 +138,42 @@ public class CloseAdvancedExample {
             System.err.println("Stop-loss helpers failed: " + e.getMessage());
         }
 
+        // ==================== 6. Conditional take-profit orders ====================
+        System.out.println("\n--- Close: conditional take-profit orders ---");
+        try {
+            // Conditional limit take profit order
+            // Places a limit order when the market price moves above the trigger price
+            OrderRequest conditionalTp = OrderRequest.builder()
+                    .perp("ETH")
+                    .sell("0.01") // Sell to close a long position, or .buy("0.01") to close a short position
+                    .limitPrice("3000.0") // Take profit price
+                    .stopAbove("3000.0") // Trigger price
+                    .reduceOnly() // Ensures the order only reduces an existing position
+                    .build();
+            Order conditionalTpOrder = exchange.order(conditionalTp);
+            System.out.println("Conditional take-profit status: " + conditionalTpOrder.getStatus());
+        } catch (HypeError e) {
+            System.err.println("Conditional take-profit order failed: " + e.getMessage());
+        }
+
+        // ==================== 7. Conditional stop-loss orders ====================
+        System.out.println("\n--- Close: conditional stop-loss orders ---");
+        try {
+            // Conditional limit stop loss order
+            // Places a limit order when the market price moves below the trigger price
+            OrderRequest conditionalSl = OrderRequest.builder()
+                    .perp("ETH")
+                    .sell("0.01") // Sell to close a long position, or .buy("0.01") to close a short position
+                    .limitPrice("2900.0") // Stop loss price
+                    .stopBelow("2900.0") // Trigger price
+                    .reduceOnly() // Ensures the order only reduces an existing position
+                    .build();
+            Order conditionalSlOrder = exchange.order(conditionalSl);
+            System.out.println("Conditional stop-loss status: " + conditionalSlOrder.getStatus());
+        } catch (HypeError e) {
+            System.err.println("Conditional stop-loss order failed: " + e.getMessage());
+        }
+
         System.out.println("\n=== CloseAdvancedExample execution completed ===");
     }
 }
