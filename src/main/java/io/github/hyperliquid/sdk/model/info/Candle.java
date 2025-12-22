@@ -67,7 +67,6 @@ public class Candle {
     @JsonProperty("n")
     private Integer tradeCount;
 
-    // Getter and Setter methods
     public Long getEndTimestamp() {
         return endTimestamp;
     }
@@ -146,5 +145,21 @@ public class Candle {
 
     public void setTradeCount(Integer tradeCount) {
         this.tradeCount = tradeCount;
+    }
+
+    @Override
+    public String toString() {
+        return "Candle{" +
+                "endTimestamp=" + endTimestamp +
+                ", startTimestamp=" + startTimestamp +
+                ", closePrice='" + closePrice + '\'' +
+                ", highPrice='" + highPrice + '\'' +
+                ", lowPrice='" + lowPrice + '\'' +
+                ", openPrice='" + openPrice + '\'' +
+                ", volume='" + volume + '\'' +
+                ", interval='" + interval + '\'' +
+                ", symbol='" + symbol + '\'' +
+                ", tradeCount=" + tradeCount +
+                '}';
     }
 }

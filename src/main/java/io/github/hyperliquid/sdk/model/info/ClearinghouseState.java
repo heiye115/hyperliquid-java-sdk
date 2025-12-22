@@ -31,7 +31,6 @@ public class ClearinghouseState {
      */
     private String withdrawable;
 
-    // Getter and Setter methods
     public List<AssetPositions> getAssetPositions() {
         return assetPositions;
     }
@@ -94,7 +93,6 @@ public class ClearinghouseState {
          */
         private String sinceOpen;
 
-        // Getter and Setter methods
         public String getAllTime() {
             return allTime;
         }
@@ -118,6 +116,15 @@ public class ClearinghouseState {
         public void setSinceOpen(String sinceOpen) {
             this.sinceOpen = sinceOpen;
         }
+
+        @Override
+        public String toString() {
+            return "CumFunding{" +
+                    "allTime='" + allTime + '\'' +
+                    ", sinceChange='" + sinceChange + '\'' +
+                    ", sinceOpen='" + sinceOpen + '\'' +
+                    '}';
+        }
     }
 
 
@@ -135,7 +142,6 @@ public class ClearinghouseState {
          */
         private int value;
 
-        // Getter and Setter methods
         public String getRawUsd() {
             return rawUsd;
         }
@@ -158,6 +164,15 @@ public class ClearinghouseState {
 
         public void setValue(int value) {
             this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return "Leverage{" +
+                    "rawUsd='" + rawUsd + '\'' +
+                    ", type='" + type + '\'' +
+                    ", value=" + value +
+                    '}';
         }
     }
 
@@ -207,7 +222,6 @@ public class ClearinghouseState {
          */
         private String unrealizedPnl;
 
-        // Getter and Setter methods
         public String getCoin() {
             return coin;
         }
@@ -295,6 +309,23 @@ public class ClearinghouseState {
         public void setUnrealizedPnl(String unrealizedPnl) {
             this.unrealizedPnl = unrealizedPnl;
         }
+
+        @Override
+        public String toString() {
+            return "Position{" +
+                    "coin='" + coin + '\'' +
+                    ", cumFunding=" + cumFunding +
+                    ", entryPx='" + entryPx + '\'' +
+                    ", leverage=" + leverage +
+                    ", liquidationPx='" + liquidationPx + '\'' +
+                    ", marginUsed='" + marginUsed + '\'' +
+                    ", maxLeverage=" + maxLeverage +
+                    ", positionValue='" + positionValue + '\'' +
+                    ", returnOnEquity='" + returnOnEquity + '\'' +
+                    ", szi='" + szi + '\'' +
+                    ", unrealizedPnl='" + unrealizedPnl + '\'' +
+                    '}';
+        }
     }
 
     public static class AssetPositions {
@@ -307,7 +338,6 @@ public class ClearinghouseState {
          */
         private String type;
 
-        // Getter and Setter methods
         public Position getPosition() {
             return position;
         }
@@ -322,6 +352,14 @@ public class ClearinghouseState {
 
         public void setType(String type) {
             this.type = type;
+        }
+
+        @Override
+        public String toString() {
+            return "AssetPositions{" +
+                    "position=" + position +
+                    ", type='" + type + '\'' +
+                    '}';
         }
     }
 
@@ -343,7 +381,6 @@ public class ClearinghouseState {
          */
         private String totalRawUsd;
 
-        // Getter and Setter methods
         public String getAccountValue() {
             return accountValue;
         }
@@ -374,6 +411,16 @@ public class ClearinghouseState {
 
         public void setTotalRawUsd(String totalRawUsd) {
             this.totalRawUsd = totalRawUsd;
+        }
+
+        @Override
+        public String toString() {
+            return "CrossMarginSummary{" +
+                    "accountValue='" + accountValue + '\'' +
+                    ", totalMarginUsed='" + totalMarginUsed + '\'' +
+                    ", totalNtlPos='" + totalNtlPos + '\'' +
+                    ", totalRawUsd='" + totalRawUsd + '\'' +
+                    '}';
         }
     }
 
@@ -395,7 +442,6 @@ public class ClearinghouseState {
          */
         private String totalRawUsd;
 
-        // Getter and Setter methods
         public String getAccountValue() {
             return accountValue;
         }
@@ -427,5 +473,27 @@ public class ClearinghouseState {
         public void setTotalRawUsd(String totalRawUsd) {
             this.totalRawUsd = totalRawUsd;
         }
+
+        @Override
+        public String toString() {
+            return "MarginSummary{" +
+                    "accountValue='" + accountValue + '\'' +
+                    ", totalMarginUsed='" + totalMarginUsed + '\'' +
+                    ", totalNtlPos='" + totalNtlPos + '\'' +
+                    ", totalRawUsd='" + totalRawUsd + '\'' +
+                    '}';
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "ClearinghouseState{" +
+                "assetPositions=" + assetPositions +
+                ", crossMaintenanceMarginUsed='" + crossMaintenanceMarginUsed + '\'' +
+                ", crossMarginSummary=" + crossMarginSummary +
+                ", marginSummary=" + marginSummary +
+                ", time=" + time +
+                ", withdrawable='" + withdrawable + '\'' +
+                '}';
     }
 }

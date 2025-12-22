@@ -56,7 +56,7 @@ public class HypeHttpClient {
 
             try (Response response = client.newCall(request).execute()) {
                 ResponseBody responseBodyObj = response.body();
-                String responseBody = responseBodyObj != null ? responseBodyObj.string() : "{}";
+                String responseBody = responseBodyObj.string();
 
                 if (!response.isSuccessful()) {
                     int code = response.code();

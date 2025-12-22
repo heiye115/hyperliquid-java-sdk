@@ -3,6 +3,7 @@ package io.github.hyperliquid.sdk;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.apis.Info;
+import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.OrderStatus;
 import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
@@ -36,7 +37,9 @@ public class OrderTest {
      **/
     @Test
     public void testMarketOrder() throws JsonProcessingException {
-        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.02");
+        Cloid auto = Cloid.auto();
+        System.out.println("auto:" + auto);
+        OrderRequest req = OrderRequest.Open.market("ETH", false, "0.02", auto);
         Order order = client.getExchange().order(req);
         System.out.println(JSONUtil.writeValueAsString(order));
     }
@@ -172,12 +175,12 @@ public class OrderTest {
     public void testBulkNormalTpsl() throws JsonProcessingException {
         OrderWithTpSlBuilder builder = OrderRequest.entryWithTpSl()
                 .perp("ETH")
-                .buy("0.01")
-                .entryPrice("3500.0")
-                .takeProfit("3600.0")
-                .stopLoss("3400.0");
-        JsonNode result = client.getExchange().bulkOrders(builder.buildNormalTpsl());
-        System.out.println(result.toPrettyString());
+                .buy("0.02")
+                //.entryPrice("3500.0")
+                .takeProfit("3200.0")
+                .stopLoss("3000.0");
+        BulkOrder bulkOrder = client.getExchange().bulkOrders(builder.buildNormalTpsl());
+        System.out.println(bulkOrder);
     }
 
     /**
@@ -190,8 +193,8 @@ public class OrderTest {
                 .closePosition("0.01", true)
                 .takeProfit("3600.0")
                 .stopLoss("3400.0");
-        JsonNode result = client.getExchange().bulkOrders(builder.buildPositionTpsl());
-        System.out.println(result.toPrettyString());
+        BulkOrder bulkOrder = client.getExchange().bulkOrders(builder.buildPositionTpsl());
+        System.out.println(bulkOrder);
     }
 
     /**
@@ -213,8 +216,8 @@ public class OrderTest {
                 .gtc()
                 .build();
 
-        JsonNode result = client.getExchange().bulkOrders(List.of(buyOrder, sellOrder));
-        System.out.println(result.toPrettyString());
+        BulkOrder bulkOrder = client.getExchange().bulkOrders(List.of(buyOrder, sellOrder));
+        System.out.println(bulkOrder);
     }
 
     /**
@@ -307,4 +310,12 @@ public class OrderTest {
         Order order2 = client.getExchange().order(req2);
         System.out.println(JSONUtil.writeValueAsString(order2));
     }
+
+    @Test
+    public void testUserState() throws JsonProcessingException {
+        ClearinghouseState clearinghouseState = client.getInfo().userState("0x...");
+        System.out.println(JSONUtil.writeValueAsString(clearinghouseState));
+
+    }
+
 }

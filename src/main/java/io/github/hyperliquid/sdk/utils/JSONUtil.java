@@ -12,19 +12,37 @@ import java.io.IOException;
 import java.util.List;
 
 public class JSONUtil {
+
     private static final ObjectMapper mapper = createSharedMapper();
+
 
     /**
      * Build and configure shared ObjectMapper.
      */
     private static ObjectMapper createSharedMapper() {
+        // Create a shared ObjectMapper instance.
+        // ObjectMapper is thread-safe after configuration and should be reused globally.
         ObjectMapper om = new ObjectMapper();
-        // Deserialization fault tolerance: ignore unknown fields to avoid parsing failure when backend adds new fields
+
+        // Ignore unknown JSON fields during deserialization.
+        // This prevents failures when external APIs (e.g. exchanges) add new fields.
         om.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        // Serialization: dates use ISO-8601 (not written as timestamps) for log readability
+
+        // When an unknown enum value is encountered, deserialize it as null
+        // instead of throwing an exception.
+        // This is critical for forward compatibility with evolving API enums.
+        om.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true);
+
+        // Deserialize floating-point numbers as BigDecimal instead of Double.
+        // This avoids precision loss for prices, sizes, and financial calculations.
+        om.configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
+
+        // Serialize date/time values using ISO-8601 format
+        // instead of numeric timestamps, improving readability and logging.
         om.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         return om;
     }
+
 
     /**
      * Register custom modules (e.g., JavaTimeModule, Jdk8Module, or custom serializers).

@@ -223,7 +223,7 @@ public class Info {
      * Get cached allMids data (default dex).
      * <p>
      * This method retrieves the allMids data from the cache for the default dex,
-     * loading it from the API if not present. The data is cached with a short 
+     * loading it from the API if not present. The data is cached with a short
      * expiration time (1 second) to ensure relatively fresh data while reducing API load.
      * </p>
      *
@@ -457,6 +457,7 @@ public class Info {
      * This includes details such as pricing, current funding rates, open contracts,
      * and other contextual data for perpetual markets. The raw JSON response is returned.
      * </p>
+     *
      * @return A {@link JsonNode} containing the raw JSON response with perpetual asset information.
      */
     public JsonNode metaAndAssetCtxs() {
@@ -597,6 +598,7 @@ public class Info {
      * This is a convenience method that calls {@link #l2Book(String, Integer, Integer)}
      * without any aggregation parameters, effectively requesting the full precision Level 2 order book.
      * </p>
+     *
      * @param coin The name of the cryptocurrency for which to retrieve the order book (e.g., "BTC").
      * @return An {@link L2Book} object representing the Level 2 order book snapshot with full precision.
      */
@@ -617,10 +619,11 @@ public class Info {
      * start time, and end time are valid. It then constructs a request payload and
      * sends it to the /info endpoint, returning a list of {@link Candle} objects.
      * </p>
-     * @param coin The name of the cryptocurrency (e.g., "BTC") or an internal identifier (e.g., "@107").
-     * @param interval The desired candlestick interval (e.g., {@link CandleInterval#ONE_MINUTE}).
+     *
+     * @param coin      The name of the cryptocurrency (e.g., "BTC") or an internal identifier (e.g., "@107").
+     * @param interval  The desired candlestick interval (e.g., {@link CandleInterval#ONE_MINUTE}).
      * @param startTime The start time of the period in milliseconds (inclusive).
-     * @param endTime The end time of the period in milliseconds (inclusive).
+     * @param endTime   The end time of the period in milliseconds (inclusive).
      * @return A {@link List} of {@link Candle} objects representing the candlestick data.
      * @throws HypeError If any of the input parameters are invalid (e.g., null coin name, invalid time range).
      */
@@ -835,7 +838,7 @@ public class Info {
      * Query user fills (by time range) with default parameters.
      * <p>
      * Returns up to 2000 entries; only the latest 10000 entries are available.
-     * This is a convenience method that calls 
+     * This is a convenience method that calls
      * {@link #userFillsByTime(String, Long, Long, Boolean)} with null values
      * for endTime and aggregateByTime.
      * </p>
@@ -852,7 +855,7 @@ public class Info {
      * Query user fills (by time range) without aggregation.
      * <p>
      * Returns up to 2000 entries; only the latest 10000 entries are available.
-     * This is a convenience method that calls 
+     * This is a convenience method that calls
      * {@link #userFillsByTime(String, Long, Long, Boolean)} with a null value
      * for aggregateByTime.
      * </p>
@@ -870,7 +873,7 @@ public class Info {
      * Query user fills (by time range) with optional time aggregation.
      * <p>
      * Returns up to 2000 entries; only the latest 10000 entries are available.
-     * This is a convenience method that calls 
+     * This is a convenience method that calls
      * {@link #userFillsByTime(String, Long, Long, Boolean)} with a null value
      * for endTime.
      * </p>
@@ -939,7 +942,7 @@ public class Info {
     /**
      * Query user funding rate history with optional end time.
      * <p>
-     * This is a convenience method that calls 
+     * This is a convenience method that calls
      * {@link #userFundingHistory(String, long, Long)} with a null value
      * for endMs, allowing the API to use its default end time.
      * </p>
@@ -1273,6 +1276,10 @@ public class Info {
         }
         Map<String, Object> payload = Map.of("type", "orderStatus", "user", address, "oid", cloid.getRaw());
         return JSONUtil.convertValue(postInfo(payload), OrderStatus.class);
+    }
+
+    public OrderStatus orderStatusByCloid(String address, String cloid) {
+        return orderStatusByCloid(address, Cloid.fromStr(cloid));
     }
 
     /**

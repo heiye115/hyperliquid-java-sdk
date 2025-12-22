@@ -636,7 +636,7 @@ public class Exchange {
      *                 positions
      * @return Response JSON
      */
-    public JsonNode bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
+    public BulkOrder bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
         List<OrderRequest> effectiveRequests = new ArrayList<>(requests.size());
         for (OrderRequest r : requests) {
             effectiveRequests.add(preprocessOrder(r));
@@ -650,7 +650,7 @@ public class Exchange {
         if (grouping != null && !grouping.isEmpty()) {
             action.put("grouping", grouping);
         }
-        return postAction(action);
+        return JSONUtil.convertValue(postAction(action), BulkOrder.class);
     }
 
     /**
@@ -684,7 +684,7 @@ public class Exchange {
      * @param orderGroup Order group (contains order list and grouping type)
      * @return Response JSON
      */
-    public JsonNode bulkOrders(OrderGroup orderGroup) {
+    public BulkOrder bulkOrders(OrderGroup orderGroup) {
         return bulkOrders(orderGroup, null);
     }
 
@@ -699,7 +699,7 @@ public class Exchange {
      * @param builder    Optional builder
      * @return Response JSON
      */
-    public JsonNode bulkOrders(OrderGroup orderGroup, Map<String, Object> builder) {
+    public BulkOrder bulkOrders(OrderGroup orderGroup, Map<String, Object> builder) {
         List<OrderRequest> orders = orderGroup.getOrders();
         if (orders == null || orders.isEmpty()) {
             throw new HypeError("No orders found in OrderGroup.");
@@ -730,7 +730,7 @@ public class Exchange {
      * @param requests Order list
      * @return Response JSON
      */
-    public JsonNode bulkOrders(List<OrderRequest> requests) {
+    public BulkOrder bulkOrders(List<OrderRequest> requests) {
         return bulkOrders(requests, null, null);
     }
 
@@ -1938,7 +1938,7 @@ public class Exchange {
      * @return Batch order response JSON
      * @throws HypeError Thrown when there are no positions to close
      */
-    public JsonNode closeAllPositions() {
+    public BulkOrder closeAllPositions() {
         // Query all positions for the current account
         ClearinghouseState state = info.userState(apiWallet.getPrimaryWalletAddress().toLowerCase());
         if (state == null || state.getAssetPositions() == null || state.getAssetPositions().isEmpty()) {

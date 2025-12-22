@@ -229,6 +229,28 @@ public class OrderStatus {
             public void setCloid(String cloid) {
                 this.cloid = cloid;
             }
+
+            @Override
+            public String toString() {
+                return "OrderDetail{" +
+                        "coin='" + coin + '\'' +
+                        ", side='" + side + '\'' +
+                        ", limitPx='" + limitPx + '\'' +
+                        ", sz='" + sz + '\'' +
+                        ", oid=" + oid +
+                        ", timestamp=" + timestamp +
+                        ", triggerCondition='" + triggerCondition + '\'' +
+                        ", isTrigger=" + isTrigger +
+                        ", triggerPx='" + triggerPx + '\'' +
+                        ", children=" + children +
+                        ", isPositionTpsl=" + isPositionTpsl +
+                        ", reduceOnly=" + reduceOnly +
+                        ", orderType='" + orderType + '\'' +
+                        ", origSz='" + origSz + '\'' +
+                        ", tif='" + tif + '\'' +
+                        ", cloid='" + cloid + '\'' +
+                        '}';
+            }
         }
 
         public OrderDetail getOrder() {
@@ -254,6 +276,15 @@ public class OrderStatus {
         public void setStatus(String status) {
             this.status = status;
         }
+
+        @Override
+        public String toString() {
+            return "Order{" +
+                    "status='" + status + '\'' +
+                    ", order=" + order +
+                    ", statusTimestamp=" + statusTimestamp +
+                    '}';
+        }
     }
 
     public String getStatus() {
@@ -270,5 +301,13 @@ public class OrderStatus {
 
     public void setOrder(Order order) {
         this.order = order;
+    }
+
+    @Override
+    public String toString() {
+        return "OrderStatus{" +
+                "status='" + status + '\'' +
+                ", order=" + order +
+                '}';
     }
 }
