@@ -1,3 +1,5 @@
+package io.github.hyperliquid.sdk.examples.websocket;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Info;

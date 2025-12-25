@@ -164,9 +164,7 @@ public class Exchange {
         int assetId = ensureAssetId(effective.getCoin());
         OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
-        // Get order expiresAfter, default 120 seconds
-        Long expiresAfter = effective.getExpiresAfter() != null ? effective.getExpiresAfter() : 120_000L;
-        JsonNode node = postAction(action, expiresAfter);
+        JsonNode node = postAction(action, req.getExpiresAfter());
         return JSONUtil.convertValue(node, Order.class);
     }
 
@@ -772,35 +770,48 @@ public class Exchange {
     }
 
     /**
-     * Modify order (by OID).
-     *
-     * @param coinName Coin name
-     * @param oid      Original order OID
-     * @param newReq   New order request (price/quantity/type, etc.)
-     * @return Response JSON
+     * Modify order
      */
-    public JsonNode modifyOrder(String coinName, long oid, OrderRequest newReq) {
-        int assetId = ensureAssetId(coinName);
-        OrderWire wire = Signing.orderRequestToOrderWire(assetId, newReq);
-        Map<String, Object> modify = new LinkedHashMap<>();
-        modify.put("oid", oid);
-        modify.put("order", wire);
+    public ModifyOrder modifyOrder(ModifyOrderRequest request, Long expiresAfter) {
+        int assetId = ensureAssetId(request.getCoin());
+        OrderWire wire = Signing.orderRequestToOrderWire(assetId, request);
+        Map<String, Object> wireAction = Signing.orderWiresToOrderAction(wire);
         Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "batchModify");
-        action.put("modifies", List.of(modify));
-        return postAction(action);
+        action.put("type", "modify");
+        action.put("oid", request.getOid());
+        action.put("order", wireAction);
+        JsonNode jsonNode = postAction(action, expiresAfter);
+        return JSONUtil.convertValue(jsonNode, ModifyOrder.class);
     }
 
-    public JsonNode modifyOrder(String coinName, Cloid cloid, OrderRequest newReq) {
-        int assetId = ensureAssetId(coinName);
-        OrderWire wire = Signing.orderRequestToOrderWire(assetId, newReq);
-        Map<String, Object> modify = new LinkedHashMap<>();
-        modify.put("oid", cloid == null ? null : cloid.getRaw());
-        modify.put("order", wire);
+    /**
+     * Modify order with default expiresAfter.
+     */
+    public ModifyOrder modifyOrder(ModifyOrderRequest request) {
+        return modifyOrder(request, null);
+    }
+
+    public ModifyOrder modifyOrders(List<ModifyOrderRequest> requests, Long expiresAfter) {
+        List<Map<String, Object>> actions = new ArrayList<>();
+        for (ModifyOrderRequest request : requests) {
+            int assetId = ensureAssetId(request.getCoin());
+            OrderWire orderWire = Signing.orderRequestToOrderWire(assetId, request);
+            actions.add(new LinkedHashMap<>() {
+                {
+                    put("oid", request.getOid());
+                    put("order", Signing.orderWiresToOrderAction(orderWire));
+                }
+            });
+        }
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "batchModify");
-        action.put("modifies", List.of(modify));
-        return postAction(action);
+        action.put("modifies", actions);
+        JsonNode jsonNode = postAction(action, expiresAfter);
+        return JSONUtil.convertValue(jsonNode, ModifyOrder.class);
+    }
+
+    public ModifyOrder modifyOrders(List<ModifyOrderRequest> requests) {
+        return modifyOrders(requests, null);
     }
 
     /**

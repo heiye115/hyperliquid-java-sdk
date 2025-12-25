@@ -1,8 +1,6 @@
 package io.github.hyperliquid.sdk.utils;
 
-import io.github.hyperliquid.sdk.model.order.OrderRequest;
-import io.github.hyperliquid.sdk.model.order.OrderType;
-import io.github.hyperliquid.sdk.model.order.OrderWire;
+import io.github.hyperliquid.sdk.model.order.*;
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.web3j.crypto.Credentials;
@@ -131,15 +129,13 @@ public final class Signing {
      * @return Map structure for serialization
      */
     public static Object orderTypeToWire(OrderType orderType) {
-        if (orderType == null)
-            return null;
+        if (orderType == null) return null;
         Map<String, Object> out = new LinkedHashMap<>();
         if (orderType.getLimit() != null) {
             Map<String, Object> limitObj = new LinkedHashMap<>();
             limitObj.put("tif", orderType.getLimit().getTif().getValue());
             out.put("limit", limitObj);
         }
-
         if (orderType.getTrigger() != null) {
             Map<String, Object> trigObj = new LinkedHashMap<>();
             trigObj.put("isMarket", orderType.getTrigger().isMarket());
@@ -151,7 +147,6 @@ public final class Signing {
             trigObj.put("tpsl", orderType.getTrigger().getTpsl());
             out.put("trigger", trigObj);
         }
-
         return out.isEmpty() ? null : out;
     }
 
@@ -165,13 +160,31 @@ public final class Signing {
      * @return OrderWire
      */
     public static OrderWire orderRequestToOrderWire(int coinId, OrderRequest req) {
-        // Important: Strings must be converted via floatToWire to ensure signature format consistency with protocol
-        // floatToWire removes trailing zeros and avoids scientific notation, complying with Hyperliquid protocol requirements
-        String szStr = req.getSz() != null ? floatToWire(Double.parseDouble(req.getSz())) : null;
-        String pxStr = req.getLimitPx() != null && !req.getLimitPx().isEmpty() 
-                ? floatToWire(Double.parseDouble(req.getLimitPx())) : null;
-        Object orderTypeWire = orderTypeToWire(req.getOrderType());
-        return new OrderWire(coinId, req.getIsBuy(), szStr, pxStr, orderTypeWire, req.getReduceOnly(), req.getCloid());
+        return orderRequestToOrderWire(coinId, req.getIsBuy(), req.getSz(), req.getLimitPx(), req.getOrderType(), req.getReduceOnly(), req.getCloid());
+    }
+
+    public static OrderWire orderRequestToOrderWire(int coinId, ModifyOrderRequest req) {
+        return orderRequestToOrderWire(coinId, req.isBuy(), req.getSz(), req.getLimitPx(), req.getOrderType(), req.getReduceOnly(), req.getCloid());
+    }
+
+    public static OrderWire orderRequestToOrderWire(Integer coin,
+                                                    Boolean isBuy,
+                                                    String sz,
+                                                    String limitPx,
+                                                    OrderType orderType,
+                                                    Boolean reduceOnly,
+                                                    Cloid cloid) {
+        String szStr = toWireFloat(sz);
+        String pxStr = toWireFloat(limitPx);
+        Object orderTypeWire = orderTypeToWire(orderType);
+        return new OrderWire(coin, isBuy, szStr, pxStr, orderTypeWire, reduceOnly, cloid);
+    }
+
+    private static String toWireFloat(String val) {
+        if (val == null || val.isEmpty()) {
+            return null;
+        }
+        return floatToWire(Double.parseDouble(val));
     }
 
     /**
@@ -715,31 +728,38 @@ public final class Signing {
     public static Map<String, Object> orderWiresToOrderAction(List<OrderWire> orders) {
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "order");
-
-
-        List<Map<String, Object>> wires = new ArrayList<>();
-        for (OrderWire o : orders) {
-            Map<String, Object> w = new LinkedHashMap<>();
-            // Key order strictly aligned with Python: a, b, p, s, r, t, (c last)
-            w.put("a", o.coin);
-            w.put("b", o.isBuy);
-            if (o.limitPx != null) {
-                w.put("p", o.limitPx);
-            }
-            w.put("s", o.sz);
-            w.put("r", o.reduceOnly);
-            if (o.orderType != null) {
-                w.put("t", o.orderType);
-            }
-            if (o.cloid != null) {
-                w.put("c", o.cloid.getRaw());
-            }
-            wires.add(w);
-        }
+        List<Map<String, Object>> wires = orders.stream().map(Signing::orderWiresToOrderAction).toList();
         action.put("orders", wires);
-        // Consistent with Python, default grouping is "na" (placed after orders)
         action.put("grouping", "na");
         return action;
+    }
+
+    /**
+     * Convert a single OrderWire to a map for L1 action.
+     * <p>
+     * The generated structure looks like:
+     * {"a": "BTC", "b": true, "p": "60000", "s": "0.1", "r": false, "t": "limit", "c": "..." }
+     *
+     * @param orderWire Order wire object
+     * @return Map action object {"a": "BTC", "b": true, ...}
+     */
+    public static Map<String, Object> orderWiresToOrderAction(OrderWire orderWire) {
+        Map<String, Object> w = new LinkedHashMap<>();
+        // Key order strictly aligned with Python: a, b, p, s, r, t, (c last)
+        w.put("a", orderWire.coin);
+        w.put("b", orderWire.isBuy);
+        if (orderWire.limitPx != null) {
+            w.put("p", orderWire.limitPx);
+        }
+        w.put("s", orderWire.sz);
+        w.put("r", orderWire.reduceOnly);
+        if (orderWire.orderType != null) {
+            w.put("t", orderWire.orderType);
+        }
+        if (orderWire.cloid != null) {
+            w.put("c", orderWire.cloid.getRaw());
+        }
+        return w;
     }
 
     /**

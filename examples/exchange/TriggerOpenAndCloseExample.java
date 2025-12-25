@@ -1,3 +1,5 @@
+package io.github.hyperliquid.sdk.examples.exchange;
+
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.model.order.Order;

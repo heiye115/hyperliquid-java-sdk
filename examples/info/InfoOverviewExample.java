@@ -1,11 +1,8 @@
+package io.github.hyperliquid.sdk.examples.info;
+
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Info;
-import io.github.hyperliquid.sdk.model.info.Candle;
-import io.github.hyperliquid.sdk.model.info.CandleInterval;
-import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
-import io.github.hyperliquid.sdk.model.info.L2Book;
-import io.github.hyperliquid.sdk.model.info.Meta;
-import io.github.hyperliquid.sdk.model.info.UserRateLimit;
+import io.github.hyperliquid.sdk.model.info.*;
 
 import java.util.List;
 import java.util.Map;

@@ -1,9 +1,11 @@
 package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.info.Candle;
 import io.github.hyperliquid.sdk.model.info.CandleInterval;
+import io.github.hyperliquid.sdk.model.subscription.CandleSubscription;
 import io.github.hyperliquid.sdk.model.subscription.OrderUpdatesSubscription;
 import io.github.hyperliquid.sdk.model.subscription.TradesSubscription;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
@@ -90,6 +92,50 @@ public class ExampleWebsocketBTC {
         // Wait for messages to arrive on the WebSocket stream
         try {
             Thread.sleep(6000000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void candleSubscription() {
+        HyperliquidClient client = HyperliquidClient.builder().build();
+        Info info = client.getInfo();
+        // ==================== 4. Subscribe to BTC 1-Minute Candle ====================
+        System.out.println("--- Subscribe to BTC 1-Minute Candle ---");
+        CandleSubscription btcCandle = CandleSubscription.of("BTC", "1m");
+
+        info.subscribe(btcCandle, msg -> {
+            JsonNode data = msg.get("data");
+            if (data != null) {
+                String open = data.path("o").asText();
+                String high = data.path("h").asText();
+                String low = data.path("l").asText();
+                String close = data.path("c").asText();
+                String volume = data.path("v").asText();
+                System.out.printf("[Candle] BTC 1m - O: %s, H: %s, L: %s, C: %s, V: %s%n",
+                        open, high, low, close, volume);
+            }
+        });
+
+        CandleSubscription ethCandle = CandleSubscription.of("ETH", "1m");
+
+        info.subscribe(ethCandle, msg -> {
+            JsonNode data = msg.get("data");
+            if (data != null) {
+                String open = data.path("o").asText();
+                String high = data.path("h").asText();
+                String low = data.path("l").asText();
+                String close = data.path("c").asText();
+                String volume = data.path("v").asText();
+                System.out.printf("[Candle] ETH 1m - O: %s, H: %s, L: %s, C: %s, V: %s%n",
+                        open, high, low, close, volume);
+            }
+        });
+
+        //线程等待10分钟
+        try {
+            Thread.sleep(600000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

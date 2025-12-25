@@ -1,7 +1,9 @@
+package io.github.hyperliquid.sdk.examples.exchange;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
+import io.github.hyperliquid.sdk.model.order.BulkOrder;
 import io.github.hyperliquid.sdk.model.order.OrderGroup;
 import io.github.hyperliquid.sdk.model.order.OrderRequest;
 import io.github.hyperliquid.sdk.model.order.Tif;
@@ -66,7 +68,7 @@ public class EntryWithTpSlExample {
                     .entryTif(Tif.GTC)
                     .buildNormalTpsl();
 
-            JsonNode result = exchange.bulkOrders(normalTpsl);
+            BulkOrder result = exchange.bulkOrders(normalTpsl);
             System.out.println("normalTpsl bulkOrders result: " + JSONUtil.writeValueAsString(result));
         } catch (HypeError e) {
             System.err.println("normalTpsl bulkOrders failed: " + e.getMessage());
@@ -83,7 +85,7 @@ public class EntryWithTpSlExample {
                     .stopLoss("3400.0")
                     .buildPositionTpsl();
 
-            JsonNode result = exchange.bulkOrders(positionTpsl);
+            BulkOrder result = exchange.bulkOrders(positionTpsl);
             System.out.println("positionTpsl bulkOrders result: " + JSONUtil.writeValueAsString(result));
         } catch (HypeError e) {
             System.err.println("positionTpsl bulkOrders failed: " + e.getMessage());

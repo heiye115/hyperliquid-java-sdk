@@ -1,11 +1,11 @@
+package io.github.hyperliquid.sdk.examples.exchange;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.model.order.Order;
 import io.github.hyperliquid.sdk.model.order.OrderRequest;
 import io.github.hyperliquid.sdk.utils.HypeError;
-import io.github.hyperliquid.sdk.utils.JSONUtil;
 
 /**
  * Spot Trading OrderRequest Examples.

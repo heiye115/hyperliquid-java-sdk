@@ -1,6 +1,8 @@
-import com.fasterxml.jackson.databind.JsonNode;
+package io.github.hyperliquid.sdk.examples.exchange;
+
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
+import io.github.hyperliquid.sdk.model.order.BulkOrder;
 import io.github.hyperliquid.sdk.model.order.Cloid;
 import io.github.hyperliquid.sdk.model.order.Order;
 import io.github.hyperliquid.sdk.model.order.Tif;
@@ -54,7 +56,7 @@ public class CloseAllExample {
 
         // Example 3: Close all positions with one click (batch close)
         try {
-            JsonNode result = ex.closeAllPositions();
+            BulkOrder result = ex.closeAllPositions();
             System.out.println("Close all positions result: " + result);
         } catch (HypeError e) {
             System.err.println("Close all positions failed: " + e.getMessage());

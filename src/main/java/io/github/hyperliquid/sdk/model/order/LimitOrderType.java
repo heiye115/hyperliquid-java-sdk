@@ -28,4 +28,16 @@ public class LimitOrderType {
     public Tif getTif() {
         return tif;
     }
+
+    public static LimitOrderType gtc() {
+        return new LimitOrderType(Tif.GTC);
+    }
+
+    public static LimitOrderType alo() {
+        return new LimitOrderType(Tif.ALO);
+    }
+
+    public static LimitOrderType ioc() {
+        return new LimitOrderType(Tif.IOC);
+    }
 }

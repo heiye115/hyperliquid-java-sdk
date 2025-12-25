@@ -2,49 +2,6 @@ package io.github.hyperliquid.sdk.model.order;
 
 /**
  * OrderRequest builder, providing convenient chain call API.
- * <p>
- * Usage examples:
- * <pre>
- * // 1. Limit order open
- * OrderRequest req = OrderRequest.builder()
- *     .perp("ETH")
- *     .buy(0.1)
- *     .limitPrice(3000.0)
- *     .gtc()
- *     .build();
- *
- * // 2. Market order open
- * OrderRequest req = OrderRequest.builder()
- *     .spot("PURR")
- *     .sell(100.0)
- *     .market()
- *     .build();
- *
- * // 3. Conditional order: buy when price breaks above 2950
- * OrderRequest req = OrderRequest.builder()
- *     .perp("ETH")
- *     .buy(0.1)
- *     .stopAbove(2950.0)  // trigger on upward breakout
- *     .limitPrice(3000.0)
- *     .build();
- *
- * // 4. Conditional order: sell when price breaks below 3100
- * OrderRequest req = OrderRequest.builder()
- *     .perp("ETH")
- *     .sell(0.1)
- *     .stopBelow(3100.0)  // trigger on downward breakdown
- *     .limitPrice(3050.0)
- *     .build();
- *
- * // 5. Close position take-profit (requires existing long position)
- * OrderRequest req = OrderRequest.builder()
- *     .perp("ETH")
- *     .sell(0.5)
- *     .stopAbove(3600.0)  // take-profit trigger price
- *     .marketTrigger()    // execute at market price after trigger
- *     .reduceOnly()
- *     .build();
- * </pre>
  */
 public class OrderBuilder {
     /**
@@ -91,22 +48,6 @@ public class OrderBuilder {
      * Market order slippage ratio (string)
      */
     private String slippage;
-
-    // Trigger order parameters
-    /**
-     * Trigger price (string)
-     */
-    private String triggerPx;
-
-    /**
-     * Whether to execute at market price after trigger
-     */
-    private Boolean isMarketTrigger;
-
-    /**
-     * Trigger direction type (TP=break above, SL=break below)
-     */
-    private TriggerOrderType.TpslType tpsl;
 
     /**
      * Order expiration time (milliseconds)
@@ -199,7 +140,7 @@ public class OrderBuilder {
      */
     public OrderBuilder limitPrice(String limitPx) {
         this.limitPx = limitPx;
-        return this;
+        return orderType(LimitOrderType.gtc());
     }
 
     /**
@@ -209,8 +150,7 @@ public class OrderBuilder {
      */
     public OrderBuilder market() {
         this.limitPx = null;
-        this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
-        return this;
+        return orderType(LimitOrderType.ioc());
     }
 
     /**
@@ -222,8 +162,7 @@ public class OrderBuilder {
     public OrderBuilder market(String slippage) {
         this.limitPx = null;
         this.slippage = slippage;
-        this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
-        return this;
+        return orderType(LimitOrderType.ioc());
     }
 
     // ========================================
@@ -237,10 +176,7 @@ public class OrderBuilder {
      * @return this
      */
     public OrderBuilder stopAbove(String triggerPx) {
-        this.triggerPx = triggerPx;
-        this.tpsl = TriggerOrderType.TpslType.TP;
-        this.isMarketTrigger = false; // Default to placing limit order after trigger
-        return this;
+        return orderType(TriggerOrderType.tp(triggerPx, false));
     }
 
     /**
@@ -250,59 +186,29 @@ public class OrderBuilder {
      * @return this
      */
     public OrderBuilder stopBelow(String triggerPx) {
-        this.triggerPx = triggerPx;
-        this.tpsl = TriggerOrderType.TpslType.SL;
-        this.isMarketTrigger = false;
+        return orderType(TriggerOrderType.sl(triggerPx, false));
+    }
+
+
+    /**
+     * Sets the trigger order type.
+     *
+     * @param trigger Trigger order type
+     * @return this
+     */
+    public OrderBuilder orderType(TriggerOrderType trigger) {
+        this.orderType = new OrderType(trigger);
         return this;
     }
 
     /**
-     * Executes at market price after trigger (requires calling stopAbove or stopBelow first).
+     * Sets the limit order type.
      *
+     * @param limit Limit order type
      * @return this
      */
-    public OrderBuilder marketTrigger() {
-        this.isMarketTrigger = true;
-        return this;
-    }
-
-    // ========================================
-    // 5. TIF Strategies
-    // ========================================
-
-    /**
-     * Good Til Cancel (GTC).
-     *
-     * @return this
-     */
-    public OrderBuilder gtc() {
-        if (this.orderType == null || this.orderType.getLimit() == null) {
-            this.orderType = new OrderType(new LimitOrderType(Tif.GTC));
-        }
-        return this;
-    }
-
-    /**
-     * Immediate or Cancel (IOC).
-     *
-     * @return this
-     */
-    public OrderBuilder ioc() {
-        if (this.orderType == null || this.orderType.getLimit() == null) {
-            this.orderType = new OrderType(new LimitOrderType(Tif.IOC));
-        }
-        return this;
-    }
-
-    /**
-     * Add Liquidity Only (ALO).
-     *
-     * @return this
-     */
-    public OrderBuilder alo() {
-        if (this.orderType == null || this.orderType.getLimit() == null) {
-            this.orderType = new OrderType(new LimitOrderType(Tif.ALO));
-        }
+    public OrderBuilder orderType(LimitOrderType limit) {
+        this.orderType = new OrderType(limit);
         return this;
     }
 
@@ -363,20 +269,12 @@ public class OrderBuilder {
             throw new IllegalStateException("size is required");
         }
 
-        // Build OrderType
-        if (triggerPx != null) {
-            // Trigger order
-            if (tpsl == null) {
-                throw new IllegalStateException("tpsl is required for trigger order (call stopAbove() or stopBelow())");
-            }
-            this.orderType = new OrderType(new TriggerOrderType(triggerPx, isMarketTrigger != null && isMarketTrigger, tpsl));
-        } else {
-            // Regular limit/market order
-            if (this.orderType == null) {
-                // Default GTC
-                this.orderType = new OrderType(new LimitOrderType(Tif.GTC));
-            }
+        // Regular limit/market order
+        if (this.orderType == null) {
+            // Default GTC
+            this.orderType = new OrderType(LimitOrderType.gtc());
         }
+
 
         OrderRequest req = new OrderRequest(
                 instrumentType != null ? instrumentType : InstrumentType.PERP,
@@ -392,7 +290,7 @@ public class OrderBuilder {
         if (slippage != null) {
             req.setSlippage(slippage);
         }
-        
+
         if (expiresAfter != null) {
             req.setExpiresAfter(expiresAfter);
         }

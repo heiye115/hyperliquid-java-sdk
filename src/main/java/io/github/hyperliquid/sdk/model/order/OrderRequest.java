@@ -122,7 +122,7 @@ public class OrderRequest {
      * @param cloid      Client order ID (can be null)
      */
     public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, String sz, String limitPx,
-            OrderType orderType, Boolean reduceOnly, Cloid cloid) {
+                        OrderType orderType, Boolean reduceOnly, Cloid cloid) {
         this.instrumentType = instrumentType;
         this.coin = coin;
         this.isBuy = isBuy;
@@ -147,7 +147,7 @@ public class OrderRequest {
      * @param slippage       Market order slippage ratio (string)
      */
     public OrderRequest(InstrumentType instrumentType, String coin, Boolean isBuy, String sz, String limitPx,
-            OrderType orderType, Boolean reduceOnly, Cloid cloid, String slippage) {
+                        OrderType orderType, Boolean reduceOnly, Cloid cloid, String slippage) {
         this.instrumentType = instrumentType;
         this.coin = coin;
         this.isBuy = isBuy;
@@ -261,6 +261,10 @@ public class OrderRequest {
      * @return Whether to buy (true=buy/long, false=sell/short)
      */
     public Boolean getIsBuy() {
+        return isBuy;
+    }
+
+    public Boolean isBuy() {
         return isBuy;
     }
 
@@ -773,7 +777,7 @@ public class OrderRequest {
          * @return OrderRequest instance
          */
         private static OrderRequest createLimit(InstrumentType instrumentType, Tif tif, String coin, boolean isBuy,
-                String sz, String limitPx) {
+                                                String sz, String limitPx) {
             OrderRequest req = new OrderRequest();
             req.setInstrumentType(instrumentType);
             req.setCoin(coin);

@@ -1,3 +1,5 @@
+package io.github.hyperliquid.sdk.examples.exchange;
+
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.model.order.Cloid;
@@ -59,7 +61,6 @@ public class BuilderOrdersExample {
                     .perp("ETH")
                     .buy("0.01")
                     .limitPrice("1800.0")
-                    .gtc()
                     .autoCloid()
                     .build();
 
@@ -94,7 +95,6 @@ public class BuilderOrdersExample {
                     .perp("ETH")
                     .sell("0.01") // Close part of a long position
                     .stopAbove("3600.0") // Trigger when price breaks above 3600
-                    .marketTrigger() // Execute at market price after trigger
                     .reduceOnly() // Ensure it only reduces existing position
                     .cloid(Cloid.auto())
                     .build();

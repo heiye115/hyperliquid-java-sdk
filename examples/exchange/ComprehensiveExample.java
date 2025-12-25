@@ -1,14 +1,12 @@
+package io.github.hyperliquid.sdk.examples.exchange;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.L2Book;
-import io.github.hyperliquid.sdk.model.order.Cloid;
-import io.github.hyperliquid.sdk.model.order.Order;
-import io.github.hyperliquid.sdk.model.order.OrderRequest;
-import io.github.hyperliquid.sdk.model.order.Tif;
+import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 
@@ -103,7 +101,7 @@ public class ComprehensiveExample {
                     OrderRequest.Open.limit(Tif.GTC, "BTC", true, "0.001", "95000.0"),
                     OrderRequest.Open.limit(Tif.GTC, "SOL", true, "1.0", "200.0")
             );
-            JsonNode bulkResult = exchange.bulkOrders(bulkReqs);
+            BulkOrder bulkResult = exchange.bulkOrders(bulkReqs);
             System.out.println("Bulk orders result: " + JSONUtil.writeValueAsString(bulkResult));
         } catch (HypeError e) {
             System.err.println("Bulk orders failed: " + e.getMessage());
@@ -153,7 +151,7 @@ public class ComprehensiveExample {
         System.out.println("\n--- 10. Close All Positions Example ---");
         try {
             // Close all positions for all coins in batch
-            JsonNode closeAllResult = exchange.closeAllPositions();
+            BulkOrder closeAllResult = exchange.closeAllPositions();
             System.out.println("Close all positions result: " + JSONUtil.writeValueAsString(closeAllResult));
         } catch (HypeError e) {
             System.err.println("Close all positions failed: " + e.getMessage());
