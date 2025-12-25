@@ -815,51 +815,6 @@ public class Exchange {
     }
 
     /**
-     * Batch modify orders (aligned with Python bulk_modify_orders_new).
-     * <p>
-     * Usage example:
-     *
-     * <pre>
-     * // Modify multiple orders
-     * List<ModifyRequest> modifies = Arrays.asList(
-     *         ModifyRequest.byOid("ETH", 123456L, newReq1),
-     *         ModifyRequest.byCloid("BTC", cloid, newReq2));
-     * JsonNode result = exchange.bulkModifyOrders(modifies);
-     * </pre>
-     *
-     * @param modifyRequests Batch modify request list
-     * @return Response JSON
-     */
-    public JsonNode bulkModifyOrders(List<ModifyRequest> modifyRequests) {
-        if (modifyRequests == null || modifyRequests.isEmpty()) {
-            throw new HypeError("Modify requests cannot be empty");
-        }
-
-        List<Map<String, Object>> modifies = new ArrayList<>();
-        for (ModifyRequest mr : modifyRequests) {
-            int assetId = ensureAssetId(mr.getCoinName());
-            OrderWire wire = Signing.orderRequestToOrderWire(assetId, mr.getNewOrder());
-            Map<String, Object> modify = new LinkedHashMap<>();
-            // Support OID or Cloid
-            if (mr.getOid() != null) {
-                modify.put("oid", mr.getOid());
-            } else if (mr.getCloid() != null) {
-                modify.put("oid", mr.getCloid().getRaw());
-            } else {
-                throw new HypeError("Either oid or cloid must be provided for modify request");
-            }
-
-            modify.put("order", wire);
-            modifies.add(modify);
-        }
-
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "batchModify");
-        action.put("modifies", modifies);
-        return postAction(action);
-    }
-
-    /**
      * Build order action (includes grouping:"na" and optional builder).
      *
      * @param wires   Order wire list
