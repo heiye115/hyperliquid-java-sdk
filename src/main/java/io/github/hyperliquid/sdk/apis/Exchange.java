@@ -169,7 +169,10 @@ public class Exchange {
     }
 
     /**
-     * Format order quantity based on asset precision
+     * Format order quantity based on asset precision.
+     *
+     * @param req Order request
+     * @throws HypeError If order size format is invalid
      */
     private void formatOrderSize(OrderRequest req) {
         if (req == null || req.getSz() == null || req.getSz().isEmpty())
@@ -189,12 +192,15 @@ public class Exchange {
     }
 
     /**
-     * Format order price (limit and trigger price) based on asset precision
+     * Format order price (limit and trigger price) based on asset precision.
      * <p>
      * Rules aligned with Python SDK:
      * 1. First round to 5 significant digits
      * 2. Then round to decimal places (perpetual: 6-szDecimals; spot: 8-szDecimals)
      * </p>
+     *
+     * @param req Order request
+     * @throws HypeError If order price format is invalid
      */
     private void formatOrderPrice(OrderRequest req) {
         if (req == null)
@@ -510,15 +516,14 @@ public class Exchange {
 
     /**
      * Infer the current account's "signed position size" for the specified coin.
-     *
      * <p>
      * Positive numbers indicate long positions, negative numbers indicate short
-     * positions; returns 0.0 when there is no position. Parsing failures are
-     * treated as fatal and will throw HypeError.
+     * positions; returns 0.0 when there is no position.
      * </p>
      *
-     * @param coin Coin name
+     * @param coin Coin name (e.g., "ETH")
      * @return Signed size (double)
+     * @throws HypeError If the user state cannot be retrieved or parsed
      */
     private double inferSignedPosition(String coin) {
         ClearinghouseState state = info.userState(apiWallet.getPrimaryWalletAddress().toLowerCase());
@@ -591,11 +596,12 @@ public class Exchange {
     }
 
     /**
-     * Update isolated margin
+     * Update isolated margin for a specified asset.
      *
-     * @param amount   Amount (USD, string, internally converted to micro units)
-     * @param coinName Coin name
-     * @return JSON response
+     * @param amount   Amount in USD to add or remove (as a string)
+     * @param coinName Name of the coin/asset (e.g., "ETH")
+     * @return JSON response from the exchange
+     * @throws HypeError If the amount format is invalid or the request fails
      */
     public JsonNode updateIsolatedMargin(String amount, String coinName) {
         int assetId = ensureAssetId(coinName);
@@ -616,7 +622,7 @@ public class Exchange {
      * Batch order placement (with grouping support).
      *
      * @param requests Order request list
-     * @param builder  Optional builder
+     * @param builder  Optional builder parameters (can be null)
      * @param grouping Grouping type: "na" | "normalTpsl" | "positionTpsl"
      *                 1. "na" - Normal orders (default)
      *                 Usage scenarios:
@@ -632,7 +638,8 @@ public class Exchange {
      *                 ✅ Set or modify TP/SL for existing positions
      *                 ✅ Don't open new positions, only set protection for existing
      *                 positions
-     * @return Response JSON
+     * @return BulkOrder response object
+     * @throws HypeError If any order validation fails
      */
     public BulkOrder bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
         List<OrderRequest> effectiveRequests = new ArrayList<>(requests.size());
@@ -652,50 +659,31 @@ public class Exchange {
     }
 
     /**
-     * Batch order placement (with OrderGroup automatic grouping inference).
+     * Batch order placement with automatic grouping inference.
      * <p>
-     * Automatically identifies grouping type through OrderGroup, no need to
-     * manually specify grouping parameter.
-     * <p>
-     * Usage examples:
+     * Automatically identifies the grouping type (na, normalTpsl, or
+     * positionTpsl) based on the provided {@link OrderGroup}.
+     * </p>
      *
-     * <pre>
-     * // Automatically infer grouping="normalTpsl"
-     * OrderGroup orderGroup = OrderRequest.entryWithTpSl()
-     *         .perp("ETH")
-     *         .buy(0.1)
-     *         .entryPrice(3500.0)
-     *         .takeProfit(3600.0)
-     *         .stopLoss(3400.0)
-     *         .buildNormalTpsl();
-     * JsonNode result = exchange.bulkOrders(orderGroup);
-     *
-     * // Automatically infer grouping="positionTpsl"
-     * OrderGroup orderGroup2 = OrderRequest.entryWithTpSl()
-     *         .perp("ETH")
-     *         .closePosition(0.5, true)
-     *         .takeProfit(3600.0)
-     *         .buildPositionTpsl();
-     * JsonNode result2 = exchange.bulkOrders(orderGroup2);
-     * </pre>
-     *
-     * @param orderGroup Order group (contains order list and grouping type)
-     * @return Response JSON
+     * @param orderGroup Order group containing orders and grouping type
+     * @return BulkOrder response object
+     * @throws HypeError If any order validation fails
      */
     public BulkOrder bulkOrders(OrderGroup orderGroup) {
         return bulkOrders(orderGroup, null);
     }
 
     /**
-     * Batch order placement (with OrderGroup and builder support).
+     * Batch order placement with OrderGroup and optional builder.
      * <p>
-     * For positionTpsl type order groups, if isBuy or sz in the order is null,
-     * it will automatically query account positions and fill in direction and
-     * quantity.
+     * For positionTpsl order groups, if direction or size is missing,
+     * they will be automatically inferred from current positions.
+     * </p>
      *
-     * @param orderGroup Order group (contains order list and grouping type)
-     * @param builder    Optional builder
-     * @return Response JSON
+     * @param orderGroup Order group containing orders and grouping type
+     * @param builder    Optional builder parameters (can be null)
+     * @return BulkOrder response object
+     * @throws HypeError If any order validation fails
      */
     public BulkOrder bulkOrders(OrderGroup orderGroup, Map<String, Object> builder) {
         List<OrderRequest> orders = orderGroup.getOrders();
@@ -710,34 +698,26 @@ public class Exchange {
     }
 
     /**
-     * Batch order placement (normal orders, default grouping="na").
+     * Batch order placement for multiple normal orders.
      * <p>
-     * Used to submit multiple normal orders in batch, with no correlation between
-     * orders.
-     * <p>
-     * Usage example:
+     * Submits a list of orders with the default "na" grouping.
+     * </p>
      *
-     * <pre>
-     * // Batch orders for multiple coins
-     * List<OrderRequest> orders = Arrays.asList(
-     *         OrderRequest.builder().perp("BTC").buy(0.01).limitPrice(95000.0).build(),
-     *         OrderRequest.builder().perp("ETH").buy(0.1).limitPrice(3500.0).build());
-     * JsonNode result = exchange.bulkOrders(orders);
-     * </pre>
-     *
-     * @param requests Order list
-     * @return Response JSON
+     * @param requests List of order requests
+     * @return BulkOrder response object
+     * @throws HypeError If any order validation fails
      */
     public BulkOrder bulkOrders(List<OrderRequest> requests) {
         return bulkOrders(requests, null, null);
     }
 
     /**
-     * Cancel order by OID (maintain consistency with Python cancel behavior).
+     * Cancel an open order by its order ID (OID).
      *
-     * @param coinName Coin name
-     * @param oid      Order OID
-     * @return Response JSON
+     * @param coinName Name of the coin/asset (e.g., "ETH")
+     * @param oid      The order ID (OID) of the order to cancel
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode cancel(String coinName, long oid) {
         int assetId = ensureAssetId(coinName);
@@ -751,12 +731,12 @@ public class Exchange {
     }
 
     /**
-     * Cancel order by Cloid (maintain consistency with Python cancel_by_cloid
-     * behavior).
+     * Cancel an open order by its client order ID (Cloid).
      *
-     * @param coinName Coin name
-     * @param cloid    Client order ID
-     * @return Response JSON
+     * @param coinName Name of the coin/asset (e.g., "ETH")
+     * @param cloid    The client order ID (Cloid) of the order to cancel
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode cancelByCloid(String coinName, Cloid cloid) {
         int assetId = ensureAssetId(coinName);
@@ -770,7 +750,12 @@ public class Exchange {
     }
 
     /**
-     * Modify order
+     * Modify an existing order.
+     *
+     * @param request      The modification request containing new order parameters
+     * @param expiresAfter Optional expiration time in milliseconds
+     * @return ModifyOrder response object
+     * @throws HypeError If the modification fails
      */
     public ModifyOrder modifyOrder(ModifyOrderRequest request, Long expiresAfter) {
         int assetId = ensureAssetId(request.getCoin());
@@ -785,12 +770,24 @@ public class Exchange {
     }
 
     /**
-     * Modify order with default expiresAfter.
+     * Modify an existing order with default expiration.
+     *
+     * @param request The modification request
+     * @return ModifyOrder response object
+     * @throws HypeError If the modification fails
      */
     public ModifyOrder modifyOrder(ModifyOrderRequest request) {
         return modifyOrder(request, null);
     }
 
+    /**
+     * Batch modify existing orders.
+     *
+     * @param requests     List of modification requests
+     * @param expiresAfter Optional expiration time in milliseconds
+     * @return ModifyOrder response object (status of the batch operation)
+     * @throws HypeError If any modification fails
+     */
     public ModifyOrder modifyOrders(List<ModifyOrderRequest> requests, Long expiresAfter) {
         List<Map<String, Object>> actions = new ArrayList<>();
         for (ModifyOrderRequest request : requests) {
@@ -810,6 +807,13 @@ public class Exchange {
         return JSONUtil.convertValue(jsonNode, ModifyOrder.class);
     }
 
+    /**
+     * Batch modify existing orders with default expiration.
+     *
+     * @param requests List of modification requests
+     * @return ModifyOrder response object
+     * @throws HypeError If any modification fails
+     */
     public ModifyOrder modifyOrders(List<ModifyOrderRequest> requests) {
         return modifyOrders(requests, null);
     }
@@ -818,8 +822,8 @@ public class Exchange {
      * Build order action (includes grouping:"na" and optional builder).
      *
      * @param wires   Order wire list
-     * @param builder Optional builder
-     * @return L1 action Map
+     * @param builder Optional builder parameters (can be null)
+     * @return L1 action Map containing order information and builder data
      */
     private Map<String, Object> buildOrderAction(List<OrderWire> wires, Map<String, Object> builder) {
         Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
@@ -879,15 +883,14 @@ public class Exchange {
     }
 
     /**
-     * Enable Agent-side Dex Abstraction (consistent with Python
-     * exchange.agent_enable_dex_abstraction).
-     * Description:
-     * - The server will create/enable an API Wallet (Agent) based on this action
-     * for L1 order placement and other operations.
-     * - This is an L1 action, directly using signL1Action for signing and
-     * submission.
+     * Enable Agent-side Dex Abstraction.
+     * <p>
+     * The server will create or enable an API Wallet (Agent) based on this
+     * action for L1 order placement and other operations.
+     * </p>
      *
-     * @return JSON response
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode agentEnableDexAbstraction() {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -897,12 +900,12 @@ public class Exchange {
     }
 
     /**
-     * User-side Dex Abstraction switch (consistent with Python
-     * exchange.user_dex_abstraction).
+     * Enable or disable User-side Dex Abstraction.
      *
-     * @param user    User address (0x prefix)
-     * @param enabled Whether to enable
-     * @return JSON response
+     * @param user    The user address (0x prefix)
+     * @param enabled true to enable, false to disable
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode userDexAbstraction(String user, boolean enabled) {
         long nonce = Signing.getTimestampMs();
@@ -930,10 +933,11 @@ public class Exchange {
     }
 
     /**
-     * Create sub-account.
+     * Create a new sub-account.
      *
-     * @param name Sub-account name
-     * @return JSON response
+     * @param name The name for the new sub-account
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode createSubAccount(String name) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -943,12 +947,13 @@ public class Exchange {
     }
 
     /**
-     * Sub-account fund transfer.
+     * Transfer funds between a main account and a sub-account.
      *
-     * @param subAccountUser Sub-account address (0x prefix)
-     * @param isDeposit      true means deposit; false means withdraw
-     * @param usd            Amount (micro USDC units)
-     * @return JSON response
+     * @param subAccountUser The address of the sub-account (0x prefix)
+     * @param isDeposit      true to deposit to sub-account, false to withdraw
+     * @param usd            Amount in micro USDC units (e.g., 1,000,000 = 1 USDC)
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -960,11 +965,12 @@ public class Exchange {
     }
 
     /**
-     * USD balance transfer (user signed).
+     * Transfer USDC to another address (requires user signature).
      *
-     * @param amount      Amount (string)
-     * @param destination Destination address (0x prefix)
-     * @return JSON response
+     * @param amount      Amount to transfer as a string (e.g., "100.0")
+     * @param destination Destination wallet address (0x prefix)
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode usdTransfer(String amount, String destination) {
         long time = Signing.getTimestampMs();
@@ -991,12 +997,13 @@ public class Exchange {
     }
 
     /**
-     * Spot token transfer (user signed).
+     * Transfer spot tokens to another address (spotSend, user signed).
      *
-     * @param amount      Transfer quantity (string)
+     * @param amount      Amount to transfer (string)
      * @param destination Destination address (0x prefix)
-     * @param token       Token name (e.g., "HL")
-     * @return JSON response
+     * @param token       Token name (e.g., "PURR", "USDC")
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode spotTransfer(String amount, String destination, String token) {
         long time = Signing.getTimestampMs();
@@ -1025,11 +1032,12 @@ public class Exchange {
     }
 
     /**
-     * Withdraw from bridge contract (withdraw3, user signed).
+     * Withdraw funds from the bridge contract (requires user signature).
      *
-     * @param amount      Amount (string)
-     * @param destination Destination address (0x prefix)
-     * @return JSON response
+     * @param amount      Amount to withdraw as a string (e.g., "50.0")
+     * @param destination Destination wallet address (0x prefix)
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode withdrawFromBridge(String amount, String destination) {
         long time = Signing.getTimestampMs();
@@ -1056,12 +1064,13 @@ public class Exchange {
     }
 
     /**
-     * USD category transfer (Spot ⇄ Perp).
+     * Transfer USDC between Spot and Perpetual accounts.
      *
-     * @param toPerp true means transfer from Spot to Perp; false means transfer
-     *               from Perp to Spot
-     * @param amount Amount (string)
-     * @return JSON response
+     * @param toPerp true to transfer from Spot to Perp; false to transfer from
+     *               Perp to Spot
+     * @param amount Amount to transfer as a string (e.g., "100.0")
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode usdClassTransfer(boolean toPerp, String amount) {
         long nonce = Signing.getTimestampMs();
@@ -1092,18 +1101,19 @@ public class Exchange {
     }
 
     /**
-     * Cross-DEX asset transfer (sendAsset, user signed).
+     * Transfer assets across different DEXs (requires user signature).
      *
-     * @param destination    Destination address (0x prefix)
-     * @param sourceDex      Source DEX name
+     * @param destination    Destination wallet address (0x prefix)
+     * @param sourceDex      Source DEX name (e.g., "Hyperliquid")
      * @param destinationDex Destination DEX name
-     * @param token          Token name
-     * @param amount         Quantity (string)
-     * @param fromSubAccount Source sub-account address (optional)
-     * @return JSON response
+     * @param token          Token name (e.g., "PURR")
+     * @param amount         Quantity to transfer as a string (e.g., "1.5")
+     * @param fromSubAccount Optional source sub-account address (0x prefix)
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
-                              String fromSubAccount) {
+            String fromSubAccount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "sendAsset");
@@ -1136,11 +1146,12 @@ public class Exchange {
     }
 
     /**
-     * Authorize Builder fee rate (user signed).
+     * Approve a maximum fee rate for a builder (requires user signature).
      *
-     * @param builder    Builder address (0x prefix)
-     * @param maxFeeRate Allowed maximum fee rate (string decimal)
-     * @return JSON response
+     * @param builder    Builder wallet address (0x prefix)
+     * @param maxFeeRate Allowed maximum fee rate as a decimal string
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode approveBuilderFee(String builder, String maxFeeRate) {
         long nonce = Signing.getTimestampMs();
@@ -1166,10 +1177,11 @@ public class Exchange {
     }
 
     /**
-     * Bind referral code (user signed).
+     * Bind a referral code to the account (requires user signature).
      *
-     * @param code Referral code string
-     * @return JSON response
+     * @param code The referral code to set
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode setReferrer(String code) {
         long nonce = Signing.getTimestampMs();
@@ -1193,12 +1205,13 @@ public class Exchange {
     }
 
     /**
-     * Token delegation/undelegation (user signed).
+     * Delegate or undelegate HYPE tokens to a validator (requires user signature).
      *
-     * @param validator    Validator address (0x prefix)
-     * @param wei          Delegation amount (Wei units)
-     * @param isUndelegate true means undelegate; false means delegate
-     * @return JSON response
+     * @param validator    The address of the validator (0x prefix)
+     * @param wei          The amount in Wei units to delegate/undelegate
+     * @param isUndelegate true to undelegate, false to delegate
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate) {
         long nonce = Signing.getTimestampMs();
@@ -1226,10 +1239,11 @@ public class Exchange {
     }
 
     /**
-     * Convert to multi-signature user (user signed).
+     * Convert the current user account to a multi-signature account.
      *
-     * @param signersJson Signer configuration JSON string
-     * @return JSON response
+     * @param signersJson A JSON string defining the multi-sig configuration
+     * @return JSON response from the exchange
+     * @throws HypeError If signing or the request fails
      */
     public JsonNode convertToMultiSigUser(String signersJson) {
         long nonce = Signing.getTimestampMs();
@@ -1253,12 +1267,13 @@ public class Exchange {
     }
 
     /**
-     * Vault fund transfer (deposit/withdraw)
+     * Transfer funds to or from a vault.
      *
-     * @param vaultAddress Vault address
-     * @param isDeposit    Whether to deposit
-     * @param usd          Amount (micro USDC units)
-     * @return JSON response
+     * @param vaultAddress The address of the vault (0x prefix)
+     * @param isDeposit    true to deposit to the vault, false to withdraw
+     * @param usd          Amount in micro USDC units (e.g., 1,000,000 = 1 USDC)
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd) {
         Map<String, Object> action = new LinkedHashMap<>();
@@ -1270,10 +1285,18 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: Register Token (registerToken2)
+     * SpotDeploy: Register a new token on the exchange.
+     *
+     * @param tokenName   Short name of the token (e.g., "PURR")
+     * @param szDecimals  Decimals for size/quantity
+     * @param weiDecimals Decimals for wei/on-chain amount
+     * @param maxGas      Maximum gas allowed for registration
+     * @param fullName    Full name of the token (e.g., "Purr")
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-                                            String fullName) {
+            String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -1289,14 +1312,15 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: User genesis allocation (userGenesis).
+     * Set the genesis allocation for a newly deployed spot token.
      *
-     * @param token               Token ID
-     * @param userAndWei          User and Wei amount list, in the form
-     *                            [[user,addressLower],[wei,string]]
-     * @param existingTokenAndWei Existing token and Wei amount list, in the form
-     *                            [[tokenId,int],[wei,string]]
-     * @return JSON response
+     * @param token               The internal ID of the deployed token
+     * @param userAndWei          List of [userAddress, weiAmount] pairs for new
+     *                            allocation
+     * @param existingTokenAndWei List of [tokenId, weiAmount] pairs for existing
+     *                            tokens
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployUserGenesis(int token, List<String[]> userAndWei, List<Object[]> existingTokenAndWei) {
         List<List<Object>> userAndWeiWire = new ArrayList<>();
@@ -1333,32 +1357,35 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: Enable freeze privilege.
+     * Enable the freeze privilege for a deployed spot token.
      *
-     * @param token Token ID
-     * @return JSON response
+     * @param token The internal ID of the token
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployEnableFreezePrivilege(int token) {
         return spotDeployTokenActionInner("enableFreezePrivilege", token);
     }
 
     /**
-     * SpotDeploy: Revoke freeze privilege.
+     * Revoke the freeze privilege for a deployed spot token.
      *
-     * @param token Token ID
-     * @return JSON response
+     * @param token The internal ID of the token
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployRevokeFreezePrivilege(int token) {
         return spotDeployTokenActionInner("revokeFreezePrivilege", token);
     }
 
     /**
-     * SpotDeploy: Freeze/unfreeze user.
+     * Freeze or unfreeze a specific user for a deployed spot token.
      *
-     * @param token  Token ID
-     * @param user   User address (0x prefix)
-     * @param freeze true to freeze; false to unfreeze
-     * @return JSON response
+     * @param token  The internal ID of the token
+     * @param user   The address of the user to freeze/unfreeze (0x prefix)
+     * @param freeze true to freeze, false to unfreeze
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployFreezeUser(int token, String user, boolean freeze) {
         Map<String, Object> freezeUser = new LinkedHashMap<>();
@@ -1372,10 +1399,11 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: Enable quote token.
+     * Enable a token to be used as a quote token in spot pairs.
      *
-     * @param token Token ID
-     * @return JSON response
+     * @param token The internal ID of the token
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployEnableQuoteToken(int token) {
         return spotDeployTokenActionInner("enableQuoteToken", token);
@@ -1394,12 +1422,13 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: Genesis.
+     * Finalize the genesis of a spot token with supply constraints.
      *
-     * @param token            Token ID
-     * @param maxSupply        Maximum supply (string)
-     * @param noHyperliquidity Whether to disable Hyperliquidity
-     * @return JSON response
+     * @param token            The internal ID of the token
+     * @param maxSupply        The maximum total supply as a string
+     * @param noHyperliquidity true to disable automatic market making
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployGenesis(int token, String maxSupply, boolean noHyperliquidity) {
         Map<String, Object> genesis = new LinkedHashMap<>();
@@ -1415,11 +1444,12 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: Register spot trading pair (registerSpot).
+     * Register a new spot trading pair.
      *
-     * @param baseToken  Base token ID
-     * @param quoteToken Quote token ID
-     * @return JSON response
+     * @param baseToken  The internal ID of the base token
+     * @param quoteToken The internal ID of the quote token
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployRegisterSpot(int baseToken, int quoteToken) {
         Map<String, Object> register = new LinkedHashMap<>();
@@ -1434,17 +1464,18 @@ public class Exchange {
     }
 
     /**
-     * SpotDeploy: Register Hyperliquidity market making.
+     * Register Hyperliquidity market making for a spot pair.
      *
-     * @param spot          Spot trading pair ID
-     * @param startPx       Starting price
-     * @param orderSz       Order size per level
-     * @param nOrders       Number of order levels
-     * @param nSeededLevels Number of seeded levels (optional)
-     * @return JSON response
+     * @param spot          The ID of the spot trading pair
+     * @param startPx       The starting price for market making
+     * @param orderSz       The size of each order level
+     * @param nOrders       The number of order levels to create
+     * @param nSeededLevels Optional number of levels to seed initially
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
-                                                     Integer nSeededLevels) {
+            Integer nSeededLevels) {
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("spot", spot);
         register.put("startPx", String.valueOf(startPx));
@@ -1594,16 +1625,17 @@ public class Exchange {
     }
 
     /**
-     * Unified wrapper: Use existing signature (user signature or other signature)
-     * to send to /exchange.
-     * The difference from postAction is: the signature is not generated within this
-     * method, but accepts an externally passed signature.
+     * Submit an action with a pre-computed signature to the exchange.
+     * <p>
+     * This is used by methods that handle user-signed actions (EIP-712) or
+     * other specialized signing requirements.
+     * </p>
      *
-     * @param action    Action Map
-     * @param signature Existing r/s/v signature (corresponding to EIP-712
-     *                  TypedData)
-     * @param nonce     Timestamp/random number
-     * @return JSON response
+     * @param action    Action Map containing the request data
+     * @param signature Map containing the r, s, v components of the signature
+     * @param nonce     The nonce used for signing (usually a timestamp)
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
      */
     private JsonNode postActionWithSignature(Map<String, Object> action, Map<String, Object> signature, long nonce) {
         String type = String.valueOf(action.getOrDefault("type", ""));
@@ -1624,11 +1656,11 @@ public class Exchange {
     }
 
     /**
-     * Validate and return asset ID.
+     * Validate the coin name and return its asset ID.
      *
-     * @param coinName Coin name
-     * @return Asset ID
-     * @throws HypeError Thrown when mapping fails
+     * @param coinName Coin name (e.g., "ETH")
+     * @return Internal asset ID for the coin
+     * @throws HypeError If the coin name is unknown or mapping fails
      */
     private int ensureAssetId(String coinName) {
         Integer assetId = info.nameToAsset(coinName);
@@ -1639,16 +1671,17 @@ public class Exchange {
     }
 
     /**
-     * Calculate effective vault address.
+     * Calculate the effective vault address based on the action type.
      * <p>
      * Rules:
-     * - usdClassTransfer and sendAsset types do not use vaultAddress
-     * - If vaultAddress is the same as the signer address, return null
-     * - Otherwise return lowercase vaultAddress
+     * 1. usdClassTransfer and sendAsset types do not use vaultAddress
+     * 2. If vaultAddress is not set, returns null
+     * 3. If vaultAddress is the same as the signer address, returns null
+     * 4. Otherwise returns the lowercase vaultAddress
      * </p>
      *
-     * @param actionType Action type
-     * @return Effective vault address, or null
+     * @param actionType The type of action being performed
+     * @return The effective vault address to be used in the request, or null
      */
     private String calculateEffectiveVaultAddress(String actionType) {
         // usdClassTransfer and sendAsset do not use vaultAddress
@@ -1669,14 +1702,14 @@ public class Exchange {
     }
 
     /**
-     * Determine if the action is a user signature type.
+     * Determine if the specified action type requires a user signature (EIP-712).
      * <p>
-     * User signature actions use EIP-712 TypedData signature, different from L1
-     * action signatures.
+     * User signature actions use EIP-712 TypedData signing, which is distinct
+     * from the standard L1 action signing process.
      * </p>
      *
-     * @param actionType Action type
-     * @return Returns true if it's a user signature action, false otherwise
+     * @param actionType The type of action to check
+     * @return true if the action requires a user signature, false otherwise
      */
     private boolean isUserSignedAction(String actionType) {
         return "approveAgent".equals(actionType)
@@ -1693,10 +1726,10 @@ public class Exchange {
     }
 
     /**
-     * Parse Dex Abstraction enabled status.
+     * Parse Dex Abstraction enabled status from response.
      *
-     * @param node Status JSON
-     * @return Returns true if enabled, false otherwise
+     * @param node Status JSON response from the exchange
+     * @return true if Dex Abstraction is enabled, false otherwise
      */
     private boolean isDexEnabled(JsonNode node) {
         if (node == null)
@@ -1710,20 +1743,20 @@ public class Exchange {
     }
 
     /**
-     * Determine if response status is ok.
+     * Determine if response status is "ok".
      *
-     * @param node Response JSON
-     * @return Returns true if yes, false otherwise
+     * @param node Response JSON from the exchange
+     * @return true if status is "ok", false otherwise
      */
     private boolean isOk(JsonNode node) {
         return node != null && node.has("status") && "ok".equalsIgnoreCase(node.get("status").asText());
     }
 
     /**
-     * Determine if response is "already set" type error.
+     * Determine if response indicates an "already set" type error.
      *
-     * @param node Response JSON
-     * @return Returns true if yes, false otherwise
+     * @param node Response JSON from the exchange
+     * @return true if response contains "already set" error, false otherwise
      */
     private boolean isAlreadySet(JsonNode node) {
         return node != null && node.has("status") && "err".equalsIgnoreCase(node.get("status").asText())
@@ -1732,7 +1765,13 @@ public class Exchange {
     }
 
     /**
-     * Calculate price with slippage (string version)
+     * Calculate price with slippage (string version).
+     *
+     * @param coin     Coin name (e.g., "ETH")
+     * @param isBuy    Whether it's a buy order
+     * @param slippage Slippage ratio (e.g., "0.01" for 1%)
+     * @return Calculated price as string
+     * @throws HypeError If mid price is missing or number format is invalid
      */
     public String computeSlippagePrice(String coin, boolean isBuy, String slippage) {
         Map<String, String> mids = info.getCachedAllMids();
@@ -1845,7 +1884,7 @@ public class Exchange {
      * @return Order response
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid,
-                                     Map<String, Object> builder) {
+            Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
@@ -2179,7 +2218,7 @@ public class Exchange {
      *                            stake)
      * @return JSON response containing transaction details and validator status
      * @see #cValidatorChangeProfile(String, String, String, boolean, Boolean,
-     * Integer, String)
+     *      Integer, String)
      * @see #cValidatorUnregister()
      */
     public JsonNode cValidatorRegister(

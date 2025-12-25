@@ -17,7 +17,6 @@ public class Order {
      */
     private Response response;
 
-    // Getter and Setter methods
     public String getStatus() {
         return status;
     }
@@ -34,18 +33,25 @@ public class Order {
         this.response = response;
     }
 
+    @Override
+    public String toString() {
+        return "Order{" +
+                "status='" + status + '\'' +
+                ", response=" + response +
+                '}';
+    }
+
     public static class Resting {
         /**
          * Resting order ID
          */
         private long oid;
-        
+
         /**
          * Client order ID
          */
         private String cloid;
 
-        // Getter and Setter methods
         public long getOid() {
             return oid;
         }
@@ -60,6 +66,14 @@ public class Order {
 
         public void setCloid(String cloid) {
             this.cloid = cloid;
+        }
+
+        @Override
+        public String toString() {
+            return "Resting{" +
+                    "oid=" + oid +
+                    ", cloid='" + cloid + '\'' +
+                    '}';
         }
     }
 
@@ -77,7 +91,6 @@ public class Order {
          */
         private String error;
 
-        // Getter and Setter methods
         public Resting getResting() {
             return resting;
         }
@@ -101,6 +114,15 @@ public class Order {
         public void setError(String error) {
             this.error = error;
         }
+
+        @Override
+        public String toString() {
+            return "Statuses{" +
+                    "resting=" + resting +
+                    ", filled=" + filled +
+                    ", error='" + error + '\'' +
+                    '}';
+        }
     }
 
 
@@ -122,7 +144,6 @@ public class Order {
          */
         private String cloid;
 
-        // Getter and Setter methods
         public String getTotalSz() {
             return totalSz;
         }
@@ -154,6 +175,16 @@ public class Order {
         public void setCloid(String cloid) {
             this.cloid = cloid;
         }
+
+        @Override
+        public String toString() {
+            return "Filled{" +
+                    "totalSz='" + totalSz + '\'' +
+                    ", avgPx='" + avgPx + '\'' +
+                    ", oid=" + oid +
+                    ", cloid='" + cloid + '\'' +
+                    '}';
+        }
     }
 
     public static class Data {
@@ -162,13 +193,19 @@ public class Order {
          */
         private List<Statuses> statuses;
 
-        // Getter and Setter methods
         public List<Statuses> getStatuses() {
             return statuses;
         }
 
         public void setStatuses(List<Statuses> statuses) {
             this.statuses = statuses;
+        }
+
+        @Override
+        public String toString() {
+            return "Data{" +
+                    "statuses=" + statuses +
+                    '}';
         }
     }
 
@@ -182,7 +219,6 @@ public class Order {
          */
         private Data data;
 
-        // Getter and Setter methods
         public String getType() {
             return type;
         }
@@ -197,6 +233,14 @@ public class Order {
 
         public void setData(Data data) {
             this.data = data;
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "type='" + type + '\'' +
+                    ", data=" + data +
+                    '}';
         }
     }
 }

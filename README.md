@@ -226,6 +226,15 @@ List<OrderRequest> orders = List.of(slOrder, tpOrder);
 JsonNode bulkResponse = exchange.bulkOrders(orders);
 ```
 
+**Modify an Order:**
+
+```java
+ModifyOrderRequest req = ModifyOrderRequest.byOid("BTC", oid);
+req.setLimitPx("86200.0");
+req.setSz("0.001");
+ModifyOrder result = exchange.modifyOrder(req);
+```
+
 **Cancel an Order:**
 
 ```java
