@@ -1,7 +1,6 @@
 package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.FrontendOpenOrder;
@@ -70,7 +69,9 @@ public class OrderTest {
      **/
     @Test
     public void testLimitOrder() {
-        OrderRequest req = OrderRequest.Open.limit("BTC", true, "0.001", "80000.0");
+        Cloid auto = Cloid.auto();
+        System.out.println("auto:" + auto);
+        OrderRequest req = OrderRequest.Open.limit("BTC", true, "0.001", "81000.0", auto);
         Order order = client.getExchange().order(req);
         System.out.println(order);
     }
@@ -99,8 +100,28 @@ public class OrderTest {
      */
     @Test
     public void testCancel() {
-        JsonNode node = client.getExchange().cancel("ETH", 0000L);
-        System.out.println(node.toPrettyString());
+        Cancel eth = client.getExchange().cancel("ETH", 0000L);
+        System.out.println(eth);
+    }
+
+    @Test
+    public void testCancels() {
+        List<CancelRequest> requests = List.of(
+                new CancelRequest("ETH", 0000L),
+                new CancelRequest("ETH", 0000L)
+        );
+        Cancel cancels = client.getExchange().cancels(requests);
+        System.out.println(cancels);
+    }
+
+    @Test
+    public void testCancelByCloids() {
+        List<CancelByCloidRequest> requests = List.of(
+                CancelByCloidRequest.of("BTC", Cloid.fromStr("0x...")),
+                CancelByCloidRequest.of("BTC", Cloid.fromStr("0x..."))
+        );
+        Cancel cancels = client.getExchange().cancelByCloids(requests);
+        System.out.println(cancels);
     }
 
     /**
@@ -356,4 +377,5 @@ public class OrderTest {
         ModifyOrder modifyOrder = client.getExchange().modifyOrders(List.of(req1, req2));
         System.out.println(modifyOrder);
     }
+
 }

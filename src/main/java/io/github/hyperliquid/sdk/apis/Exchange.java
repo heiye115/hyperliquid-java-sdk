@@ -716,37 +716,60 @@ public class Exchange {
      *
      * @param coinName Name of the coin/asset (e.g., "ETH")
      * @param oid      The order ID (OID) of the order to cancel
-     * @return JSON response from the exchange
+     * @return Cancel response object
      * @throws HypeError If the request fails
      */
-    public JsonNode cancel(String coinName, long oid) {
-        int assetId = ensureAssetId(coinName);
-        Map<String, Object> cancel = new LinkedHashMap<>();
-        cancel.put("a", assetId);
-        cancel.put("o", oid);
+    public Cancel cancel(String coinName, long oid) {
+        return cancels(List.of(new CancelRequest(coinName, oid)));
+    }
+
+    /**
+     * Cancel multiple open orders.
+     */
+    public Cancel cancels(List<CancelRequest> requests) {
+        List<Map<String, Object>> cancels = new ArrayList<>();
+        for (CancelRequest request : requests) {
+            int assetId = ensureAssetId(request.getCoin());
+            Map<String, Object> cancel = new LinkedHashMap<>();
+            cancel.put("a", assetId);
+            cancel.put("o", request.getOid());
+            cancels.add(cancel);
+        }
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "cancel");
-        action.put("cancels", List.of(cancel));
-        return postAction(action);
+        action.put("cancels", cancels);
+        return JSONUtil.convertValue(postAction(action), Cancel.class);
     }
+
 
     /**
      * Cancel an open order by its client order ID (Cloid).
      *
      * @param coinName Name of the coin/asset (e.g., "ETH")
      * @param cloid    The client order ID (Cloid) of the order to cancel
-     * @return JSON response from the exchange
+     * @return Cancel response object
      * @throws HypeError If the request fails
      */
-    public JsonNode cancelByCloid(String coinName, Cloid cloid) {
-        int assetId = ensureAssetId(coinName);
-        Map<String, Object> cancel = new LinkedHashMap<>();
-        cancel.put("asset", assetId);
-        cancel.put("cloid", cloid == null ? null : cloid.getRaw());
+    public Cancel cancelByCloid(String coinName, Cloid cloid) {
+        return cancelByCloids(List.of(new CancelByCloidRequest(coinName, cloid)));
+    }
+
+    /**
+     * Cancel multiple open orders by their client order IDs (Cloids).
+     */
+    public Cancel cancelByCloids(List<CancelByCloidRequest> requests) {
+        List<Map<String, Object>> cancels = new ArrayList<>();
+        for (CancelByCloidRequest request : requests) {
+            int assetId = ensureAssetId(request.getCoin());
+            Map<String, Object> cancel = new LinkedHashMap<>();
+            cancel.put("asset", assetId);
+            cancel.put("cloid", request.getCloid().getRaw());
+            cancels.add(cancel);
+        }
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "cancelByCloid");
-        action.put("cancels", List.of(cancel));
-        return postAction(action);
+        action.put("cancels", cancels);
+        return JSONUtil.convertValue(postAction(action), Cancel.class);
     }
 
     /**
@@ -1113,7 +1136,7 @@ public class Exchange {
      * @throws HypeError If signing or the request fails
      */
     public JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount,
-            String fromSubAccount) {
+                              String fromSubAccount) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "sendAsset");
@@ -1296,7 +1319,7 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-            String fullName) {
+                                            String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -1475,7 +1498,7 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode spotDeployRegisterHyperliquidity(int spot, double startPx, double orderSz, int nOrders,
-            Integer nSeededLevels) {
+                                                     Integer nSeededLevels) {
         Map<String, Object> register = new LinkedHashMap<>();
         register.put("spot", spot);
         register.put("startPx", String.valueOf(startPx));
@@ -1884,7 +1907,7 @@ public class Exchange {
      * @return Order response
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid,
-            Map<String, Object> builder) {
+                                     Map<String, Object> builder) {
         double szi = inferSignedPosition(coin);
         if (szi == 0.0) {
             throw new HypeError("No position to close for coin " + coin);
@@ -2218,7 +2241,7 @@ public class Exchange {
      *                            stake)
      * @return JSON response containing transaction details and validator status
      * @see #cValidatorChangeProfile(String, String, String, boolean, Boolean,
-     *      Integer, String)
+     * Integer, String)
      * @see #cValidatorUnregister()
      */
     public JsonNode cValidatorRegister(
