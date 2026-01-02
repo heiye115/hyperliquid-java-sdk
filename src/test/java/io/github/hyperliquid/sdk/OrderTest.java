@@ -9,6 +9,7 @@ import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -90,8 +91,12 @@ public class OrderTest {
      * Close all positions at limit price
      **/
     @Test
-    public void testLimitCloseAllOrder() {
-        Order order = client.getExchange().closePositionLimit(Tif.GTC, "ETH", "4000.0", Cloid.auto());
+    public void testClosePositionLimit() {
+//        Order order = client.getExchange().closePositionLimit(Tif.GTC, "BTC", "90000.0", Cloid.auto());
+//        System.out.println(order);
+
+        OrderRequest req = OrderRequest.Close.limit(Tif.GTC, "BTC", true, "0.001", "85000.0", Cloid.auto());
+        Order order = client.getExchange().order(req);
         System.out.println(order);
     }
 
@@ -196,13 +201,22 @@ public class OrderTest {
     @Test
     public void testBulkNormalTpsl() throws JsonProcessingException {
         OrderWithTpSlBuilder builder = OrderRequest.entryWithTpSl()
+                .cloid(Cloid.auto())
                 .perp("BTC")
-                .buy("0.001")
-                //.entryPrice("3500.0")
+                .buy("0.002")
                 .takeProfit("90000.0")
-                .stopLoss("86000.0");
-        BulkOrder bulkOrder = client.getExchange().bulkOrders(builder.buildNormalTpsl());
-        System.out.println(JSONUtil.writeValueAsString(bulkOrder));
+                .stopLoss("90000.0");
+//        BulkOrder bulkOrder = client.getExchange().bulkOrders(builder.buildNormalTpsl());
+//        System.out.println(JSONUtil.writeValueAsString(bulkOrder));
+
+        List<OrderRequest> orders = new ArrayList<>();
+        orders.add(OrderRequest.Open.market("BTC", true, "0.002"));
+        orders.add(OrderRequest.builder().perp("BTC").sell("0.001").limitPrice("90000.0").orderType(TriggerOrderType.tp("90000.0", false)).reduceOnly().build());
+        orders.add(OrderRequest.builder().perp("BTC").sell("0.002").limitPrice("85000.0").orderType(TriggerOrderType.sl("85000.0", true)).reduceOnly().build());
+        OrderGroup orderGroup = new OrderGroup(orders, GroupingType.NORMAL_TPSL);
+        BulkOrder bulkOrder2 = client.getExchange().bulkOrders(orderGroup);
+        System.out.println(JSONUtil.writeValueAsString(bulkOrder2));
+
     }
 
     /**
@@ -348,12 +362,12 @@ public class OrderTest {
     public void testModifyOrder() {
         //{"status":"err","response":"Cannot modify canceled or filled order"}
         //{"status":"ok","response":{"type":"default"}}
-        ModifyOrderRequest req = ModifyOrderRequest.byOid("BTC", 0000L);
-        req.setBuy(Boolean.TRUE);
-        req.setLimitPx("81000.0");
-        req.setSz("0.001");
-        req.setReduceOnly(Boolean.FALSE);
-        req.setOrderType(LimitOrderType.gtc());
+        ModifyOrderRequest req = ModifyOrderRequest.byOid("BTC", 000L);
+        req.setBuy(false);
+        req.setLimitPx("86000.0");
+        req.setSz("0.002");
+        req.setReduceOnly(true);
+        req.setOrderType(TriggerOrderType.sl("86000.0", true));
 
         ModifyOrder modifyOrder = client.getExchange().modifyOrder(req);
         System.out.println(modifyOrder);
