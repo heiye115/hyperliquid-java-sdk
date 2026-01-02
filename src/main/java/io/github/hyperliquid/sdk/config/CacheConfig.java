@@ -16,9 +16,9 @@ public class CacheConfig {
     private int spotMetaCacheMaxSize = 10;
 
     /**
-     * Cache expiration time (minutes, default 30 minutes)
+     * Cache expiration time (minutes, default 240 minutes)
      */
-    private long expireAfterWriteMinutes = 30;
+    private long expireAfterWriteMinutes = 240;
 
     /**
      * Whether to enable cache statistics (default true)
@@ -34,10 +34,10 @@ public class CacheConfig {
     /**
      * Full parameter constructor
      *
-     * @param metaCacheMaxSize          Meta cache maximum capacity
-     * @param spotMetaCacheMaxSize      SpotMeta cache maximum capacity
-     * @param expireAfterWriteMinutes   Cache expiration time (minutes)
-     * @param recordStats               Whether to enable cache statistics
+     * @param metaCacheMaxSize        Meta cache maximum capacity
+     * @param spotMetaCacheMaxSize    SpotMeta cache maximum capacity
+     * @param expireAfterWriteMinutes Cache expiration time (minutes)
+     * @param recordStats             Whether to enable cache statistics
      */
     public CacheConfig(int metaCacheMaxSize, int spotMetaCacheMaxSize, long expireAfterWriteMinutes, boolean recordStats) {
         this.metaCacheMaxSize = metaCacheMaxSize;

@@ -42,12 +42,12 @@ public class HypeHttpClient {
      */
     public JsonNode post(String path, Object payload) {
         String url = baseUrl + path;
-        String json = "";
+        String requestJson = "";
         try {
-            json = JSONUtil.writeValueAsString(payload);
+            requestJson = JSONUtil.writeValueAsString(payload);
             log.debug("POST: {} ", url);
-            log.debug("Request: {}", json);
-            RequestBody body = RequestBody.create(json, JSON_MEDIA_TYPE);
+            log.debug("Request: {}", requestJson);
+            RequestBody body = RequestBody.create(requestJson, JSON_MEDIA_TYPE);
             Request request = new Request.Builder()
                     .url(url)
                     .addHeader("Accept", "application/json")
@@ -57,7 +57,7 @@ public class HypeHttpClient {
             try (Response response = client.newCall(request).execute()) {
                 ResponseBody responseBodyObj = response.body();
                 String responseBody = responseBodyObj.string();
-
+                log.debug("Response: {}", responseBody);
                 if (!response.isSuccessful()) {
                     int code = response.code();
                     String errorMsg = String.format("HTTP %d: %s", code, responseBody);
@@ -68,12 +68,10 @@ public class HypeHttpClient {
                         throw new HypeError.ServerHypeError(code, errorMsg);
                     }
                 }
-
-                log.debug("Response: {}", responseBody);
                 return JSONUtil.readTree(responseBody);
             }
         } catch (IOException e) {
-            log.error("Network error for POST: {} Request: {}", path, json, e);
+            log.error("Network error for POST: {} Request: {}", path, requestJson, e);
             throw new HypeError("Network error for POST " + path + ": " + e.getMessage(), e);
         }
     }
