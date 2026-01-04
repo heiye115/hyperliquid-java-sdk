@@ -32,14 +32,14 @@
 <dependency>
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.9</version> <!-- 建议替换为最新版本 -->
+    <version>0.2.10</version> <!-- 建议替换为最新版本 -->
 </dependency>
 ```
 
 - **Gradle (Groovy)**:
 
 ```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.9' // 建议替换为最新版本
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.10' // 建议替换为最新版本
 ```
 
 ## ⚡ 5分钟快速体验
