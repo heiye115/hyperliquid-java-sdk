@@ -16,6 +16,7 @@ import org.web3j.utils.Numeric;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * HyperliquidClient unified management client, responsible for order placement,
@@ -32,18 +33,18 @@ public class HyperliquidClient {
     private final Info info;
 
     /**
-     * K:Wallet address V:Exchange
+     * K:Wallet alias V:Exchange
      **/
-    private final Map<String, Exchange> exchangesByAddress;
+    private final Map<String, Exchange> exchangesByAlias;
 
     /**
      * API wallet list
      **/
     private final List<ApiWallet> apiWallets;
 
-    public HyperliquidClient(Info info, Map<String, Exchange> exchangesByAddress, List<ApiWallet> apiWallets) {
+    public HyperliquidClient(Info info, Map<String, Exchange> exchangesByAlias, List<ApiWallet> apiWallets) {
         this.info = info;
-        this.exchangesByAddress = exchangesByAddress;
+        this.exchangesByAlias = exchangesByAlias;
         this.apiWallets = apiWallets;
     }
 
@@ -57,12 +58,12 @@ public class HyperliquidClient {
     }
 
     /**
-     * Get wallet address to Exchange mapping
+     * Get wallet alias to Exchange mapping
      *
-     * @return Wallet address to Exchange mapping
+     * @return Wallet alias to Exchange mapping
      */
-    public Map<String, Exchange> getExchangesByAddress() {
-        return exchangesByAddress;
+    public Map<String, Exchange> getExchangesByAlias() {
+        return exchangesByAlias;
     }
 
     /**
@@ -75,45 +76,44 @@ public class HyperliquidClient {
     }
 
     /**
-     * Get single Exchange, if there are multiple, return the first one
+     * Get single Exchange instance, if there are multiple, return the first one
      **/
     public Exchange getExchange() {
-        if (exchangesByAddress.isEmpty()) {
+        if (exchangesByAlias.isEmpty()) {
             throw new HypeError("No exchange instances available.");
         }
-        return exchangesByAddress.values().iterator().next();
+        return exchangesByAlias.values().iterator().next();
     }
 
     /**
      * Get Exchange instance by wallet address
      *
-     * @param address Wallet address (42-character hexadecimal format, starting with
-     *                0x)
+     * @param alias Wallet alias
      * @return Corresponding Exchange instance
-     * @throws HypeError If address does not exist, throw exception and prompt
-     *                   available address list
+     * @throws HypeError If alias does not exist, throw exception and prompt
+     *                   available alias list
      **/
-    public Exchange getExchange(String address) {
-        if (address == null || address.trim().isEmpty()) {
-            throw new HypeError("Wallet address cannot be null or empty.");
+    public Exchange getExchange(String alias) {
+        if (alias == null || alias.trim().isEmpty()) {
+            throw new HypeError("Wallet alias cannot be null or empty.");
         }
-        Exchange ex = exchangesByAddress.get(address);
+        Exchange ex = exchangesByAlias.get(alias);
         if (ex == null) {
-            String availableAddresses = String.join(", ", exchangesByAddress.keySet());
-            throw new HypeError(String.format("Wallet address '%s' not found. Available addresses: [%s]", address,
-                    availableAddresses.isEmpty() ? "none" : availableAddresses));
+            String availableAliases = String.join(", ", exchangesByAlias.keySet());
+            throw new HypeError(String.format("Wallet alias '%s' not found. Available aliases: [%s]", alias, availableAliases));
         }
         return ex;
     }
 
+
     /**
      * Check if wallet exists for specified address
      *
-     * @param address Wallet address
+     * @param alias Wallet alias
      * @return Returns true if exists, false otherwise
      */
-    public boolean hasWallet(String address) {
-        return address != null && exchangesByAddress.containsKey(address);
+    public boolean hasWallet(String alias) {
+        return alias != null && exchangesByAlias.containsKey(alias);
     }
 
     /**
@@ -122,35 +122,9 @@ public class HyperliquidClient {
      * @return Wallet address collection
      */
     public Set<String> getAvailableAddresses() {
-        return Collections.unmodifiableSet(exchangesByAddress.keySet());
+        return apiWallets.stream().map(ApiWallet::getPrimaryWalletAddress).collect(Collectors.toUnmodifiableSet());
     }
 
-    /**
-     * Get all wallet address list (in registration order)
-     *
-     * @return Wallet address list
-     */
-    public List<String> listWallets() {
-        return new ArrayList<>(exchangesByAddress.keySet());
-    }
-
-    /**
-     * Get Exchange instance by index (in registration order)
-     *
-     * @param index Index (starting from 0)
-     * @return Corresponding Exchange instance
-     * @throws HypeError If index is out of bounds
-     */
-    public Exchange getExchangeByIndex(int index) {
-        List<String> addresses = listWallets();
-        if (index < 0 || index >= addresses.size()) {
-            throw new HypeError(String.format(
-                    "Wallet index %d out of bounds. Valid range: [0, %d]",
-                    index,
-                    addresses.size() - 1));
-        }
-        return exchangesByAddress.get(addresses.get(index));
-    }
 
     /**
      * Get total number of wallets
@@ -158,7 +132,7 @@ public class HyperliquidClient {
      * @return Number of wallets
      */
     public int getWalletCount() {
-        return exchangesByAddress.size();
+        return apiWallets.size();
     }
 
     /**
@@ -223,7 +197,12 @@ public class HyperliquidClient {
         }
 
         public Builder addPrivateKey(String privateKey) {
-            addApiWallet(null, privateKey);
+            addApiWallet(null, null, privateKey);
+            return this;
+        }
+
+        public Builder addPrivateKey(String alias, String privateKey) {
+            addApiWallet(alias, null, privateKey);
             return this;
         }
 
@@ -251,6 +230,11 @@ public class HyperliquidClient {
 
         public Builder addApiWallet(String primaryWalletAddress, String apiWalletPrivateKey) {
             apiWallets.add(new ApiWallet(primaryWalletAddress, apiWalletPrivateKey));
+            return this;
+        }
+
+        public Builder addApiWallet(String alias, String primaryWalletAddress, String apiWalletPrivateKey) {
+            apiWallets.add(new ApiWallet(alias, primaryWalletAddress, apiWalletPrivateKey));
             return this;
         }
 
@@ -285,29 +269,28 @@ public class HyperliquidClient {
         private OkHttpClient getOkHttpClient() {
             return okHttpClient != null ? okHttpClient
                     : new OkHttpClient.Builder()
-                            .connectTimeout(Duration.ofSeconds(timeout))
-                            .readTimeout(Duration.ofSeconds(timeout))
-                            .writeTimeout(Duration.ofSeconds(timeout))
-                            .build();
+                    .connectTimeout(Duration.ofSeconds(timeout))
+                    .readTimeout(Duration.ofSeconds(timeout))
+                    .writeTimeout(Duration.ofSeconds(timeout))
+                    .build();
         }
 
         public HyperliquidClient build() {
             OkHttpClient httpClient = getOkHttpClient();
             HypeHttpClient hypeHttpClient = new HypeHttpClient(baseUrl, httpClient);
             Info info = new Info(baseUrl, hypeHttpClient, skipWs);
-            Map<String, Exchange> exchangesByAddress = new LinkedHashMap<>();
-            if (!apiWallets.isEmpty()) {
-                for (ApiWallet apiWallet : apiWallets) {
-                    validatePrivateKey(apiWallet.getApiWalletPrivateKey());
-                    Credentials credentials = Credentials.create(apiWallet.getApiWalletPrivateKey());
-                    apiWallet.setCredentials(credentials);
-                    if (apiWallet.getPrimaryWalletAddress() == null
-                            || apiWallet.getPrimaryWalletAddress().trim().isEmpty()) {
-                        apiWallet.setPrimaryWalletAddress(credentials.getAddress());
-                    }
-                    exchangesByAddress.put(apiWallet.getPrimaryWalletAddress(),
-                            new Exchange(hypeHttpClient, apiWallet, info));
+            Map<String, Exchange> exchangesByAlias = new LinkedHashMap<>();
+            for (ApiWallet apiWallet : apiWallets) {
+                validatePrivateKey(apiWallet.getApiWalletPrivateKey());
+                Credentials credentials = Credentials.create(apiWallet.getApiWalletPrivateKey());
+                apiWallet.setCredentials(credentials);
+                if (apiWallet.getPrimaryWalletAddress() == null || apiWallet.getPrimaryWalletAddress().trim().isEmpty()) {
+                    apiWallet.setPrimaryWalletAddress(credentials.getAddress());
                 }
+                if (apiWallet.getAlias() == null || apiWallet.getAlias().trim().isEmpty()) {
+                    apiWallet.setAlias(apiWallet.getPrimaryWalletAddress());
+                }
+                exchangesByAlias.put(apiWallet.getAlias(), new Exchange(hypeHttpClient, apiWallet, info));
             }
 
             // Automatic cache warming (improves first-call performance)
@@ -323,8 +306,8 @@ public class HyperliquidClient {
 
             return new HyperliquidClient(
                     info,
-                    Collections.unmodifiableMap(exchangesByAddress),
-                    Collections.unmodifiableList(new ArrayList<>(this.apiWallets)));
+                    Collections.unmodifiableMap(exchangesByAlias),
+                    Collections.unmodifiableList(apiWallets));
         }
 
         /**
