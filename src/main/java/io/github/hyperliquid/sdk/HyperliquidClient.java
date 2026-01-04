@@ -88,7 +88,7 @@ public class HyperliquidClient {
     /**
      * Get Exchange instance by wallet address
      *
-     * @param alias Wallet alias
+     * @param alias Wallet alias or primary wallet address
      * @return Corresponding Exchange instance
      * @throws HypeError If alias does not exist, throw exception and prompt
      *                   available alias list
