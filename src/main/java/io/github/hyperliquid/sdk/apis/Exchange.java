@@ -160,12 +160,39 @@ public class Exchange {
      *                set.
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
-        OrderRequest effective = preprocessOrder(req);
-        int assetId = ensureAssetId(effective.getCoin());
-        OrderWire wire = Signing.orderRequestToOrderWire(assetId, effective);
+        OrderContext ctx = resolveOrderContext(req);
+        OrderWire wire = Signing.orderRequestToOrderWire(ctx.assetId(), ctx.request());
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
         JsonNode node = postAction(action, req.getExpiresAfter());
         return JSONUtil.convertValue(node, Order.class);
+    }
+
+    /**
+     * Order context
+     */
+    private OrderContext resolveOrderContext(OrderRequest req) {
+        return switch (req.getInstrumentType()) {
+            case PERP -> {
+                OrderRequest processed = preprocessOrder(req);
+                int assetId = ensureAssetId(processed.getCoin());
+                yield new OrderContext(assetId, processed);
+            }
+            case SPOT -> {
+                int assetId = parseSpotAssetId(req.getCoin());
+                yield new OrderContext(assetId, req);
+            }
+            default -> throw new HypeError("Unsupported instrument type: " + req.getInstrumentType());
+        };
+    }
+
+    /**
+     * Spot asset ID
+     */
+    private int parseSpotAssetId(String coin) {
+        if (!NumberUtils.isPositiveInt(coin)) {
+            throw new HypeError("Invalid asset number: " + coin);
+        }
+        return Integer.parseInt(coin);
     }
 
     /**
