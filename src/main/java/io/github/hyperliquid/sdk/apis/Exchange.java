@@ -670,13 +670,13 @@ public class Exchange {
      */
     public BulkOrder bulkOrders(List<OrderRequest> requests, Map<String, Object> builder, String grouping) {
         List<OrderRequest> effectiveRequests = new ArrayList<>(requests.size());
-        for (OrderRequest r : requests) {
-            effectiveRequests.add(preprocessOrder(r));
+        for (OrderRequest order : requests) {
+            effectiveRequests.add(preprocessOrder(order));
         }
         List<OrderWire> wires = new ArrayList<>();
-        for (OrderRequest r : effectiveRequests) {
-            int assetId = ensureAssetId(r.getCoin());
-            wires.add(Signing.orderRequestToOrderWire(assetId, r));
+        for (OrderRequest order : effectiveRequests) {
+            int assetId = ensureAssetId(order.getCoin());
+            wires.add(Signing.orderRequestToOrderWire(assetId, order));
         }
         Map<String, Object> action = buildOrderAction(wires, builder);
         if (grouping != null && !grouping.isEmpty()) {

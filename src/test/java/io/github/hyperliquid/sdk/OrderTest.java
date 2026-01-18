@@ -2,9 +2,7 @@ package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.github.hyperliquid.sdk.apis.Info;
-import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
-import io.github.hyperliquid.sdk.model.info.FrontendOpenOrder;
-import io.github.hyperliquid.sdk.model.info.OrderStatus;
+import io.github.hyperliquid.sdk.model.info.*;
 import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import org.junit.jupiter.api.Test;
@@ -41,7 +39,7 @@ public class OrderTest {
     public void testMarketOrder() throws JsonProcessingException {
         Cloid auto = Cloid.auto();
         System.out.println("auto:" + auto);
-        OrderRequest req = OrderRequest.Open.market("BTC", true, "0.001", auto);
+        OrderRequest req = OrderRequest.Open.market("ETH", true, "0.02", auto);
         Order order = client.getExchange().order(req);
         System.out.println(JSONUtil.writeValueAsString(order));
     }
@@ -211,8 +209,8 @@ public class OrderTest {
 
         List<OrderRequest> orders = new ArrayList<>();
         orders.add(OrderRequest.Open.market("BTC", true, "0.002"));
-        orders.add(OrderRequest.builder().perp("BTC").sell("0.001").limitPrice("90000.0").orderType(TriggerOrderType.tp("90000.0", false)).reduceOnly().build());
-        orders.add(OrderRequest.builder().perp("BTC").sell("0.002").limitPrice("85000.0").orderType(TriggerOrderType.sl("85000.0", true)).reduceOnly().build());
+        orders.add(OrderRequest.builder().perp("BTC").sell("0.001").limitPrice("93000.0").orderType(TriggerOrderType.tp("92000.0", false)).reduceOnly().build());
+        orders.add(OrderRequest.builder().perp("BTC").sell("0").limitPrice("90000.0").orderType(TriggerOrderType.sl("90000.0", true)).reduceOnly().build());
         OrderGroup orderGroup = new OrderGroup(orders, GroupingType.NORMAL_TPSL);
         BulkOrder bulkOrder2 = client.getExchange().bulkOrders(orderGroup);
         System.out.println(JSONUtil.writeValueAsString(bulkOrder2));
@@ -231,6 +229,16 @@ public class OrderTest {
                 .stopLoss("3400.0");
         BulkOrder bulkOrder = client.getExchange().bulkOrders(builder.buildPositionTpsl());
         System.out.println(bulkOrder);
+    }
+
+    @Test
+    public void testBulkPositionTpsl2() throws JsonProcessingException {
+        List<OrderRequest> orders = new ArrayList<>();
+        orders.add(OrderRequest.builder().perp("BTC").sell("0.001").limitPrice("93000.0").orderType(TriggerOrderType.tp("93000.0", false)).reduceOnly().build());
+        orders.add(OrderRequest.builder().perp("BTC").sell("0").limitPrice("90000.0").orderType(TriggerOrderType.sl("90000.0", true)).reduceOnly().build());
+        OrderGroup orderGroup = new OrderGroup(orders, GroupingType.POSITION_TPSL);
+        BulkOrder bulkOrder = client.getExchange().bulkOrders(orderGroup);
+        System.out.println(JSONUtil.writeValueAsString(bulkOrder));
     }
 
     /**
@@ -301,7 +309,7 @@ public class OrderTest {
     @Test
     public void testOrderStatus() throws JsonProcessingException {
         Info info = client.getInfo();
-        OrderStatus orderStatus = info.orderStatus("0x...", 00000L);
+        OrderStatus orderStatus = info.orderStatus("0x...", 000L);
         System.out.println(JSONUtil.writeValueAsString(orderStatus));
     }
 
@@ -364,10 +372,10 @@ public class OrderTest {
         //{"status":"ok","response":{"type":"default"}}
         ModifyOrderRequest req = ModifyOrderRequest.byOid("BTC", 000L);
         req.setBuy(false);
-        req.setLimitPx("86000.0");
-        req.setSz("0.002");
+        req.setLimitPx("91000.0");
+        req.setSz("0");
         req.setReduceOnly(true);
-        req.setOrderType(TriggerOrderType.sl("86000.0", true));
+        req.setOrderType(TriggerOrderType.sl("91000.0", true));
 
         ModifyOrder modifyOrder = client.getExchange().modifyOrder(req);
         System.out.println(modifyOrder);
@@ -392,4 +400,29 @@ public class OrderTest {
         System.out.println(modifyOrder);
     }
 
+
+    @Test
+    public void testSpotLimitBuy() throws JsonProcessingException {
+        OrderRequest spotLimitBuy = OrderRequest.Open.spotLimitBuy("10000", "10000", "0.055");
+        Order order = client.getExchange().order(spotLimitBuy);
+        System.out.println(JSONUtil.writeValueAsString(order));
+    }
+
+    @Test
+    public void testSpotMeta() throws JsonProcessingException {
+        SpotMeta spotMeta = client.getInfo().spotMeta();
+        System.out.println(JSONUtil.writeValueAsString(spotMeta));
+    }
+
+    @Test
+    public void testMeta() throws JsonProcessingException {
+        Meta meta = client.getInfo().meta();
+        System.out.println(JSONUtil.writeValueAsString(meta));
+    }
+
+    @Test
+    public void test2() throws JsonProcessingException {
+        Candle candle = client.getInfo().candleSnapshotLatest("@1270", CandleInterval.MINUTE_1);
+        System.out.println(JSONUtil.writeValueAsString(candle));
+    }
 }
