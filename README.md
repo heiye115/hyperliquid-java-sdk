@@ -32,14 +32,14 @@ This SDK is a pure Java client for the Hyperliquid decentralized exchange, makin
 <dependency>
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.11</version> <!-- Replace with the latest version -->
+    <version>0.2.12</version> <!-- Replace with the latest version -->
 </dependency>
 ```
 
 - **Gradle (Groovy)**:
 
 ```gradle
-implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.11' // Replace with the latest version
+implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.12' // Replace with the latest version
 ```
 
 ## ⚡ 5-Minute Quick Start
