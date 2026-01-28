@@ -71,7 +71,6 @@ public class HypeHttpClient {
                 return JSONUtil.readTree(responseBody);
             }
         } catch (IOException e) {
-            log.error("Network error for POST: {} Request: {}", path, requestJson, e);
             throw new HypeError("Network error for POST " + path + ": " + e.getMessage(), e);
         }
     }
