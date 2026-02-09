@@ -6,7 +6,7 @@
 
     <groupId>io.github.heiye115</groupId>
     <artifactId>hyperliquid-java-sdk</artifactId>
-    <version>0.2.12</version>
+    <version>0.2.13</version>
     <name>Hyperliquid Java SDK</name>
     <description>High-performance, type-safe Java SDK for Hyperliquid trading and real-time market data.</description>
     <url>https://github.com/heiye115/hyperliquid-java-sdk</url>
