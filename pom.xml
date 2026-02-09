@@ -49,19 +49,19 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jackson.version>2.20.1</jackson.version>
+        <jackson.version>2.21.0</jackson.version>
         <okhttp.version>5.3.2</okhttp.version>
         <okio.version>3.16.4</okio.version>
-        <web3j.version>5.0.1</web3j.version>
+        <web3j.version>5.0.2</web3j.version>
         <junit.version>5.11.4</junit.version>
         <mockito.version>5.21.0</mockito.version>
-        <msgpack.version>0.9.10</msgpack.version>
+        <msgpack.version>0.9.11</msgpack.version>
         <project.build.outputTimestamp>2025-01-01T00:00:00Z</project.build.outputTimestamp>
         <!-- Central Portal Auto-publish settings -->
         <central.autoPublish>false</central.autoPublish>
         <slf4j.version>2.0.17</slf4j.version>
         <caffeine.version>3.2.3</caffeine.version>
-        <netty.version>4.2.9.Final</netty.version>
+        <netty.version>4.2.10.Final</netty.version>
     </properties>
 
     <dependencies>
@@ -76,7 +76,7 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-jvm</artifactId>
-            <version>5.1.0</version>
+            <version>${okhttp.version}</version>
         </dependency>
         <dependency>
             <groupId>com.squareup.okio</groupId>
@@ -283,7 +283,7 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.9.0</version>
+                        <version>0.10.0</version>
                         <extensions>true</extensions>
                     </plugin>
 
