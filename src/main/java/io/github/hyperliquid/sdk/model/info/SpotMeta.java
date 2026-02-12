@@ -1,33 +1,19 @@
 package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
 import java.util.List;
 
 /** Spot market metadata (asset and token information) */
+@Data
 public class SpotMeta {
     /** Spot assets (aggregated tokens) collection */
     private List<Universe> universe;
     /** Spot tokens list */
     private List<Token> tokens;
 
-    // Getter and Setter methods
-    public List<Universe> getUniverse() {
-        return universe;
-    }
-
-    public void setUniverse(List<Universe> universe) {
-        this.universe = universe;
-    }
-
-    public List<Token> getTokens() {
-        return tokens;
-    }
-
-    public void setTokens(List<Token> tokens) {
-        this.tokens = tokens;
-    }
-
+    @Data
     public static class Universe {
         /** List of token IDs contained in this spot asset */
         private List<Integer> tokens;
@@ -38,31 +24,6 @@ public class SpotMeta {
         /** Whether it is a canonical main asset */
         @JsonProperty("isCanonical")
         private boolean isCanonical;
-
-        // Getter and Setter methods
-        public List<Integer> getTokens() {
-            return tokens;
-        }
-
-        public void setTokens(List<Integer> tokens) {
-            this.tokens = tokens;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-
-        public void setIndex(int index) {
-            this.index = index;
-        }
 
         @JsonProperty("isCanonical")
         public boolean isCanonical() {
@@ -75,6 +36,7 @@ public class SpotMeta {
         }
     }
 
+    @Data
     public static class Token {
         /** Token name (e.g., "WETH") */
         private String name;
@@ -95,47 +57,6 @@ public class SpotMeta {
         /** Deployer trading fee share ratio (string, may be null) */
         private String deployerTradingFeeShare;
 
-        // Getter and Setter methods
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public Integer getSzDecimals() {
-            return szDecimals;
-        }
-
-        public void setSzDecimals(Integer szDecimals) {
-            this.szDecimals = szDecimals;
-        }
-
-        public Integer getWeiDecimals() {
-            return weiDecimals;
-        }
-
-        public void setWeiDecimals(Integer weiDecimals) {
-            this.weiDecimals = weiDecimals;
-        }
-
-        public Integer getIndex() {
-            return index;
-        }
-
-        public void setIndex(Integer index) {
-            this.index = index;
-        }
-
-        public String getTokenId() {
-            return tokenId;
-        }
-
-        public void setTokenId(String tokenId) {
-            this.tokenId = tokenId;
-        }
-
         @JsonProperty("isCanonical")
         public Boolean getCanonical() {
             return isCanonical;
@@ -146,52 +67,13 @@ public class SpotMeta {
             isCanonical = canonical;
         }
 
-        public EvmContract getEvmContract() {
-            return evmContract;
-        }
-
-        public void setEvmContract(EvmContract evmContract) {
-            this.evmContract = evmContract;
-        }
-
-        public String getFullName() {
-            return fullName;
-        }
-
-        public void setFullName(String fullName) {
-            this.fullName = fullName;
-        }
-
-        public String getDeployerTradingFeeShare() {
-            return deployerTradingFeeShare;
-        }
-
-        public void setDeployerTradingFeeShare(String deployerTradingFeeShare) {
-            this.deployerTradingFeeShare = deployerTradingFeeShare;
-        }
-
+        @Data
         public static class EvmContract {
             /** Contract address */
             private String address;
+            /** Additional Wei precision (contract feature) */
             @JsonProperty("evm_extra_wei_decimals")
-            private int evmExtraWeiDecimals; /** Additional Wei precision (contract feature) */
-
-            // Getter and Setter methods
-            public String getAddress() {
-                return address;
-            }
-
-            public void setAddress(String address) {
-                this.address = address;
-            }
-
-            public int getEvmExtraWeiDecimals() {
-                return evmExtraWeiDecimals;
-            }
-
-            public void setEvmExtraWeiDecimals(int evmExtraWeiDecimals) {
-                this.evmExtraWeiDecimals = evmExtraWeiDecimals;
-            }
+            private int evmExtraWeiDecimals;
         }
     }
 }

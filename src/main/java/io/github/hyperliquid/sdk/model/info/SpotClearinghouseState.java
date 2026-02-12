@@ -1,13 +1,20 @@
 package io.github.hyperliquid.sdk.model.info;
 
+import lombok.*;
+
 import java.util.List;
 
 /** Spot clearinghouse state: user token balance list */
 
 public class SpotClearinghouseState {
     /** Balance list */
+    @Getter
+    @Setter
     private List<Balance> balances;
 
+    @Data
+    @ToString
+    @EqualsAndHashCode
     public static class Balance {
         /** Token name or index prefix form (e.g., "@107") */
         private String coin;
@@ -19,55 +26,5 @@ public class SpotClearinghouseState {
         private String total;
         /** Nominal USD value (string) */
         private String entryNtl;
-
-        // Getter and Setter methods
-        public String getCoin() {
-            return coin;
-        }
-
-        public void setCoin(String coin) {
-            this.coin = coin;
-        }
-
-        public Integer getToken() {
-            return token;
-        }
-
-        public void setToken(Integer token) {
-            this.token = token;
-        }
-
-        public String getHold() {
-            return hold;
-        }
-
-        public void setHold(String hold) {
-            this.hold = hold;
-        }
-
-        public String getTotal() {
-            return total;
-        }
-
-        public void setTotal(String total) {
-            this.total = total;
-        }
-
-        public String getEntryNtl() {
-            return entryNtl;
-        }
-
-        public void setEntryNtl(String entryNtl) {
-            this.entryNtl = entryNtl;
-        }
-    }
-
-    // Getter and Setter methods
-    public List<Balance> getBalances() {
-        return balances;
-    }
-
-    public void setBalances(List<Balance> balances) {
-        this.balances = balances;
     }
 }

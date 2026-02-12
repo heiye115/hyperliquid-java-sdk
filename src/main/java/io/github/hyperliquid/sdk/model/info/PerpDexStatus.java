@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Data;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,6 +19,7 @@ import java.util.Map;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Data
 public class PerpDexStatus {
 
     /**
@@ -29,23 +31,6 @@ public class PerpDexStatus {
      * Other unknown/extension fields
      */
     private Map<String, Object> extensions = new LinkedHashMap<>();
-
-    // Getter and Setter methods
-    public String getTotalNetDeposit() {
-        return totalNetDeposit;
-    }
-
-    public void setTotalNetDeposit(String totalNetDeposit) {
-        this.totalNetDeposit = totalNetDeposit;
-    }
-
-    public Map<String, Object> getExtensions() {
-        return extensions;
-    }
-
-    public void setExtensions(Map<String, Object> extensions) {
-        this.extensions = extensions;
-    }
 
     /**
      * Get extension fields

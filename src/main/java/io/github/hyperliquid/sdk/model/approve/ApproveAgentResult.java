@@ -1,6 +1,8 @@
 package io.github.hyperliquid.sdk.model.approve;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import lombok.Getter;
+import lombok.ToString;
 
 /**
  * ApproveAgentResult wraps the return value of approveAgent:
@@ -8,6 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode;
  * - agentPrivateKey: newly generated Agent private key (0x prefix hexadecimal string);
  * - agentAddress: newly generated Agent address (0x prefix hexadecimal string).
  */
+@Getter
+@ToString
 public class ApproveAgentResult {
 
     /** Server response JSON
@@ -33,18 +37,5 @@ public class ApproveAgentResult {
         this.response = response;
         this.agentPrivateKey = agentPrivateKey;
         this.agentAddress = agentAddress;
-    }
-
-    // Getter methods
-    public JsonNode getResponse() {
-        return response;
-    }
-
-    public String getAgentPrivateKey() {
-        return agentPrivateKey;
-    }
-
-    public String getAgentAddress() {
-        return agentAddress;
     }
 }

@@ -1,8 +1,14 @@
 package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 /** Frontend open order entity wrapper (carrying trigger/take-profit/stop-loss and other additional information) */
+@Data
+@ToString
+@EqualsAndHashCode
 public class FrontendOpenOrder {
     /** Currency (e.g., "BTC" or Spot index "@107") */
     private String coin;
@@ -32,109 +38,13 @@ public class FrontendOpenOrder {
     private String triggerPx;
 
     // Getter and Setter methods
-    public String getCoin() {
-        return coin;
-    }
-
-    public void setCoin(String coin) {
-        this.coin = coin;
-    }
-
     @JsonProperty("isPositionTpsl")
     public Boolean getIsPositionTpsl() {
         return isPositionTpsl;
     }
 
-    public void setIsPositionTpsl(Boolean isPositionTpsl) {
-        this.isPositionTpsl = isPositionTpsl;
-    }
-
     @JsonProperty("isTrigger")
     public Boolean getIsTrigger() {
         return isTrigger;
-    }
-
-    public void setIsTrigger(Boolean isTrigger) {
-        this.isTrigger = isTrigger;
-    }
-
-    public String getLimitPx() {
-        return limitPx;
-    }
-
-    public void setLimitPx(String limitPx) {
-        this.limitPx = limitPx;
-    }
-
-    public Long getOid() {
-        return oid;
-    }
-
-    public void setOid(Long oid) {
-        this.oid = oid;
-    }
-
-    public String getOrderType() {
-        return orderType;
-    }
-
-    public void setOrderType(String orderType) {
-        this.orderType = orderType;
-    }
-
-    public String getOrigSz() {
-        return origSz;
-    }
-
-    public void setOrigSz(String origSz) {
-        this.origSz = origSz;
-    }
-
-    public Boolean getReduceOnly() {
-        return reduceOnly;
-    }
-
-    public void setReduceOnly(Boolean reduceOnly) {
-        this.reduceOnly = reduceOnly;
-    }
-
-    public String getSide() {
-        return side;
-    }
-
-    public void setSide(String side) {
-        this.side = side;
-    }
-
-    public String getSz() {
-        return sz;
-    }
-
-    public void setSz(String sz) {
-        this.sz = sz;
-    }
-
-    public Long getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(Long timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public String getTriggerCondition() {
-        return triggerCondition;
-    }
-
-    public void setTriggerCondition(String triggerCondition) {
-        this.triggerCondition = triggerCondition;
-    }
-
-    public String getTriggerPx() {
-        return triggerPx;
-    }
-
-    public void setTriggerPx(String triggerPx) {
-        this.triggerPx = triggerPx;
     }
 }

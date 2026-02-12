@@ -1,11 +1,13 @@
 package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.Data;
 
 /**
  * openOrders returned unexecuted order entity.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Data
 public class OpenOrder {
 
     /**
@@ -32,53 +34,4 @@ public class OpenOrder {
      * Creation timestamp (milliseconds)
      */
     private Long timestamp;
-
-    // Getter and Setter methods
-    public String getCoin() {
-        return coin;
-    }
-
-    public void setCoin(String coin) {
-        this.coin = coin;
-    }
-
-    public String getLimitPx() {
-        return limitPx;
-    }
-
-    public void setLimitPx(String limitPx) {
-        this.limitPx = limitPx;
-    }
-
-    public Long getOid() {
-        return oid;
-    }
-
-    public void setOid(Long oid) {
-        this.oid = oid;
-    }
-
-    public String getSide() {
-        return side;
-    }
-
-    public void setSide(String side) {
-        this.side = side;
-    }
-
-    public String getSz() {
-        return sz;
-    }
-
-    public void setSz(String sz) {
-        this.sz = sz;
-    }
-
-    public Long getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(Long timestamp) {
-        this.timestamp = timestamp;
-    }
 }

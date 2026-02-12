@@ -1,10 +1,13 @@
 package io.github.hyperliquid.sdk.model.info;
 
+import lombok.Data;
+
 import java.util.List;
 
 /**
  * L2 order book snapshot (top 10 bid/ask levels)
  */
+@Data
 public class L2Book {
 
     /**
@@ -20,6 +23,7 @@ public class L2Book {
      */
     private List<List<Levels>> levels;
 
+    @Data
     public static class Levels {
         /**
          * Price at this level (string)
@@ -34,30 +38,6 @@ public class L2Book {
          */
         private Integer n;
 
-        public String getPx() {
-            return px;
-        }
-
-        public void setPx(String px) {
-            this.px = px;
-        }
-
-        public String getSz() {
-            return sz;
-        }
-
-        public void setSz(String sz) {
-            this.sz = sz;
-        }
-
-        public Integer getN() {
-            return n;
-        }
-
-        public void setN(Integer n) {
-            this.n = n;
-        }
-
         @Override
         public String toString() {
             return "Levels{" +
@@ -67,32 +47,6 @@ public class L2Book {
                     '}';
         }
     }
-
-
-    public String getCoin() {
-        return coin;
-    }
-
-    public void setCoin(String coin) {
-        this.coin = coin;
-    }
-
-    public Long getTime() {
-        return time;
-    }
-
-    public void setTime(Long time) {
-        this.time = time;
-    }
-
-    public List<List<Levels>> getLevels() {
-        return levels;
-    }
-
-    public void setLevels(List<List<Levels>> levels) {
-        this.levels = levels;
-    }
-
 
     @Override
     public String toString() {

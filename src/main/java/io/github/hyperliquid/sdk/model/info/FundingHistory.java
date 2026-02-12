@@ -1,8 +1,11 @@
 package io.github.hyperliquid.sdk.model.info;
 
+import lombok.Data;
+
 /***
  * Funding rate history.
  **/
+@Data
 public class FundingHistory {
 
     /**
@@ -24,37 +27,4 @@ public class FundingHistory {
      * Timestamp (milliseconds)
      **/
     private Long time;
-
-    // Getter and Setter methods
-    public String getCoin() {
-        return coin;
-    }
-
-    public void setCoin(String coin) {
-        this.coin = coin;
-    }
-
-    public String getFundingRate() {
-        return fundingRate;
-    }
-
-    public void setFundingRate(String fundingRate) {
-        this.fundingRate = fundingRate;
-    }
-
-    public String getPremium() {
-        return premium;
-    }
-
-    public void setPremium(String premium) {
-        this.premium = premium;
-    }
-
-    public Long getTime() {
-        return time;
-    }
-
-    public void setTime(Long time) {
-        this.time = time;
-    }
 }
