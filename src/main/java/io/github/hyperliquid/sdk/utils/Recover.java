@@ -35,7 +35,7 @@ public final class Recover {
      * @return recovered 0x address (lowercase), throws HypeError if failure
      *
      * <p>Example:
-     * <pre>
+     * <pre>{@code
      * Map<String, Object> action = Map.of(
      *     "type", "cancel",
      *     "cancels", List.of(Map.of("a", 87, "o", 28800768235L))
@@ -47,7 +47,7 @@ public final class Recover {
      * );
      * String addr = Recover.recoverAgentOrUserFromL1Action(action, "0xc64c...918d8", 1745532560074L, null, false, signature);
      * System.out.println("Recovered: " + addr);
-     * </pre>
+     * }</pre>
      */
     public static String recoverAgentOrUserFromL1Action(Object action, String vaultAddress,
                                                         long nonce, Long expiresAfter,
@@ -77,7 +77,7 @@ public final class Recover {
      * @return recovered 0x address (lowercase), throws HypeError if failure
      *
      * <p>Example:
-     * <pre>
+     * <pre>{@code
      * Map<String, Object> action = new java.util.LinkedHashMap<>();
      * action.put("type", "tokenDelegate");
      * action.put("signatureChainId", "0xa4b1");
@@ -100,7 +100,7 @@ public final class Recover {
      * );
      * String addr = Recover.recoverUserFromUserSignedAction(action, signature, types,
      *         "HyperliquidTransaction:TokenDelegate", true);
-     * </pre>
+     * }</pre>
      */
     public static String recoverUserFromUserSignedAction(Map<String, Object> action,
                                                          Map<String, Object> signature,
@@ -110,4 +110,3 @@ public final class Recover {
         return Signing.recoverUserFromUserSignedAction(action, signature, payloadTypes, primaryType, isMainnet);
     }
 }
-

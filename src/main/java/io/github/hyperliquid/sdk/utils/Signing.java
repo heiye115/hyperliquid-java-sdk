@@ -331,7 +331,7 @@ public final class Signing {
      * Behavior description:
      * - Strict mode (enabled by default): Only accepts 20-byte addresses (40 hexadecimal characters), otherwise throws IllegalArgumentException;
      * - Compatibility mode (can be enabled via setStrictAddressLength(false) or -Dhyperliquid.address.strict=false):
-     * Non-20-byte input will be downgraded: if length > 20, truncate to last 20 bytes; if length < 20, pad with zeros on the left to 20 bytes.
+     * Non-20-byte input will be downgraded: if length is greater than 20, truncate to the last 20 bytes; if length is less than 20, pad with zeros on the left to 20 bytes.
      *
      * @param address Ethereum address, supports with or without 0x prefix
      * @return 20-byte representation of the address

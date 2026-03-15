@@ -621,7 +621,7 @@ public class Info {
      * </p>
      *
      * @param coin      The name of the cryptocurrency (e.g., "BTC") or an internal identifier (e.g., "@107").
-     * @param interval  The desired candlestick interval (e.g., {@link CandleInterval#ONE_MINUTE}).
+     * @param interval  The desired candlestick interval (e.g., {@link CandleInterval#MINUTE_1}).
      * @param startTime The start time of the period in milliseconds (inclusive).
      * @param endTime   The end time of the period in milliseconds (inclusive).
      * @return A {@link List} of {@link Candle} objects representing the candlestick data.
@@ -727,7 +727,7 @@ public class Info {
      * @param interval Interval enum
      * @param days     Number of days (>0, recommended ≤30)
      * @return Candlestick list (in ascending time order)
-     * @throws HypeError Thrown when days <= 0
+     * @throws HypeError Thrown when days {@code <= 0}
      */
     public List<Candle> candleSnapshotByDays(String coin, CandleInterval interval, int days) {
         if (days <= 0) {
@@ -928,7 +928,7 @@ public class Info {
      * @param coin    Coin name (e.g., "BTC")
      * @param startMs Start milliseconds
      * @param endMs   End milliseconds
-     * @return List<FundingHistory> response
+     * @return {@code List<FundingHistory>} response
      */
     public List<FundingHistory> fundingHistory(String coin, long startMs, long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -1113,6 +1113,12 @@ public class Info {
         return JSONUtil.toList(postInfo(payload), UserFill.class);
     }
 
+    /**
+     * User recent fills (up to 2000 entries) without time aggregation.
+     *
+     * @param address User address
+     * @return Fill list
+     */
     public List<UserFill> userFills(String address) {
         return userFills(address, null);
     }
@@ -1278,6 +1284,14 @@ public class Info {
         return JSONUtil.convertValue(postInfo(payload), OrderStatus.class);
     }
 
+    /**
+     * Order status query by client order ID string.
+     *
+     * @param address User address
+     * @param cloid   Client order ID string
+     * @return Typed model OrderStatus
+     * @throws HypeError If cloid format is invalid
+     */
     public OrderStatus orderStatusByCloid(String address, String cloid) {
         return orderStatusByCloid(address, Cloid.fromStr(cloid));
     }

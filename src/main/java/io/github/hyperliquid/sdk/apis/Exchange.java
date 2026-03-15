@@ -2158,7 +2158,7 @@ public class Exchange {
      *
      * @param dex             Perp dex name
      * @param oraclePxs       Oracle price Map (coin name -> price string)
-     * @param allMarkPxs      Mark price list (each element is Map<coin, price>)
+     * @param allMarkPxs      Mark price list (each element is a map of coin to price)
      * @param externalPerpPxs External perpetual price Map (coin name -> price
      *                        string)
      * @return JSON response

@@ -47,6 +47,14 @@ public class HyperliquidClient {
      **/
     private final List<ApiWallet> apiWallets;
 
+    /**
+     * Construct a HyperliquidClient instance.
+     *
+     * @param info             Info client for query operations
+     * @param hypeHttpClient   Shared HTTP client wrapper
+     * @param exchangesByAlias Wallet alias to Exchange mapping
+     * @param apiWallets       Managed API wallet list
+     */
     public HyperliquidClient(Info info, HypeHttpClient hypeHttpClient, Map<String, Exchange> exchangesByAlias,
             List<ApiWallet> apiWallets) {
         this.info = info;
@@ -265,10 +273,22 @@ public class HyperliquidClient {
         }
     }
 
+    /**
+     * Create a new builder for constructing {@link HyperliquidClient}.
+     *
+     * @return Builder instance
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Builder for {@link HyperliquidClient}.
+     * <p>
+     * Provides fluent configuration for network endpoint, timeout, wallet list,
+     * WebSocket usage, and cache warm-up behavior.
+     * </p>
+     */
     public static class Builder {
         /**
          * API node address
@@ -303,26 +323,59 @@ public class HyperliquidClient {
          */
         private boolean autoWarmUpCache = true;
 
+        /**
+         * Set custom API base URL.
+         *
+         * @param baseUrl API base URL
+         * @return Builder instance
+         */
         public Builder baseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
             return this;
         }
 
+        /**
+         * Switch base URL to Hyperliquid testnet endpoint.
+         *
+         * @return Builder instance
+         */
         public Builder testNetUrl() {
             this.baseUrl = Constants.TESTNET_API_URL;
             return this;
         }
 
+        /**
+         * Add one API wallet private key.
+         * <p>
+         * Alias is auto-filled with primary address when not provided.
+         * </p>
+         *
+         * @param privateKey API wallet private key
+         * @return Builder instance
+         */
         public Builder addPrivateKey(String privateKey) {
             addApiWallet(null, null, privateKey);
             return this;
         }
 
+        /**
+         * Add one API wallet private key with explicit alias.
+         *
+         * @param alias      Wallet alias
+         * @param privateKey API wallet private key
+         * @return Builder instance
+         */
         public Builder addPrivateKey(String alias, String privateKey) {
             addApiWallet(alias, null, privateKey);
             return this;
         }
 
+        /**
+         * Batch add private keys.
+         *
+         * @param pks Private key list
+         * @return Builder instance
+         */
         public Builder addPrivateKeys(List<String> pks) {
             for (String pk : pks) {
                 addPrivateKey(pk);
@@ -330,36 +383,81 @@ public class HyperliquidClient {
             return this;
         }
 
+        /**
+         * Configure whether to skip WebSocket initialization.
+         *
+         * @param skipWs true to disable WebSocket features
+         * @return Builder instance
+         */
         public Builder skipWs(boolean skipWs) {
             this.skipWs = skipWs;
             return this;
         }
 
+        /**
+         * Set connect/read/write timeout in seconds.
+         *
+         * @param timeout Timeout in seconds
+         * @return Builder instance
+         */
         public Builder timeout(int timeout) {
             this.timeout = timeout;
             return this;
         }
 
+        /**
+         * Add one API wallet object.
+         *
+         * @param apiWallet API wallet
+         * @return Builder instance
+         */
         public Builder addApiWallet(ApiWallet apiWallet) {
             apiWallets.add(apiWallet);
             return this;
         }
 
+        /**
+         * Add one API wallet by primary wallet address and API wallet private key.
+         *
+         * @param primaryWalletAddress Primary wallet address
+         * @param apiWalletPrivateKey  API wallet private key
+         * @return Builder instance
+         */
         public Builder addApiWallet(String primaryWalletAddress, String apiWalletPrivateKey) {
             apiWallets.add(new ApiWallet(primaryWalletAddress, apiWalletPrivateKey));
             return this;
         }
 
+        /**
+         * Add one API wallet by alias, primary wallet address, and private key.
+         *
+         * @param alias                Wallet alias
+         * @param primaryWalletAddress Primary wallet address
+         * @param apiWalletPrivateKey  API wallet private key
+         * @return Builder instance
+         */
         public Builder addApiWallet(String alias, String primaryWalletAddress, String apiWalletPrivateKey) {
             apiWallets.add(new ApiWallet(alias, primaryWalletAddress, apiWalletPrivateKey));
             return this;
         }
 
+        /**
+         * Batch add API wallets.
+         *
+         * @param apiWallets API wallet list
+         * @return Builder instance
+         */
         public Builder addApiWallets(List<ApiWallet> apiWallets) {
             this.apiWallets.addAll(apiWallets);
             return this;
         }
 
+        /**
+         * Set a preconfigured OkHttpClient instance.
+         *
+         * @param client OkHttpClient instance
+         * @return Builder instance
+         */
         public Builder okHttpClient(OkHttpClient client) {
             this.okHttpClient = client;
             return this;
@@ -392,6 +490,16 @@ public class HyperliquidClient {
                     .build();
         }
 
+        /**
+         * Build a {@link HyperliquidClient} instance.
+         * <p>
+         * During build, wallets are normalized and bound to Exchange instances.
+         * When auto warm-up is enabled, commonly used metadata caches are loaded.
+         * </p>
+         *
+         * @return Initialized HyperliquidClient
+         * @throws HypeError If wallet private key format is invalid
+         */
         public HyperliquidClient build() {
             OkHttpClient httpClient = getOkHttpClient();
             HypeHttpClient hypeHttpClient = new HypeHttpClient(baseUrl, httpClient);
