@@ -49,7 +49,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jackson.version>2.21.0</jackson.version>
+        <jackson.version>2.21.1</jackson.version>
         <okhttp.version>5.3.2</okhttp.version>
         <okio.version>3.16.4</okio.version>
         <web3j.version>5.0.2</web3j.version>
@@ -62,13 +62,20 @@
         <slf4j.version>2.0.17</slf4j.version>
         <caffeine.version>3.2.3</caffeine.version>
         <netty.version>4.2.10.Final</netty.version>
+        <vertx-core.version>5.0.8</vertx-core.version>
     </properties>
 
     <dependencies>
-        <!-- JSON Processing -->
+        <!--jackson-->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
             <version>${jackson.version}</version>
         </dependency>
 
@@ -89,11 +96,34 @@
             <groupId>org.web3j</groupId>
             <artifactId>crypto</artifactId>
             <version>${web3j.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>jackson-databind</artifactId>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>vertx-core</artifactId>
+                    <groupId>io.vertx</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
+
         <dependency>
             <groupId>org.web3j</groupId>
             <artifactId>utils</artifactId>
             <version>${web3j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
+            <version>${vertx-core.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>jackson-core</artifactId>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- MsgPack for action hashing -->

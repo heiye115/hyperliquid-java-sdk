@@ -33,6 +33,11 @@ public class HyperliquidClient {
     private final Info info;
 
     /**
+     * HTTP client
+     **/
+    private final HypeHttpClient hypeHttpClient;
+
+    /**
      * K:Wallet alias V:Exchange
      **/
     private final Map<String, Exchange> exchangesByAlias;
@@ -42,8 +47,10 @@ public class HyperliquidClient {
      **/
     private final List<ApiWallet> apiWallets;
 
-    public HyperliquidClient(Info info, Map<String, Exchange> exchangesByAlias, List<ApiWallet> apiWallets) {
+    public HyperliquidClient(Info info, HypeHttpClient hypeHttpClient, Map<String, Exchange> exchangesByAlias,
+            List<ApiWallet> apiWallets) {
         this.info = info;
+        this.hypeHttpClient = hypeHttpClient;
         this.exchangesByAlias = exchangesByAlias;
         this.apiWallets = apiWallets;
     }
@@ -62,8 +69,8 @@ public class HyperliquidClient {
      *
      * @return Wallet alias to Exchange mapping
      */
-    public Map<String, Exchange> getExchangesByAlias() {
-        return exchangesByAlias;
+    public synchronized Map<String, Exchange> getExchangesByAlias() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(exchangesByAlias));
     }
 
     /**
@@ -71,14 +78,14 @@ public class HyperliquidClient {
      *
      * @return API wallet list
      */
-    public List<ApiWallet> getApiWallets() {
-        return apiWallets;
+    public synchronized List<ApiWallet> getApiWallets() {
+        return Collections.unmodifiableList(new ArrayList<>(apiWallets));
     }
 
     /**
      * Get single Exchange instance, if there are multiple, return the first one
      **/
-    public Exchange getExchange() {
+    public synchronized Exchange getExchange() {
         if (exchangesByAlias.isEmpty()) {
             throw new HypeError("No exchange instances available.");
         }
@@ -93,7 +100,7 @@ public class HyperliquidClient {
      * @throws HypeError If alias does not exist, throw exception and prompt
      *                   available alias list
      **/
-    public Exchange getExchange(String alias) {
+    public synchronized Exchange getExchange(String alias) {
         if (alias == null || alias.trim().isEmpty()) {
             throw new HypeError("Wallet alias cannot be null or empty.");
         }
@@ -112,7 +119,7 @@ public class HyperliquidClient {
      * @param alias Wallet alias
      * @return Returns true if exists, false otherwise
      */
-    public boolean hasWallet(String alias) {
+    public synchronized boolean hasWallet(String alias) {
         return alias != null && exchangesByAlias.containsKey(alias);
     }
 
@@ -121,7 +128,7 @@ public class HyperliquidClient {
      *
      * @return Wallet address collection
      */
-    public Set<String> getAvailableAddresses() {
+    public synchronized Set<String> getAvailableAddresses() {
         return apiWallets.stream().map(ApiWallet::getPrimaryWalletAddress).collect(Collectors.toUnmodifiableSet());
     }
 
@@ -131,7 +138,7 @@ public class HyperliquidClient {
      *
      * @return Number of wallets
      */
-    public int getWalletCount() {
+    public synchronized int getWalletCount() {
         return apiWallets.size();
     }
 
@@ -141,11 +148,121 @@ public class HyperliquidClient {
      * @return Primary wallet address
      * @throws HypeError If no wallets are available
      */
-    public String getSingleAddress() {
+    public synchronized String getSingleAddress() {
         if (apiWallets == null || apiWallets.isEmpty()) {
             throw new HypeError("No wallets available. Please add at least one wallet.");
         }
         return apiWallets.getFirst().getPrimaryWalletAddress();
+    }
+
+    /**
+     * Add API wallet dynamically after client is built.
+     *
+     * @param apiWallet API wallet object
+     * @return Current HyperliquidClient instance for fluent calls
+     * @throws HypeError If wallet information is invalid
+     */
+    public synchronized HyperliquidClient addApiWallet(ApiWallet apiWallet) {
+        addApiWalletInternal(apiWallet);
+        return this;
+    }
+
+    /**
+     * Add API wallet dynamically after client is built.
+     *
+     * @param primaryWalletAddress Primary wallet address
+     * @param apiWalletPrivateKey  API wallet private key
+     * @return Current HyperliquidClient instance for fluent calls
+     * @throws HypeError If wallet information is invalid
+     */
+    public synchronized HyperliquidClient addApiWallet(String primaryWalletAddress, String apiWalletPrivateKey) {
+        addApiWalletInternal(new ApiWallet(primaryWalletAddress, apiWalletPrivateKey));
+        return this;
+    }
+
+    /**
+     * Add API wallet dynamically after client is built.
+     *
+     * @param alias                Wallet alias
+     * @param primaryWalletAddress Primary wallet address
+     * @param apiWalletPrivateKey  API wallet private key
+     * @return Current HyperliquidClient instance for fluent calls
+     * @throws HypeError If wallet information is invalid
+     */
+    public synchronized HyperliquidClient addApiWallet(String alias, String primaryWalletAddress,
+            String apiWalletPrivateKey) {
+        addApiWalletInternal(new ApiWallet(alias, primaryWalletAddress, apiWalletPrivateKey));
+        return this;
+    }
+
+    /**
+     * Add private key dynamically after client is built.
+     *
+     * @param privateKey Private key
+     * @return Current HyperliquidClient instance for fluent calls
+     * @throws HypeError If private key is invalid
+     */
+    public synchronized HyperliquidClient addPrivateKey(String privateKey) {
+        addApiWalletInternal(new ApiWallet(null, privateKey));
+        return this;
+    }
+
+    /**
+     * Add private key with alias dynamically after client is built.
+     *
+     * @param alias      Wallet alias
+     * @param privateKey Private key
+     * @return Current HyperliquidClient instance for fluent calls
+     * @throws HypeError If private key is invalid
+     */
+    public synchronized HyperliquidClient addPrivateKey(String alias, String privateKey) {
+        addApiWalletInternal(new ApiWallet(alias, null, privateKey));
+        return this;
+    }
+
+    private void addApiWalletInternal(ApiWallet apiWallet) {
+        ApiWallet normalizedWallet = normalizeApiWallet(apiWallet);
+        exchangesByAlias.put(normalizedWallet.getAlias(), new Exchange(hypeHttpClient, normalizedWallet, info));
+        apiWallets.add(normalizedWallet);
+    }
+
+    private static ApiWallet normalizeApiWallet(ApiWallet apiWallet) {
+        if (apiWallet == null) {
+            throw new HypeError("ApiWallet cannot be null.");
+        }
+        validatePrivateKey(apiWallet.getApiWalletPrivateKey());
+        Credentials credentials = Credentials.create(apiWallet.getApiWalletPrivateKey());
+        apiWallet.setCredentials(credentials);
+        if (apiWallet.getPrimaryWalletAddress() == null || apiWallet.getPrimaryWalletAddress().trim().isEmpty()) {
+            apiWallet.setPrimaryWalletAddress(credentials.getAddress());
+        }
+        if (apiWallet.getAlias() == null || apiWallet.getAlias().trim().isEmpty()) {
+            apiWallet.setAlias(apiWallet.getPrimaryWalletAddress());
+        }
+        return apiWallet;
+    }
+
+    private static void validatePrivateKey(String privateKey) {
+        if (privateKey == null || privateKey.trim().isEmpty()) {
+            throw new HypeError("Private key cannot be null or empty.");
+        }
+
+        String normalizedKey = privateKey.startsWith("0x") ? privateKey.substring(2) : privateKey;
+
+        if (!normalizedKey.matches("^[0-9a-fA-F]+$")) {
+            throw new HypeError("Private key contains invalid characters. Must be hex.");
+        }
+
+        if (normalizedKey.length() != 64) {
+            throw new HypeError("Private key must be 64 hexadecimal characters long.");
+        }
+
+        try {
+            BigInteger keyInt = Numeric.toBigInt(privateKey);
+            ECKeyPair.create(keyInt);
+        } catch (Exception e) {
+            throw new HypeError("Invalid private key: cryptographic validation failed.", e);
+        }
     }
 
     public static Builder builder() {
@@ -280,17 +397,11 @@ public class HyperliquidClient {
             HypeHttpClient hypeHttpClient = new HypeHttpClient(baseUrl, httpClient);
             Info info = new Info(baseUrl, hypeHttpClient, skipWs);
             Map<String, Exchange> exchangesByAlias = new LinkedHashMap<>();
+            List<ApiWallet> builtApiWallets = new ArrayList<>();
             for (ApiWallet apiWallet : apiWallets) {
-                validatePrivateKey(apiWallet.getApiWalletPrivateKey());
-                Credentials credentials = Credentials.create(apiWallet.getApiWalletPrivateKey());
-                apiWallet.setCredentials(credentials);
-                if (apiWallet.getPrimaryWalletAddress() == null || apiWallet.getPrimaryWalletAddress().trim().isEmpty()) {
-                    apiWallet.setPrimaryWalletAddress(credentials.getAddress());
-                }
-                if (apiWallet.getAlias() == null || apiWallet.getAlias().trim().isEmpty()) {
-                    apiWallet.setAlias(apiWallet.getPrimaryWalletAddress());
-                }
-                exchangesByAlias.put(apiWallet.getAlias(), new Exchange(hypeHttpClient, apiWallet, info));
+                ApiWallet normalizedWallet = normalizeApiWallet(apiWallet);
+                exchangesByAlias.put(normalizedWallet.getAlias(), new Exchange(hypeHttpClient, normalizedWallet, info));
+                builtApiWallets.add(normalizedWallet);
             }
 
             // Automatic cache warming (improves first-call performance)
@@ -306,37 +417,10 @@ public class HyperliquidClient {
 
             return new HyperliquidClient(
                     info,
-                    Collections.unmodifiableMap(exchangesByAlias),
-                    Collections.unmodifiableList(apiWallets));
+                    hypeHttpClient,
+                    exchangesByAlias,
+                    builtApiWallets);
         }
 
-        /**
-         * Private key validation logic:
-         * 1. Not empty
-         * 2. Length and character set are valid
-         * 3. Can be parsed by Web3j into ECKeyPair
-         */
-        private void validatePrivateKey(String privateKey) {
-            if (privateKey == null || privateKey.trim().isEmpty()) {
-                throw new HypeError("Private key cannot be null or empty.");
-            }
-
-            String normalizedKey = privateKey.startsWith("0x") ? privateKey.substring(2) : privateKey;
-
-            if (!normalizedKey.matches("^[0-9a-fA-F]+$")) {
-                throw new HypeError("Private key contains invalid characters. Must be hex.");
-            }
-
-            if (normalizedKey.length() != 64) {
-                throw new HypeError("Private key must be 64 hexadecimal characters long.");
-            }
-
-            try {
-                BigInteger keyInt = Numeric.toBigInt(privateKey);
-                ECKeyPair.create(keyInt);
-            } catch (Exception e) {
-                throw new HypeError("Invalid private key: cryptographic validation failed.", e);
-            }
-        }
     }
 }
