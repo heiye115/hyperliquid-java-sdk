@@ -19,32 +19,34 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * HyperliquidClient unified management client, responsible for order placement,
- * cancellation, transfers, and other L1/L2 operations.
- * Supports management and switching of multiple wallet credentials.
+ * Unified Hyperliquid client facade for trading and query operations.
+ * <p>
+ * This client coordinates {@link Info} and one or more {@link Exchange}
+ * instances, enabling multi-wallet management and alias-based routing.
+ * </p>
  */
 public class HyperliquidClient {
 
     private static final Logger log = LoggerFactory.getLogger(HyperliquidClient.class);
 
     /**
-     * Info client
-     **/
+     * Info service for read-only query operations.
+     */
     private final Info info;
 
     /**
-     * HTTP client
-     **/
+     * Shared HTTP client wrapper used by API services.
+     */
     private final HypeHttpClient hypeHttpClient;
 
     /**
-     * K:Wallet alias V:Exchange
-     **/
+     * Mapping from wallet alias to bound Exchange instance.
+     */
     private final Map<String, Exchange> exchangesByAlias;
 
     /**
-     * API wallet list
-     **/
+     * Managed API wallet list.
+     */
     private final List<ApiWallet> apiWallets;
 
     /**
@@ -64,35 +66,42 @@ public class HyperliquidClient {
     }
 
     /**
-     * Get Info client
+     * Returns the Info service instance.
      *
-     * @return Info client instance
+     * @return Info service
      */
     public Info getInfo() {
         return info;
     }
 
     /**
-     * Get wallet alias to Exchange mapping
+     * Returns an immutable snapshot of alias-to-Exchange mappings.
      *
-     * @return Wallet alias to Exchange mapping
+     * @return Alias-to-Exchange mapping snapshot
      */
     public synchronized Map<String, Exchange> getExchangesByAlias() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(exchangesByAlias));
     }
 
     /**
-     * Get API wallet list
+     * Returns an immutable snapshot of managed API wallets.
      *
-     * @return API wallet list
+     * @return API wallet list snapshot
      */
     public synchronized List<ApiWallet> getApiWallets() {
         return Collections.unmodifiableList(new ArrayList<>(apiWallets));
     }
 
     /**
-     * Get single Exchange instance, if there are multiple, return the first one
-     **/
+     * Returns one available Exchange instance.
+     * <p>
+     * If multiple exchanges are configured, this method returns the first one in
+     * insertion order.
+     * </p>
+     *
+     * @return Exchange instance
+     * @throws HypeError If no exchange is configured
+     */
     public synchronized Exchange getExchange() {
         if (exchangesByAlias.isEmpty()) {
             throw new HypeError("No exchange instances available.");
@@ -101,13 +110,12 @@ public class HyperliquidClient {
     }
 
     /**
-     * Get Exchange instance by wallet address
+     * Returns an Exchange instance by wallet alias.
      *
-     * @param alias Wallet alias or primary wallet address
-     * @return Corresponding Exchange instance
-     * @throws HypeError If alias does not exist, throw exception and prompt
-     *                   available alias list
-     **/
+     * @param alias Wallet alias
+     * @return Matching Exchange instance
+     * @throws HypeError If alias is blank or does not exist
+     */
     public synchronized Exchange getExchange(String alias) {
         if (alias == null || alias.trim().isEmpty()) {
             throw new HypeError("Wallet alias cannot be null or empty.");
@@ -122,39 +130,38 @@ public class HyperliquidClient {
 
 
     /**
-     * Check if wallet exists for specified address
+     * Checks whether a wallet alias exists.
      *
      * @param alias Wallet alias
-     * @return Returns true if exists, false otherwise
+     * @return true if the alias exists; false otherwise
      */
     public synchronized boolean hasWallet(String alias) {
         return alias != null && exchangesByAlias.containsKey(alias);
     }
 
     /**
-     * Get all available wallet address collection (immutable)
+     * Returns all available primary wallet addresses as an immutable set.
      *
-     * @return Wallet address collection
+     * @return Primary wallet address set
      */
     public synchronized Set<String> getAvailableAddresses() {
         return apiWallets.stream().map(ApiWallet::getPrimaryWalletAddress).collect(Collectors.toUnmodifiableSet());
     }
 
-
     /**
-     * Get total number of wallets
+     * Returns the number of managed wallets.
      *
-     * @return Number of wallets
+     * @return Wallet count
      */
     public synchronized int getWalletCount() {
         return apiWallets.size();
     }
 
     /**
-     * Get single address (primary address of the first wallet)
+     * Returns the primary address of the first configured wallet.
      *
      * @return Primary wallet address
-     * @throws HypeError If no wallets are available
+     * @throws HypeError If no wallet is configured
      */
     public synchronized String getSingleAddress() {
         if (apiWallets == null || apiWallets.isEmpty()) {
@@ -164,11 +171,11 @@ public class HyperliquidClient {
     }
 
     /**
-     * Add API wallet dynamically after client is built.
+     * Adds an API wallet after client construction.
      *
-     * @param apiWallet API wallet object
-     * @return Current HyperliquidClient instance for fluent calls
-     * @throws HypeError If wallet information is invalid
+     * @param apiWallet API wallet
+     * @return Current client instance for fluent chaining
+     * @throws HypeError If wallet data is invalid
      */
     public synchronized HyperliquidClient addApiWallet(ApiWallet apiWallet) {
         addApiWalletInternal(apiWallet);
@@ -176,12 +183,12 @@ public class HyperliquidClient {
     }
 
     /**
-     * Add API wallet dynamically after client is built.
+     * Adds an API wallet after client construction.
      *
      * @param primaryWalletAddress Primary wallet address
      * @param apiWalletPrivateKey  API wallet private key
-     * @return Current HyperliquidClient instance for fluent calls
-     * @throws HypeError If wallet information is invalid
+     * @return Current client instance for fluent chaining
+     * @throws HypeError If wallet data is invalid
      */
     public synchronized HyperliquidClient addApiWallet(String primaryWalletAddress, String apiWalletPrivateKey) {
         addApiWalletInternal(new ApiWallet(primaryWalletAddress, apiWalletPrivateKey));
@@ -189,13 +196,13 @@ public class HyperliquidClient {
     }
 
     /**
-     * Add API wallet dynamically after client is built.
+     * Adds an API wallet with an explicit alias after client construction.
      *
      * @param alias                Wallet alias
      * @param primaryWalletAddress Primary wallet address
      * @param apiWalletPrivateKey  API wallet private key
-     * @return Current HyperliquidClient instance for fluent calls
-     * @throws HypeError If wallet information is invalid
+     * @return Current client instance for fluent chaining
+     * @throws HypeError If wallet data is invalid
      */
     public synchronized HyperliquidClient addApiWallet(String alias, String primaryWalletAddress,
             String apiWalletPrivateKey) {
@@ -204,10 +211,10 @@ public class HyperliquidClient {
     }
 
     /**
-     * Add private key dynamically after client is built.
+     * Adds a private key after client construction.
      *
      * @param privateKey Private key
-     * @return Current HyperliquidClient instance for fluent calls
+     * @return Current client instance for fluent chaining
      * @throws HypeError If private key is invalid
      */
     public synchronized HyperliquidClient addPrivateKey(String privateKey) {
@@ -216,11 +223,11 @@ public class HyperliquidClient {
     }
 
     /**
-     * Add private key with alias dynamically after client is built.
+     * Adds a private key with an explicit alias after client construction.
      *
      * @param alias      Wallet alias
      * @param privateKey Private key
-     * @return Current HyperliquidClient instance for fluent calls
+     * @return Current client instance for fluent chaining
      * @throws HypeError If private key is invalid
      */
     public synchronized HyperliquidClient addPrivateKey(String alias, String privateKey) {
@@ -291,35 +298,36 @@ public class HyperliquidClient {
      */
     public static class Builder {
         /**
-         * API node address
-         **/
+         * API base URL.
+         */
         private String baseUrl = Constants.MAINNET_API_URL;
 
         /**
-         * Timeout (seconds, default 10 seconds)
-         **/
+         * Connect/read/write timeout in seconds. Default is 10.
+         */
         private int timeout = 10;
 
         /**
-         * Whether to skip WebSocket (default: do not skip)
-         **/
+         * Whether to skip WebSocket initialization. Default is false.
+         */
         private boolean skipWs = false;
 
         /**
-         * API wallet list
-         **/
+         * API wallets collected for client construction.
+         */
         private final List<ApiWallet> apiWallets = new ArrayList<>();
 
         /**
-         * OkHttpClient instance
-         **/
+         * Optional preconfigured OkHttpClient.
+         */
         private OkHttpClient okHttpClient = null;
 
         /**
-         * Whether to automatically warm up cache (default: enabled)
-         * When enabled, build() will automatically load commonly used data (meta,
-         * spotMeta, coin mapping) into cache,
-         * avoiding delays during first API calls and improving user experience.
+         * Whether to automatically warm up caches. Default is true.
+         * <p>
+         * When enabled, build() preloads commonly used metadata caches to reduce
+         * latency on first API calls.
+         * </p>
          */
         private boolean autoWarmUpCache = true;
 
@@ -466,12 +474,12 @@ public class HyperliquidClient {
         /**
          * Disable automatic cache warm-up (advanced option).
          * <p>
-         * By default, build() will automatically warm up cache to improve performance.
-         * Only disable in the following scenarios:
+         * By default, build() warms up cache to improve first-call performance.
+         * Disable only in scenarios such as:
          * 1. Application startup time requirements are extremely strict (millisecond
          * level)
-         * 2. Unstable network environment, don't want build() to block
-         * 3. Used for testing scenarios, need precise control over cache behavior
+         * 2. Network instability where build() must not block
+         * 3. Test scenarios that require precise cache behavior control
          * </p>
          *
          * @return Builder instance

@@ -1,7 +1,7 @@
 package io.github.hyperliquid.sdk.config;
 
 /**
- * Cache configuration class, used to customize cache parameters for Info client.
+ * Cache configuration for the Info service.
  */
 public class CacheConfig {
 
@@ -26,13 +26,13 @@ public class CacheConfig {
     private boolean recordStats = true;
 
     /**
-     * Default constructor (uses default configuration)
+     * Creates a configuration with default values.
      */
     public CacheConfig() {
     }
 
     /**
-     * Full parameter constructor
+     * Creates a configuration with explicit values.
      *
      * @param metaCacheMaxSize        Meta cache maximum capacity
      * @param spotMetaCacheMaxSize    SpotMeta cache maximum capacity
@@ -47,7 +47,7 @@ public class CacheConfig {
     }
 
     /**
-     * Create default configuration
+     * Returns the default cache configuration.
      *
      * @return Default CacheConfig instance
      */
@@ -56,7 +56,7 @@ public class CacheConfig {
     }
 
     /**
-     * Builder pattern builder
+     * Returns a builder for CacheConfig.
      *
      * @return Builder instance
      */
@@ -64,34 +64,74 @@ public class CacheConfig {
         return new Builder();
     }
 
+    /**
+     * Returns the maximum size of the meta cache.
+     *
+     * @return Meta cache maximum size
+     */
     public int getMetaCacheMaxSize() {
         return metaCacheMaxSize;
     }
 
+    /**
+     * Sets the maximum size of the meta cache.
+     *
+     * @param metaCacheMaxSize Meta cache maximum size
+     */
     public void setMetaCacheMaxSize(int metaCacheMaxSize) {
         this.metaCacheMaxSize = metaCacheMaxSize;
     }
 
+    /**
+     * Returns the maximum size of the spot meta cache.
+     *
+     * @return Spot meta cache maximum size
+     */
     public int getSpotMetaCacheMaxSize() {
         return spotMetaCacheMaxSize;
     }
 
+    /**
+     * Sets the maximum size of the spot meta cache.
+     *
+     * @param spotMetaCacheMaxSize Spot meta cache maximum size
+     */
     public void setSpotMetaCacheMaxSize(int spotMetaCacheMaxSize) {
         this.spotMetaCacheMaxSize = spotMetaCacheMaxSize;
     }
 
+    /**
+     * Returns cache expiration time in minutes.
+     *
+     * @return Expiration time in minutes
+     */
     public long getExpireAfterWriteMinutes() {
         return expireAfterWriteMinutes;
     }
 
+    /**
+     * Sets cache expiration time in minutes.
+     *
+     * @param expireAfterWriteMinutes Expiration time in minutes
+     */
     public void setExpireAfterWriteMinutes(long expireAfterWriteMinutes) {
         this.expireAfterWriteMinutes = expireAfterWriteMinutes;
     }
 
+    /**
+     * Returns whether cache statistics are enabled.
+     *
+     * @return true if statistics are enabled
+     */
     public boolean isRecordStats() {
         return recordStats;
     }
 
+    /**
+     * Sets whether cache statistics are enabled.
+     *
+     * @param recordStats true to enable statistics
+     */
     public void setRecordStats(boolean recordStats) {
         this.recordStats = recordStats;
     }

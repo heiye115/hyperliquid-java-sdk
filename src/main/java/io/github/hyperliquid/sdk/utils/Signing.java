@@ -384,8 +384,8 @@ public final class Signing {
         try {
             org.web3j.crypto.StructuredDataEncoder encoder = new org.web3j.crypto.StructuredDataEncoder(typedDataJson);
             byte[] digest = encoder.hashStructuredData();
-            // 纯 EIP-712 非前缀实现：直接对 EIP-712 结构化数据的 digest 进行签名，不再做任何额外哈希或前缀。
-            // 说明：Sign.signMessage(byte[], ECKeyPair, false) 会跳过内置哈希步骤，直接对输入进行 ECDSA 签名。
+            // Pure EIP-712 non-prefixed implementation: sign the EIP-712 structured-data digest directly, without any additional hash or prefix.
+            // Sign.signMessage(byte[], ECKeyPair, false) skips the built-in hashing step and performs ECDSA signing directly on the input bytes.
             Sign.SignatureData sig = Sign.signMessage(digest, credentials.getEcKeyPair(), false);
             String r = Numeric.toHexString(sig.getR());
             String s = Numeric.toHexString(sig.getS());

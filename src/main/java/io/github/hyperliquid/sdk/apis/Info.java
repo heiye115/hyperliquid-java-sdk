@@ -68,40 +68,38 @@ public class Info {
 
     /**
      * AllMids cache for storing all market IDs.
-     **/
+     */
     private final Cache<String, Map<String, String>> allMidsCache;
 
     /**
-     * Coin name to asset ID mapping cache
-     * Key: Coin name (uppercase), Value: Asset ID
+     * Coin-to-asset-id mapping cache.
+     * Key: coin name (uppercase), value: asset id.
      */
     private final Map<String, Integer> coinToAssetCache = new ConcurrentHashMap<>();
 
     /**
-     * Asset ID to quantity precision mapping cache
-     * Key: Asset ID, Value: szDecimals
+     * Asset-id-to-size-precision mapping cache.
+     * Key: asset id, value: szDecimals.
      */
     private final Map<Integer, Integer> assetToSzDecimalsCache = new ConcurrentHashMap<>();
 
     /**
-     * Construct InfoClient client (using default cache configuration).
+     * Constructs an Info client using the default cache configuration.
      *
-     * @param baseUrl        API root URL
-     * @param hypeHttpClient HTTP client instance
-     * @param skipWs         Whether to skip creating WebSocket connection (for
-     *                       testing)
+     * @param baseUrl        API base URL
+     * @param hypeHttpClient HTTP client wrapper
+     * @param skipWs         Whether to skip WebSocket initialization
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs) {
         this(baseUrl, hypeHttpClient, skipWs, CacheConfig.defaultConfig());
     }
 
     /**
-     * Construct InfoClient client (support custom cache configuration).
+     * Constructs an Info client with a custom cache configuration.
      *
-     * @param baseUrl        API root URL
-     * @param hypeHttpClient HTTP client instance
-     * @param skipWs         Whether to skip creating WebSocket connection (for
-     *                       testing)
+     * @param baseUrl        API base URL
+     * @param hypeHttpClient HTTP client wrapper
+     * @param skipWs         Whether to skip WebSocket initialization
      * @param cacheConfig    Cache configuration
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig) {

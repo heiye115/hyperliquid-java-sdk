@@ -1,7 +1,7 @@
 package io.github.hyperliquid.sdk.utils;
 
 /**
- * SDK custom exception type definitions.
+ * Base exception type for SDK-specific failures.
  */
 public class HypeError extends RuntimeException {
 
@@ -14,12 +14,18 @@ public class HypeError extends RuntimeException {
         super(message);
     }
 
+    /**
+     * Constructs a base error with message and cause.
+     *
+     * @param message Error message
+     * @param e       Root cause
+     */
     public HypeError(String message, Throwable e) {
         super(message, e);
     }
 
     /**
-     * Client error (4xx)
+     * Client-side error category (HTTP 4xx).
      */
     public static class ClientHypeError extends HypeError {
         /**
@@ -28,7 +34,7 @@ public class HypeError extends RuntimeException {
         private final int statusCode;
 
         /**
-         * Construct client error.
+         * Constructs a client error.
          *
          * @param statusCode HTTP status code
          * @param message    Error message
@@ -49,7 +55,7 @@ public class HypeError extends RuntimeException {
     }
 
     /**
-     * Server error (5xx)
+     * Server-side error category (HTTP 5xx).
      */
     public static class ServerHypeError extends HypeError {
         /**
@@ -58,7 +64,7 @@ public class HypeError extends RuntimeException {
         private final int statusCode;
 
         /**
-         * Construct server error.
+         * Constructs a server error.
          *
          * @param statusCode HTTP status code
          * @param message    Error message

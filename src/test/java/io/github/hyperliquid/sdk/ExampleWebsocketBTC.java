@@ -133,7 +133,7 @@ public class ExampleWebsocketBTC {
             }
         });
 
-        //线程等待10分钟
+        // Wait for 10 minutes
         try {
             Thread.sleep(600000);
         } catch (InterruptedException e) {

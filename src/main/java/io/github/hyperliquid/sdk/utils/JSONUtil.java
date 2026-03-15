@@ -11,6 +11,9 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Shared JSON utility methods backed by a single ObjectMapper instance.
+ */
 public class JSONUtil {
 
     private static final ObjectMapper mapper = createSharedMapper();
@@ -56,51 +59,150 @@ public class JSONUtil {
         }
     }
 
+    /**
+     * Parses a JSON string into a JsonNode tree.
+     *
+     * @param resp JSON string
+     * @return Parsed JsonNode
+     * @throws JsonProcessingException If parsing fails
+     */
     public static JsonNode readTree(String resp) throws JsonProcessingException {
         return mapper.readTree(resp);
     }
 
+    /**
+     * Serializes an object to a JSON string.
+     *
+     * @param payload Object to serialize
+     * @return JSON string
+     * @throws JsonProcessingException If serialization fails
+     */
     public static String writeValueAsString(Object payload) throws JsonProcessingException {
         return mapper.writeValueAsString(payload);
     }
 
 
+    /**
+     * Converts a TreeNode into a typed object.
+     *
+     * @param var1 Source tree node
+     * @param var2 Target type
+     * @param <T>  Target generic type
+     * @return Converted object
+     * @throws JsonProcessingException If conversion fails
+     */
     public static <T> T treeToValue(TreeNode var1, Class<T> var2) throws JsonProcessingException {
         return mapper.treeToValue(var1, var2);
     }
 
+    /**
+     * Converts an object into a typed object.
+     *
+     * @param fromValue   Source value
+     * @param toValueType Target type
+     * @param <T>         Target generic type
+     * @return Converted object
+     */
     public static <T> T treeToValue(Object fromValue, Class<T> toValueType) {
         return mapper.convertValue(fromValue, toValueType);
     }
 
+    /**
+     * Converts a JsonNode using a Jackson MapType definition.
+     *
+     * @param node    Source node
+     * @param mapType Target map type
+     * @param <T>     Target generic type
+     * @return Converted object
+     */
     public static <T> T convertValue(JsonNode node, MapType mapType) {
         return mapper.convertValue(node, mapType);
     }
 
+    /**
+     * Converts an object using a TypeReference.
+     *
+     * @param fromValue    Source value
+     * @param toValueTypeRef Target type reference
+     * @param <T>          Target generic type
+     * @return Converted object
+     * @throws IllegalArgumentException If conversion fails
+     */
     public static <T> T convertValue(Object fromValue, TypeReference<T> toValueTypeRef) throws IllegalArgumentException {
         return mapper.convertValue(fromValue, toValueTypeRef);
     }
 
+    /**
+     * Converts an object using a JavaType.
+     *
+     * @param fromValue  Source value
+     * @param toValueType Target JavaType
+     * @param <T>        Target generic type
+     * @return Converted object
+     * @throws IllegalArgumentException If conversion fails
+     */
     public static <T> T convertValue(Object fromValue, JavaType toValueType) throws IllegalArgumentException {
         return mapper.convertValue(fromValue, toValueType);
     }
 
+    /**
+     * Converts an object using a target class.
+     *
+     * @param fromValue   Source value
+     * @param toValueType Target class
+     * @param <T>         Target generic type
+     * @return Converted object
+     * @throws IllegalArgumentException If conversion fails
+     */
     public static <T> T convertValue(Object fromValue, Class<T> toValueType) throws IllegalArgumentException {
         return mapper.convertValue(fromValue, toValueType);
     }
 
+    /**
+     * Serializes an object to JSON bytes.
+     *
+     * @param action Object to serialize
+     * @return JSON bytes
+     * @throws JsonProcessingException If serialization fails
+     */
     public static byte[] writeValueAsBytes(Object action) throws JsonProcessingException {
         return mapper.writeValueAsBytes(action);
     }
 
+    /**
+     * Deserializes JSON content from a parser.
+     *
+     * @param var1 Parser source
+     * @param var2 Target type
+     * @param <T>  Target generic type
+     * @return Deserialized object
+     * @throws IOException If deserialization fails
+     */
     public static <T> T readValue(JsonParser var1, Class<T> var2) throws IOException {
         return mapper.readValue(var1, var2);
     }
 
+    /**
+     * Deserializes a JSON string into a typed object.
+     *
+     * @param content  JSON string
+     * @param valueType Target type
+     * @param <T>      Target generic type
+     * @return Deserialized object
+     * @throws JsonProcessingException If deserialization fails
+     */
     public static <T> T readValue(String content, Class<T> valueType) throws JsonProcessingException {
         return mapper.readValue(content, valueType);
     }
 
+    /**
+     * Converts a JsonNode array into a typed list.
+     *
+     * @param jsonNode  Source JsonNode
+     * @param valueType Element type
+     * @param <T>       Element generic type
+     * @return Converted list
+     */
     public static <T> List<T> toList(JsonNode jsonNode, Class<T> valueType) {
         return mapper.convertValue(jsonNode, TypeFactory.defaultInstance().constructCollectionType(List.class, valueType));
     }
