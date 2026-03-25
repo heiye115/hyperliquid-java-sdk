@@ -566,6 +566,16 @@ public class Info {
     }
 
     /**
+     * Query spot metadata and asset context (typed return).
+     *
+     * @return Typed model SpotMetaAndAssetCtxs
+     */
+    public SpotMetaAndAssetCtxs spotMetaAndAssetCtxsTyped() {
+        JsonNode node = spotMetaAndAssetCtxs();
+        return JSONUtil.convertValue(node, SpotMetaAndAssetCtxs.class);
+    }
+
+    /**
      * L2 order book snapshot.
      * Optional aggregation parameters for controlling significant digits and
      * mantissa (mantissa can only be set to 1/2/5 when nSigFigs is 5).
@@ -929,11 +939,25 @@ public class Info {
      * @return {@code List<FundingHistory>} response
      */
     public List<FundingHistory> fundingHistory(String coin, long startMs, long endMs) {
+        return fundingHistory(coin, startMs, Long.valueOf(endMs));
+    }
+
+    /**
+     * Query funding rate history (by coin name) with optional end time.
+     *
+     * @param coin    Coin name (e.g., "BTC")
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds (optional, can be null)
+     * @return {@code List<FundingHistory>} response
+     */
+    public List<FundingHistory> fundingHistory(String coin, long startMs, Long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "fundingHistory");
         payload.put("coin", coin);
         payload.put("startTime", startMs);
-        payload.put("endTime", endMs);
+        if (endMs != null) {
+            payload.put("endTime", endMs);
+        }
         return JSONUtil.toList(postInfo(payload), FundingHistory.class);
     }
 
@@ -1025,11 +1049,25 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userNonFundingLedgerUpdates(String address, long startMs, long endMs) {
+        return userNonFundingLedgerUpdates(address, startMs, Long.valueOf(endMs));
+    }
+
+    /**
+     * User non-funding ledger updates (excluding funding) with optional end time.
+     *
+     * @param address User address
+     * @param startMs Start milliseconds
+     * @param endMs   End milliseconds (optional, can be null)
+     * @return JSON response
+     */
+    public JsonNode userNonFundingLedgerUpdates(String address, long startMs, Long endMs) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "userNonFundingLedgerUpdates");
         payload.put("user", address);
         payload.put("startTime", startMs);
-        payload.put("endTime", endMs);
+        if (endMs != null) {
+            payload.put("endTime", endMs);
+        }
         return postInfo(payload);
     }
 
@@ -1051,6 +1089,19 @@ public class Info {
     }
 
     /**
+     * Historical order query (latest records, server default window).
+     *
+     * @param address User address
+     * @return JSON response
+     */
+    public JsonNode historicalOrders(String address) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", "historicalOrders");
+        payload.put("user", address);
+        return postInfo(payload);
+    }
+
+    /**
      * User TWAP slice fill query.
      *
      * @param address User address
@@ -1064,6 +1115,19 @@ public class Info {
         payload.put("user", address);
         payload.put("startTime", startMs);
         payload.put("endTime", endMs);
+        return postInfo(payload);
+    }
+
+    /**
+     * User TWAP slice fill query (latest records, server default window).
+     *
+     * @param address User address
+     * @return JSON response
+     */
+    public JsonNode userTwapSliceFills(String address) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", "userTwapSliceFills");
+        payload.put("user", address);
         return postInfo(payload);
     }
 
@@ -1342,18 +1406,8 @@ public class Info {
      *
      * @return JSON response
      */
-    public JsonNode querySpotDeployAuctionStatus() {
-        // This interface corresponds to spotDeployState(user) in the Python SDK; the
-        // Java SDK already provides it
-        // spotDeployState(address)
-        // Keep this method to avoid breaking existing calls, but the server does not
-        // support spotDeploy queries without a user; return an empty object to avoid
-        // 4xx
-        try {
-            return JSONUtil.readTree("{}");
-        } catch (Exception e) {
-            throw new HypeError("Failed to parse empty JSON", e);
-        }
+    public JsonNode querySpotDeployAuctionStatus(String address) {
+        return spotDeployState(address);
     }
 
     /**
@@ -1385,10 +1439,23 @@ public class Info {
      *
      * @param address User address
      * @return JSON response
+     * @deprecated: Prefer @link #userSetAbstraction.
      */
+    @Deprecated
     public JsonNode queryUserDexAbstractionState(String address) {
         Map<String, Object> payload = Map.of("type", "userDexAbstraction", "user", address);
         return postInfo(payload);
+    }
+
+    /**
+     * Query a user's abstraction state
+     *
+     * @param user User address
+     * @return User abstraction state ("unifiedAccount" | "portfolioMargin" | "disabled" | "default" | "dexAbstraction")
+     **/
+    public String userAbstraction(String user) {
+        Map<String, Object> payload = Map.of("type", "userAbstraction", "user", user);
+        return postInfo(payload).asText();
     }
 
     /**

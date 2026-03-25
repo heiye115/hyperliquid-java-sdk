@@ -5,6 +5,8 @@ import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import io.github.hyperliquid.sdk.model.order.*;
+import io.github.hyperliquid.sdk.model.userabstraction.AbstractionType;
+import io.github.hyperliquid.sdk.model.userabstraction.UserSetAbstraction;
 import io.github.hyperliquid.sdk.model.wallet.ApiWallet;
 import io.github.hyperliquid.sdk.utils.*;
 
@@ -57,6 +59,11 @@ public class Exchange {
     private volatile String vaultAddress;
 
     /**
+     * Action expiration timestamp in milliseconds.
+     */
+    private volatile Long expiresAfter;
+
+    /**
      * Get vault address
      *
      * @return vault address
@@ -72,6 +79,15 @@ public class Exchange {
      */
     public void setVaultAddress(String vaultAddress) {
         this.vaultAddress = vaultAddress;
+    }
+
+    /**
+     * Set action expiration timestamp (milliseconds).
+     *
+     * @param expiresAfter Expiration timestamp; null means no expiration
+     */
+    public void setExpiresAfter(Long expiresAfter) {
+        this.expiresAfter = expiresAfter;
     }
 
     /**
@@ -950,6 +966,20 @@ public class Exchange {
     }
 
     /**
+     * Set Agent abstraction mode.
+     *
+     * @param abstraction Agent abstraction value (Python-compatible: "u", "p", "i")
+     * @return JSON response from the exchange
+     * @throws HypeError If the request fails
+     */
+    public JsonNode agentSetAbstraction(String abstraction) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "agentSetAbstraction");
+        action.put("abstraction", abstraction);
+        return postAction(action);
+    }
+
+    /**
      * Enable or disable User-side Dex Abstraction.
      *
      * @param user    The user address (0x prefix)
@@ -965,18 +995,9 @@ public class Exchange {
         action.put("enabled", enabled);
         action.put("nonce", nonce);
 
-        // Construct payloadTypes exactly consistent with Python
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "user", "type", "address"),
-                Map.of("name", "enabled", "type", "bool"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:UserDexAbstraction",
                 isMainnet());
         // Send in line with _post_action (without redoing L1 signing)
         return postActionWithSignature(action, signature, nonce);
@@ -1031,17 +1052,9 @@ public class Exchange {
         // Use the string directly
         action.put("time", time);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "destination", "type", "string"),
-                Map.of("name", "amount", "type", "string"),
-                Map.of("name", "time", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:UsdSend",
                 isMainnet());
         return postActionWithSignature(action, signature, time);
     }
@@ -1065,18 +1078,9 @@ public class Exchange {
         // Use the string directly
         action.put("time", time);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "destination", "type", "string"),
-                Map.of("name", "token", "type", "string"),
-                Map.of("name", "amount", "type", "string"),
-                Map.of("name", "time", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:SpotSend",
                 isMainnet());
         return postActionWithSignature(action, signature, time);
     }
@@ -1098,17 +1102,9 @@ public class Exchange {
         // Use the string directly
         action.put("time", time);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "destination", "type", "string"),
-                Map.of("name", "amount", "type", "string"),
-                Map.of("name", "time", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:Withdraw",
                 isMainnet());
         return postActionWithSignature(action, signature, time);
     }
@@ -1135,17 +1131,9 @@ public class Exchange {
         action.put("toPerp", toPerp);
         action.put("nonce", nonce);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "amount", "type", "string"),
-                Map.of("name", "toPerp", "type", "bool"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:UsdClassTransfer",
                 isMainnet());
         return postActionWithSignature(action, signature, nonce);
     }
@@ -1176,21 +1164,9 @@ public class Exchange {
         action.put("fromSubAccount", from);
         action.put("nonce", nonce);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "destination", "type", "string"),
-                Map.of("name", "sourceDex", "type", "string"),
-                Map.of("name", "destinationDex", "type", "string"),
-                Map.of("name", "token", "type", "string"),
-                Map.of("name", "amount", "type", "string"),
-                Map.of("name", "fromSubAccount", "type", "string"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:SendAsset",
                 isMainnet());
         return postActionWithSignature(action, signature, nonce);
     }
@@ -1211,23 +1187,15 @@ public class Exchange {
         action.put("maxFeeRate", maxFeeRate);
         action.put("nonce", nonce);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "maxFeeRate", "type", "string"),
-                Map.of("name", "builder", "type", "address"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:ApproveBuilderFee",
                 isMainnet());
         return postActionWithSignature(action, signature, nonce);
     }
 
     /**
-     * Bind a referral code to the account (requires user signature).
+     * Bind a referral code to the account.
      *
      * @param code The referral code to set
      * @return JSON response from the exchange
@@ -1235,23 +1203,24 @@ public class Exchange {
      */
     public JsonNode setReferrer(String code) {
         long nonce = Signing.getTimestampMs();
+        Long effectiveExpiresAfter = resolveEffectiveExpiresAfter(null);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "setReferrer");
         action.put("code", code);
-        action.put("nonce", nonce);
-
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "code", "type", "string"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signL1Action(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:SetReferrer",
+                null,
+                nonce,
+                effectiveExpiresAfter,
                 isMainnet());
-        return postActionWithSignature(action, signature, nonce);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("action", action);
+        payload.put("nonce", nonce);
+        payload.put("signature", signature);
+        payload.put("vaultAddress", calculateEffectiveVaultAddress(String.valueOf(action.getOrDefault("type", ""))));
+        payload.put("expiresAfter", effectiveExpiresAfter);
+        return hypeHttpClient.post("/exchange", payload);
     }
 
     /**
@@ -1272,18 +1241,9 @@ public class Exchange {
         action.put("isUndelegate", isUndelegate);
         action.put("nonce", nonce);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "validator", "type", "address"),
-                Map.of("name", "wei", "type", "uint64"),
-                Map.of("name", "isUndelegate", "type", "bool"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:TokenDelegate",
                 isMainnet());
         return postActionWithSignature(action, signature, nonce);
     }
@@ -1302,16 +1262,9 @@ public class Exchange {
         action.put("signers", signersJson);
         action.put("nonce", nonce);
 
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "signers", "type", "string"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:ConvertToMultiSigUser",
                 isMainnet());
         return postActionWithSignature(action, signature, nonce);
     }
@@ -1345,8 +1298,7 @@ public class Exchange {
      * @return JSON response from the exchange
      * @throws HypeError If the request fails
      */
-    public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas,
-                                            String fullName) {
+    public JsonNode spotDeployRegisterToken(String tokenName, int szDecimals, int weiDecimals, int maxGas, String fullName) {
         Map<String, Object> action = new LinkedHashMap<>();
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("name", tokenName);
@@ -1590,18 +1542,9 @@ public class Exchange {
             action.put("agentName", name);
         }
 
-        // ApproveAgent payload types
-        List<Map<String, Object>> payloadTypes = List.of(
-                Map.of("name", "hyperliquidChain", "type", "string"),
-                Map.of("name", "agentAddress", "type", "address"),
-                Map.of("name", "agentName", "type", "string"),
-                Map.of("name", "nonce", "type", "uint64"));
-
-        Map<String, Object> signature = Signing.signUserSignedAction(
+        Map<String, Object> signature = Signing.signKnownUserSignedAction(
                 apiWallet.getCredentials(),
                 action,
-                payloadTypes,
-                "HyperliquidTransaction:ApproveAgent",
                 isMainnet());
 
         JsonNode resp = postActionWithSignature(action, signature, nonce);
@@ -1637,30 +1580,21 @@ public class Exchange {
      * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
      * @param action       L1 action (Map)
-     * @param expiresAfter Order expiration time (milliseconds), uses default value
-     *                     120000ms when null
+     * @param expiresAfter Order expiration time (milliseconds), null means no expiration
      * @return JSON response
      */
     public JsonNode postAction(Map<String, Object> action, Long expiresAfter) {
         long nonce = Signing.getTimestampMs();
+        Long effectiveExpiresAfter = resolveEffectiveExpiresAfter(expiresAfter);
         String type = String.valueOf(action.getOrDefault("type", ""));
         String effectiveVault = calculateEffectiveVaultAddress(type);
-
-        // Default 120 seconds
-        if (expiresAfter == null) {
-            expiresAfter = 120_000L;
-        }
-        long ea = expiresAfter;
-        if (ea < 1_000_000_000_000L) {
-            ea = nonce + ea;
-        }
 
         Map<String, Object> signature = Signing.signL1Action(
                 apiWallet.getCredentials(),
                 action,
                 effectiveVault,
                 nonce,
-                ea,
+                effectiveExpiresAfter,
                 isMainnet());
 
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -1670,7 +1604,7 @@ public class Exchange {
         if (effectiveVault != null) {
             payload.put("vaultAddress", effectiveVault);
         }
-        payload.put("expiresAfter", ea);
+        payload.put("expiresAfter", effectiveExpiresAfter);
         return hypeHttpClient.post("/exchange", payload);
     }
 
@@ -1689,20 +1623,19 @@ public class Exchange {
      */
     private JsonNode postActionWithSignature(Map<String, Object> action, Map<String, Object> signature, long nonce) {
         String type = String.valueOf(action.getOrDefault("type", ""));
-        boolean userSigned = isUserSignedAction(type);
         String effectiveVault = calculateEffectiveVaultAddress(type);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("action", action);
         payload.put("nonce", nonce);
         payload.put("signature", signature);
-        if (!userSigned) {
-            payload.put("vaultAddress", effectiveVault);
-            // userSigned actions do not need expiresAfter
-        } else {
-            payload.put("vaultAddress", effectiveVault);
-        }
+        payload.put("vaultAddress", effectiveVault);
+        payload.put("expiresAfter", resolveEffectiveExpiresAfter(null));
         return hypeHttpClient.post("/exchange", payload);
+    }
+
+    private Long resolveEffectiveExpiresAfter(Long requestExpiresAfter) {
+        return requestExpiresAfter != null ? requestExpiresAfter : expiresAfter;
     }
 
     /**
@@ -1749,30 +1682,6 @@ public class Exchange {
             return null;
         }
         return effectiveVault;
-    }
-
-    /**
-     * Determine if the specified action type requires a user signature (EIP-712).
-     * <p>
-     * User signature actions use EIP-712 TypedData signing, which is distinct
-     * from the standard L1 action signing process.
-     * </p>
-     *
-     * @param actionType The type of action to check
-     * @return true if the action requires a user signature, false otherwise
-     */
-    private boolean isUserSignedAction(String actionType) {
-        return "approveAgent".equals(actionType)
-                || "userDexAbstraction".equals(actionType)
-                || "usdSend".equals(actionType)
-                || "withdraw3".equals(actionType)
-                || "spotSend".equals(actionType)
-                || "usdClassTransfer".equals(actionType)
-                || "sendAsset".equals(actionType)
-                || "approveBuilderFee".equals(actionType)
-                || "setReferrer".equals(actionType)
-                || "tokenDelegate".equals(actionType)
-                || "convertToMultiSigUser".equals(actionType);
     }
 
     /**
@@ -2125,7 +2034,7 @@ public class Exchange {
                 isMainnet(),
                 vaultAddress,
                 nonce,
-                null // expiresAfter
+                expiresAfter
         );
 
         // Send request
@@ -2147,6 +2056,56 @@ public class Exchange {
             List<Map<String, Object>> signatures,
             long nonce) {
         return multiSig(multiSigUser, innerAction, signatures, nonce, this.vaultAddress);
+    }
+
+    /**
+     * PerpDeploy register asset (aligned with Python SDK's perp_deploy_register_asset).
+     *
+     * @param dex           Perp dex name
+     * @param maxGas        Maximum gas
+     * @param coin          Asset symbol
+     * @param szDecimals    Size decimals
+     * @param oraclePx      Oracle price
+     * @param marginTableId Margin table ID
+     * @param onlyIsolated  Whether only isolated margin is allowed
+     * @param schema        Optional schema map with keys: fullName, collateralToken, oracleUpdater
+     * @return JSON response
+     */
+    public JsonNode perpDeployRegisterAsset(
+            String dex,
+            Integer maxGas,
+            String coin,
+            int szDecimals,
+            String oraclePx,
+            int marginTableId,
+            boolean onlyIsolated,
+            Map<String, Object> schema) {
+        Map<String, Object> schemaWire = null;
+        if (schema != null) {
+            schemaWire = new LinkedHashMap<>();
+            schemaWire.put("fullName", schema.get("fullName"));
+            schemaWire.put("collateralToken", schema.get("collateralToken"));
+            Object oracleUpdater = schema.get("oracleUpdater");
+            schemaWire.put("oracleUpdater", oracleUpdater == null ? null : String.valueOf(oracleUpdater).toLowerCase());
+        }
+
+        Map<String, Object> assetRequest = new LinkedHashMap<>();
+        assetRequest.put("coin", coin);
+        assetRequest.put("szDecimals", szDecimals);
+        assetRequest.put("oraclePx", oraclePx);
+        assetRequest.put("marginTableId", marginTableId);
+        assetRequest.put("onlyIsolated", onlyIsolated);
+
+        Map<String, Object> registerAsset = new LinkedHashMap<>();
+        registerAsset.put("maxGas", maxGas);
+        registerAsset.put("assetRequest", assetRequest);
+        registerAsset.put("dex", dex);
+        registerAsset.put("schema", schemaWire);
+
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "perpDeploy");
+        action.put("registerAsset", registerAsset);
+        return postAction(action);
     }
 
     /**
@@ -2445,5 +2404,30 @@ public class Exchange {
                 isMainnet());
 
         return postActionWithSignature(action, signature, nonce);
+    }
+
+    /**
+     * Set User Abstraction
+     *
+     * @param user             User address
+     * @param abstractionType  Abstraction level
+     * @param signatureChainId Optional EIP-712 chain ID in hexadecimal format for wallet signing context
+     * @return JSON response
+     */
+    public UserSetAbstraction userSetAbstraction(String user, AbstractionType abstractionType, String signatureChainId) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        long nonce = Signing.getTimestampMs();
+        action.put("type", "userSetAbstraction");
+        action.put("user", user == null ? null : user.toLowerCase());
+        action.put("abstraction", abstractionType.getValue());
+        action.put("nonce", nonce);
+
+        Map<String, Object> signature = Signing.signUserSetAbstractionAction(
+                apiWallet.getCredentials(),
+                action,
+                signatureChainId,
+                isMainnet());
+        JsonNode jsonNode = postActionWithSignature(action, signature, nonce);
+        return JSONUtil.convertValue(jsonNode, UserSetAbstraction.class);
     }
 }

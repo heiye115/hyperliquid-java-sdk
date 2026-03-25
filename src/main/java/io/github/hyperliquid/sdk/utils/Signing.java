@@ -24,6 +24,113 @@ import java.util.*;
  */
 public final class Signing {
 
+    private static final String MAINNET_USER_SIGNATURE_CHAIN_ID = "0xa4b1";
+    private static final String TESTNET_USER_SIGNATURE_CHAIN_ID = "0x66eee";
+    private static final String TYPE_USER_DEX_ABSTRACTION = "userDexAbstraction";
+    private static final String TYPE_USD_SEND = "usdSend";
+    private static final String TYPE_SPOT_SEND = "spotSend";
+    private static final String TYPE_WITHDRAW = "withdraw3";
+    private static final String TYPE_USD_CLASS_TRANSFER = "usdClassTransfer";
+    private static final String TYPE_SEND_ASSET = "sendAsset";
+    private static final String TYPE_APPROVE_BUILDER_FEE = "approveBuilderFee";
+    private static final String TYPE_SET_REFERRER = "setReferrer";
+    private static final String TYPE_TOKEN_DELEGATE = "tokenDelegate";
+    private static final String TYPE_CONVERT_TO_MULTI_SIG_USER = "convertToMultiSigUser";
+    private static final String TYPE_APPROVE_AGENT = "approveAgent";
+    private static final String TYPE_USER_SET_ABSTRACTION = "userSetAbstraction";
+
+    private static final String USER_DEX_ABSTRACTION_PRIMARY_TYPE = "HyperliquidTransaction:UserDexAbstraction";
+    private static final String USD_SEND_PRIMARY_TYPE = "HyperliquidTransaction:UsdSend";
+    private static final String SPOT_SEND_PRIMARY_TYPE = "HyperliquidTransaction:SpotSend";
+    private static final String WITHDRAW_PRIMARY_TYPE = "HyperliquidTransaction:Withdraw";
+    private static final String USD_CLASS_TRANSFER_PRIMARY_TYPE = "HyperliquidTransaction:UsdClassTransfer";
+    private static final String SEND_ASSET_PRIMARY_TYPE = "HyperliquidTransaction:SendAsset";
+    private static final String APPROVE_BUILDER_FEE_PRIMARY_TYPE = "HyperliquidTransaction:ApproveBuilderFee";
+    private static final String SET_REFERRER_PRIMARY_TYPE = "HyperliquidTransaction:SetReferrer";
+    private static final String TOKEN_DELEGATE_PRIMARY_TYPE = "HyperliquidTransaction:TokenDelegate";
+    private static final String CONVERT_TO_MULTI_SIG_USER_PRIMARY_TYPE = "HyperliquidTransaction:ConvertToMultiSigUser";
+    private static final String APPROVE_AGENT_PRIMARY_TYPE = "HyperliquidTransaction:ApproveAgent";
+    private static final String USER_SET_ABSTRACTION_PRIMARY_TYPE = "HyperliquidTransaction:UserSetAbstraction";
+
+    private static final List<Map<String, Object>> USER_DEX_ABSTRACTION_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "user", "type", "address"),
+            Map.of("name", "enabled", "type", "bool"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> USD_SEND_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "destination", "type", "string"),
+            Map.of("name", "amount", "type", "string"),
+            Map.of("name", "time", "type", "uint64"));
+    private static final List<Map<String, Object>> SPOT_SEND_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "destination", "type", "string"),
+            Map.of("name", "token", "type", "string"),
+            Map.of("name", "amount", "type", "string"),
+            Map.of("name", "time", "type", "uint64"));
+    private static final List<Map<String, Object>> WITHDRAW_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "destination", "type", "string"),
+            Map.of("name", "amount", "type", "string"),
+            Map.of("name", "time", "type", "uint64"));
+    private static final List<Map<String, Object>> USD_CLASS_TRANSFER_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "amount", "type", "string"),
+            Map.of("name", "toPerp", "type", "bool"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> SEND_ASSET_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "destination", "type", "string"),
+            Map.of("name", "sourceDex", "type", "string"),
+            Map.of("name", "destinationDex", "type", "string"),
+            Map.of("name", "token", "type", "string"),
+            Map.of("name", "amount", "type", "string"),
+            Map.of("name", "fromSubAccount", "type", "string"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> APPROVE_BUILDER_FEE_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "maxFeeRate", "type", "string"),
+            Map.of("name", "builder", "type", "address"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> SET_REFERRER_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "code", "type", "string"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> TOKEN_DELEGATE_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "validator", "type", "address"),
+            Map.of("name", "wei", "type", "uint64"),
+            Map.of("name", "isUndelegate", "type", "bool"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> CONVERT_TO_MULTI_SIG_USER_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "signers", "type", "string"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> APPROVE_AGENT_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "agentAddress", "type", "address"),
+            Map.of("name", "agentName", "type", "string"),
+            Map.of("name", "nonce", "type", "uint64"));
+    private static final List<Map<String, Object>> USER_SET_ABSTRACTION_SIGN_TYPES = List.of(
+            Map.of("name", "hyperliquidChain", "type", "string"),
+            Map.of("name", "user", "type", "address"),
+            Map.of("name", "abstraction", "type", "string"),
+            Map.of("name", "nonce", "type", "uint64"));
+
+    private static final Map<String, UserSignedActionSpec> USER_SIGNED_ACTION_SPECS = Map.ofEntries(
+            Map.entry(TYPE_USER_DEX_ABSTRACTION, new UserSignedActionSpec(USER_DEX_ABSTRACTION_PRIMARY_TYPE, USER_DEX_ABSTRACTION_SIGN_TYPES)),
+            Map.entry(TYPE_USD_SEND, new UserSignedActionSpec(USD_SEND_PRIMARY_TYPE, USD_SEND_SIGN_TYPES)),
+            Map.entry(TYPE_SPOT_SEND, new UserSignedActionSpec(SPOT_SEND_PRIMARY_TYPE, SPOT_SEND_SIGN_TYPES)),
+            Map.entry(TYPE_WITHDRAW, new UserSignedActionSpec(WITHDRAW_PRIMARY_TYPE, WITHDRAW_SIGN_TYPES)),
+            Map.entry(TYPE_USD_CLASS_TRANSFER, new UserSignedActionSpec(USD_CLASS_TRANSFER_PRIMARY_TYPE, USD_CLASS_TRANSFER_SIGN_TYPES)),
+            Map.entry(TYPE_SEND_ASSET, new UserSignedActionSpec(SEND_ASSET_PRIMARY_TYPE, SEND_ASSET_SIGN_TYPES)),
+            Map.entry(TYPE_APPROVE_BUILDER_FEE, new UserSignedActionSpec(APPROVE_BUILDER_FEE_PRIMARY_TYPE, APPROVE_BUILDER_FEE_SIGN_TYPES)),
+            Map.entry(TYPE_SET_REFERRER, new UserSignedActionSpec(SET_REFERRER_PRIMARY_TYPE, SET_REFERRER_SIGN_TYPES)),
+            Map.entry(TYPE_TOKEN_DELEGATE, new UserSignedActionSpec(TOKEN_DELEGATE_PRIMARY_TYPE, TOKEN_DELEGATE_SIGN_TYPES)),
+            Map.entry(TYPE_CONVERT_TO_MULTI_SIG_USER, new UserSignedActionSpec(CONVERT_TO_MULTI_SIG_USER_PRIMARY_TYPE, CONVERT_TO_MULTI_SIG_USER_SIGN_TYPES)),
+            Map.entry(TYPE_APPROVE_AGENT, new UserSignedActionSpec(APPROVE_AGENT_PRIMARY_TYPE, APPROVE_AGENT_SIGN_TYPES)),
+            Map.entry(TYPE_USER_SET_ABSTRACTION, new UserSignedActionSpec(USER_SET_ABSTRACTION_PRIMARY_TYPE, USER_SET_ABSTRACTION_SIGN_TYPES)));
+
     /**
      * Address length strict mode switch:
      * - true (default): addressToBytes will strictly require address to be 20 bytes (40 hexadecimal characters), otherwise throw
@@ -518,7 +625,10 @@ public final class Signing {
     /**
      * Sign user-signed action (consistent with Python sign_user_signed_action).
      * Rules:
-     * - Automatically set signatureChainId (0x66eee) and hyperliquidChain (based on isMainnet).
+     * - Prefer action.signatureChainId when provided by caller.
+     * - If missing/blank, automatically set signatureChainId by network:
+     * mainnet=0xa4b1, testnet=0x66eee.
+     * - Automatically set hyperliquidChain based on isMainnet.
      * - Use userSignedPayloadJson to construct EIP-712 TypedData and sign it.
      *
      * @param credentials  User credentials
@@ -533,10 +643,61 @@ public final class Signing {
                                                            List<Map<String, Object>> payloadTypes,
                                                            String primaryType,
                                                            boolean isMainnet) {
-        action.put("signatureChainId", "0x66eee");
-        action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
+        enrichUserSignedActionMetadata(action, isMainnet);
         String typedJson = userSignedPayloadJson(primaryType, payloadTypes, action);
         return signTypedData(credentials, typedJson);
+    }
+
+    public static Map<String, Object> signKnownUserSignedAction(Credentials credentials,
+                                                                 Map<String, Object> action,
+                                                                 boolean isMainnet) {
+        if (action == null) {
+            throw new HypeError("Action cannot be null.");
+        }
+        String actionType = String.valueOf(action.getOrDefault("type", ""));
+        UserSignedActionSpec spec = USER_SIGNED_ACTION_SPECS.get(actionType);
+        if (spec == null) {
+            throw new HypeError("Unsupported user-signed action type: " + actionType);
+        }
+        return signUserSignedAction(
+                credentials,
+                action,
+                spec.payloadTypes(),
+                spec.primaryType(),
+                isMainnet);
+    }
+
+    public static boolean supportsUserSignedActionType(String actionType) {
+        return USER_SIGNED_ACTION_SPECS.containsKey(actionType);
+    }
+
+    public static Map<String, Object> signUserSetAbstractionAction(Credentials credentials,
+                                                                   Map<String, Object> action,
+                                                                   String signatureChainId,
+                                                                   boolean isMainnet) {
+        if (signatureChainId != null && !signatureChainId.trim().isEmpty()) {
+            action.put("signatureChainId", signatureChainId);
+        }
+        return signUserSignedAction(
+                credentials,
+                action,
+                USER_SET_ABSTRACTION_SIGN_TYPES,
+                USER_SET_ABSTRACTION_PRIMARY_TYPE,
+                isMainnet);
+    }
+
+    private static void enrichUserSignedActionMetadata(Map<String, Object> action,
+                                                       boolean isMainnet) {
+        Object signatureChainId = action.get("signatureChainId");
+        if (signatureChainId == null || String.valueOf(signatureChainId).trim().isEmpty()) {
+            action.put("signatureChainId", isMainnet
+                    ? MAINNET_USER_SIGNATURE_CHAIN_ID
+                    : TESTNET_USER_SIGNATURE_CHAIN_ID);
+        }
+        action.put("hyperliquidChain", isMainnet ? "Mainnet" : "Testnet");
+    }
+
+    private record UserSignedActionSpec(String primaryType, List<Map<String, Object>> payloadTypes) {
     }
 
     /**

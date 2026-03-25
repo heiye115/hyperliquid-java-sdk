@@ -44,84 +44,66 @@ implementation 'io.github.heiye115:hyperliquid-java-sdk:0.2.15' // Replace with 
 
 ## ⚡ 5-Minute Quick Start
 
-Get up and running in minutes with this complete, runnable example.
+Use this section as two progressive steps: start with read-only market queries, then add a wallet when you need trading.
 
-**Prerequisites:**
-
-1. Have a Hyperliquid account. For this example, use the **Testnet**.
-2. Obtain your wallet's private key.
-3. **IMPORTANT:** Store your private key securely. The recommended way is to use an environment variable.
-
-```bash
-export HYPERLIQUID_TESTNET_PRIVATE_KEY="0xYourPrivateKey"
-```
-
-### Runnable Example
-
-This example demonstrates how to:
-
-1. Build the client.
-2. Query market data (`l2Book`).
-3. Place a limit order (`order`).
-4. Handle potential API errors (`HypeError`).
+### Step 1: Minimal Read-Only Example (No Private Key Required)
 
 ```java
-public class QuickStart {
+public class QuickStartReadOnly {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuickStart.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuickStartReadOnly.class);
 
     public static void main(String[] args) {
-        // 1. Recommended: Use API Wallet for better security
-        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
-        String primaryWalletAddress = "";  // Primary wallet address
-        String apiWalletPrivateKey = "";   // API wallet private key
-
-        // 2. Build the client for the testnet
         HyperliquidClient client = HyperliquidClient.builder()
-                .testNetUrl() // Use the testnet environment
-                .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
-                .build();
+                .build(); // Defaults to mainnet
 
         Info info = client.getInfo();
-        Exchange exchange = client.getExchange(); // Get the exchange instance for the added wallet
-
-        // 3. Query market data: Get the L2 book for "ETH"
-        try {
-            LOGGER.info("Querying L2 book for ETH...");
-            L2Book l2Book = info.l2Book("ETH");
-            // Print the top 3 levels of bids and asks
-            LOGGER.info("Successfully retrieved L2 book for {}:", l2Book.getCoin());
-            l2Book.getLevels().get(0).subList(0, 3).forEach(level ->
-                    LOGGER.info("  Ask - Price: {}, Size: {}", level.getPx(), level.getSz())
-            );
-            l2Book.getLevels().get(1).subList(0, 3).forEach(level ->
-                    LOGGER.info("  Bid - Price: {}, Size: {}", level.getPx(), level.getSz())
-            );
-        } catch (HypeError e) {
-            LOGGER.error("Failed to query L2 book.  Message: {}", e.getMessage());
-        }
-
-        // 4. Execute a trade: Create a limit buy order for ETH
-        try {
-            LOGGER.info("Placing a limit buy order for ETH...");
-            // Create a limit buy order for 0.01 ETH at a price of $1500
-            OrderRequest orderRequest = OrderRequest.builder()
-                    .perp("ETH") // Perpetual contract for ETH
-                    .buy("0.01") // Buying 0.01 ETH
-                    .limitPrice("1500") // Limit price for the order
-                    .gtc() // Good Till Cancel (GTC) order
-                    .build();
-
-            Order order = exchange.order(orderRequest);
-            LOGGER.info("Order placed successfully. Response: {}", JSONUtil.writeValueAsString(order));
-
-        } catch (HypeError | JsonProcessingException e) {
-            // Example of handling a specific error, e.g., insufficient margin
-            LOGGER.error("Order placement failed. Message: {}",  e.getMessage(), e);
-        }
+        L2Book l2Book = info.l2Book("ETH");
+        LOGGER.info("Top ask: {}", l2Book.getLevels().get(0).get(0));
+        LOGGER.info("Top bid: {}", l2Book.getLevels().get(1).get(0));
     }
 }
 ```
+
+### Step 2: Minimal Trading Example
+
+**Prerequisites:**
+
+1. By default, the client connects to mainnet.
+2. If you want testnet, call `.testNetUrl()` in the builder.
+3. Prepare your private key (main wallet or API wallet key).
+4. Store the key in an environment variable.
+
+```bash
+export HYPERLIQUID_PRIVATE_KEY="0xYourPrivateKey"
+```
+
+```java
+public class QuickStartTrade {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(QuickStartTrade.class);
+
+    public static void main(String[] args) {
+        String privateKey = System.getenv("HYPERLIQUID_PRIVATE_KEY");
+        HyperliquidClient client = HyperliquidClient.builder()
+                .addPrivateKey(privateKey)
+                .build();
+
+        Exchange exchange = client.getExchange();
+        OrderRequest request = OrderRequest.builder()
+                .perp("ETH")
+                .buy("0.01")
+                .limitPrice("1500")
+                .gtc()
+                .build();
+
+        Order order = exchange.order(request);
+        LOGGER.info("Order response: {}", JSONUtil.writeValueAsString(order));
+    }
+}
+```
+
+For more complete scenarios, check the runnable classes under `examples/`.
 
 ## 📚 Core Features Guide
 
@@ -132,8 +114,10 @@ The `HyperliquidClient.builder()` provides a fluent API for configuration.
 ```java
 // Full configuration example
 HyperliquidClient client = HyperliquidClient.builder()
-        // Select network (or provide a custom URL)
-        .testNetUrl() // or .baseUrl("https://api.hyperliquid.xyz")
+        // Network selection
+        // Default is mainnet, no extra configuration required
+        // .testNetUrl() // Enable this line for testnet
+        // or .baseUrl("https://api.hyperliquid.xyz")
 
         // --- Wallet Management ---
         // Option 1: Add a single main private key
@@ -142,7 +126,7 @@ HyperliquidClient client = HyperliquidClient.builder()
         // Option 2: Add multiple API Wallets (recommended for security)
         // An API wallet is a sub-wallet authorized by your main wallet.
         .addApiWallet("0xYourMainAddress1", "0xYourApiPrivateKey1")
-        .addApiWallet("0xYourMainAddress2", "0xYourApiPrivateKey2")
+        .addApiWallet("bot-2", "0xYourMainAddress2", "0xYourApiPrivateKey2")
 
         // --- Performance ---
         // Cache warm-up is enabled by default; disable only when startup latency is critical
@@ -159,7 +143,7 @@ HyperliquidClient client = HyperliquidClient.builder()
 
 // Accessing exchange instances for different wallets
 Exchange exchange1 = client.getExchange("0xYourMainAddress1");
-Exchange exchange2 = client.getExchange("0xYourMainAddress2");
+Exchange exchange2 = client.getExchange("bot-2");
 ```
 
 ### Querying Data (`Info` API)
@@ -169,8 +153,8 @@ The `Info` API provides access to all public market data and private user data.
 **Get User State:**
 
 ```java
-UserState userState = info.userState("0xYourAddress");
-LOGGER.info("Total margin usage: {}", userState.getMarginSummary().getTotalMarginUsed());
+ClearinghouseState userState = info.userState("0xYourAddress");
+LOGGER.info("Withdrawable: {}", userState.getWithdrawable());
 ```
 
 **Get Open Orders:**
@@ -223,7 +207,7 @@ Place multiple orders in a single atomic request.
 
 ```java
 List<OrderRequest> orders = List.of(slOrder, tpOrder);
-JsonNode bulkResponse = exchange.bulkOrders(orders);
+BulkOrder bulkResponse = exchange.bulkOrders(orders);
 ```
 
 **Modify an Order:**
@@ -239,13 +223,13 @@ ModifyOrder result = exchange.modifyOrder(req);
 
 ```java
 // Assumes 'oid' is the ID of an open order
-JsonNode cancelResponse = exchange.cancel("ETH", oid);
+Cancel cancelResponse = exchange.cancel("ETH", oid);
 ```
 
 **Update Leverage:**
 
 ```java
-UpdateLeverage leverageResponse = exchange.updateLeverage("ETH", 20, false); // 20x leverage, non-cross-margin
+UpdateLeverage leverageResponse = exchange.updateLeverage("ETH", false, 20); // 20x leverage, isolated margin
 ```
 
 ### Real-time Data (WebSocket)
@@ -255,7 +239,7 @@ Subscribe to real-time data streams. The `WebsocketManager` handles connection s
 ```java
 // Define a subscription for order updates events
 OrderUpdatesSubscription orderUpdatesSubscription = OrderUpdatesSubscription.of("0x....");
-// Subscribe with a message handler and an error handler
+// Subscribe with a message callback
 info.subscribe(orderUpdatesSubscription,
     // OnMessage callback
     (message) -> {
@@ -276,10 +260,12 @@ All SDK-specific errors are thrown as `HypeError`. This includes API errors from
 try {
     // Some exchange operation
 } catch (HypeError e) {
-    LOGGER.error("An error occurred. Code: [{}], Message: [{}]", e.getCode(), e.getMessage());
-    // You can also access the original JSON error response if available
-    if (e.getJsonNode() != null) {
-        LOGGER.error("Raw error response: {}", e.getJsonNode().toString());
+    if (e instanceof HypeError.ClientHypeError ce) {
+        LOGGER.error("Client error (status={}): {}", ce.getStatusCode(), ce.getMessage());
+    } else if (e instanceof HypeError.ServerHypeError se) {
+        LOGGER.error("Server error (status={}): {}", se.getStatusCode(), se.getMessage());
+    } else {
+        LOGGER.error("SDK error: {}", e.getMessage());
     }
 }
 ```

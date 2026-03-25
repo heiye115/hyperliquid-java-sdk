@@ -1,4 +1,4 @@
-package io.github.hyperliquid.sdk.examples.exchange;
+package io.github.hyperliquid.sdk.examples.exchange.orders;
 
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;

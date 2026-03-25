@@ -1,4 +1,4 @@
-package io.github.hyperliquid.sdk.examples.exchange;
+package io.github.hyperliquid.sdk.examples.exchange.orders;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.github.hyperliquid.sdk.HyperliquidClient;

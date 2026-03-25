@@ -1,0 +1,64 @@
+package io.github.hyperliquid.sdk.examples.exchange.orders;
+
+import io.github.hyperliquid.sdk.HyperliquidClient;
+import io.github.hyperliquid.sdk.apis.Exchange;
+import io.github.hyperliquid.sdk.model.order.Order;
+import io.github.hyperliquid.sdk.model.order.OrderRequest;
+import io.github.hyperliquid.sdk.model.order.Tif;
+import io.github.hyperliquid.sdk.utils.HypeError;
+
+/**
+ * Limit Order Open Example: Demonstrates how to open a position with limit orders
+ * <p>
+ * Limit Order Features:
+ * 1. Executes at specified price
+ * 2. Supports multiple TIF strategies (GTC, IOC, ALO)
+ * 3. Provides precise price control
+ * </p>
+ */
+public class LimitOpenExample {
+    public static void main(String[] args) {
+        // Recommended: Use API Wallet for better security
+        // API Wallet: Sub-wallet authorized by main wallet, with limited permissions, main private key not exposed
+        // Main Private Key: Direct use of main wallet private key, full control, higher risk
+        String primaryWalletAddress = System.getenv("PRIMARY_WALLET_ADDRESS");  // Primary wallet address
+        String apiWalletPrivateKey = System.getenv("API_WALLET_PRIVATE_KEY");   // API wallet private key
+        if (primaryWalletAddress == null || apiWalletPrivateKey == null)
+            throw new IllegalStateException("Set PRIMARY_WALLET_ADDRESS and API_WALLET_PRIVATE_KEY");
+
+        // Build client with API Wallet (Recommended)
+        HyperliquidClient client = HyperliquidClient.builder()
+                .testNetUrl()
+                .addApiWallet(primaryWalletAddress, apiWalletPrivateKey)
+                .build();
+
+        Exchange ex = client.getExchange();
+
+        // Example 1: Open long position with limit order (GTC - Good Till Cancel)
+        OrderRequest gtcReq = OrderRequest.Open.limit(Tif.GTC, "ETH", true, "0.01", "1800.0");
+        try {
+            Order order = ex.order(gtcReq);
+            System.out.println("GTC limit order status: " + order.getStatus());
+        } catch (HypeError e) {
+            System.err.println("GTC limit order failed: " + e.getMessage());
+        }
+
+        // Example 2: Open long position with limit order (IOC - Immediate Or Cancel)
+        OrderRequest iocReq = OrderRequest.Open.limit(Tif.IOC, "ETH", true, "0.01", "1800.0");
+        try {
+            Order order = ex.order(iocReq);
+            System.out.println("IOC limit order status: " + order.getStatus());
+        } catch (HypeError e) {
+            System.err.println("IOC limit order failed: " + e.getMessage());
+        }
+
+        // Example 3: Open long position with limit order (ALO - Add Liquidity Only)
+        OrderRequest aloReq = OrderRequest.Open.limit(Tif.ALO, "ETH", true, "0.01", "1800.0");
+        try {
+            Order order = ex.order(aloReq);
+            System.out.println("ALO limit order status: " + order.getStatus());
+        } catch (HypeError e) {
+            System.err.println("ALO limit order failed: " + e.getMessage());
+        }
+    }
+}
