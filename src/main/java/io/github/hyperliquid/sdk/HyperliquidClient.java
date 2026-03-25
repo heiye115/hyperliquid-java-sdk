@@ -117,12 +117,10 @@ public class HyperliquidClient {
      * @throws HypeError If alias is blank or does not exist
      */
     public synchronized Exchange getExchange(String alias) {
-        if (alias == null || alias.trim().isEmpty()) {
-            throw new HypeError("Wallet alias cannot be null or empty.");
-        }
-        Exchange ex = exchangesByAlias.get(alias);
+        String normalizedAlias = requireCanonicalAlias(alias);
+        Exchange ex = exchangesByAlias.get(normalizedAlias);
         if (ex == null) {
-            String availableAliases = String.join(", ", exchangesByAlias.keySet());
+            String availableAliases = buildAvailableAliases(exchangesByAlias.keySet());
             throw new HypeError(String.format("Wallet alias '%s' not found. Available aliases: [%s]", alias, availableAliases));
         }
         return ex;
@@ -136,7 +134,10 @@ public class HyperliquidClient {
      * @return true if the alias exists; false otherwise
      */
     public synchronized boolean hasWallet(String alias) {
-        return alias != null && exchangesByAlias.containsKey(alias);
+        if (alias == null || alias.trim().isEmpty()) {
+            return false;
+        }
+        return exchangesByAlias.containsKey(canonicalizeAlias(alias));
     }
 
     /**
@@ -172,6 +173,9 @@ public class HyperliquidClient {
 
     /**
      * Adds an API wallet after client construction.
+     * <p>
+     * Duplicate wallets are ignored to keep registration idempotent.
+     * </p>
      *
      * @param apiWallet API wallet
      * @return Current client instance for fluent chaining
@@ -184,6 +188,9 @@ public class HyperliquidClient {
 
     /**
      * Adds an API wallet after client construction.
+     * <p>
+     * Duplicate wallets are ignored to keep registration idempotent.
+     * </p>
      *
      * @param primaryWalletAddress Primary wallet address
      * @param apiWalletPrivateKey  API wallet private key
@@ -197,6 +204,9 @@ public class HyperliquidClient {
 
     /**
      * Adds an API wallet with an explicit alias after client construction.
+     * <p>
+     * Duplicate wallets are ignored to keep registration idempotent.
+     * </p>
      *
      * @param alias                Wallet alias
      * @param primaryWalletAddress Primary wallet address
@@ -212,6 +222,9 @@ public class HyperliquidClient {
 
     /**
      * Adds a private key after client construction.
+     * <p>
+     * Duplicate wallets are ignored to keep registration idempotent.
+     * </p>
      *
      * @param privateKey Private key
      * @return Current client instance for fluent chaining
@@ -224,6 +237,9 @@ public class HyperliquidClient {
 
     /**
      * Adds a private key with an explicit alias after client construction.
+     * <p>
+     * Duplicate wallets are ignored to keep registration idempotent.
+     * </p>
      *
      * @param alias      Wallet alias
      * @param privateKey Private key
@@ -235,10 +251,97 @@ public class HyperliquidClient {
         return this;
     }
 
+    /**
+     * Removes a wallet by alias after client construction.
+     *
+     * @param alias Wallet alias
+     * @return Current client instance for fluent chaining
+     * @throws HypeError If alias is blank or does not exist
+     */
+    public synchronized HyperliquidClient removeWallet(String alias) {
+        String normalizedAlias = requireCanonicalAlias(alias);
+        Exchange removedExchange = exchangesByAlias.remove(normalizedAlias);
+        if (removedExchange == null) {
+            String availableAliases = buildAvailableAliases(exchangesByAlias.keySet());
+            throw new HypeError(String.format("Wallet alias '%s' not found. Available aliases: [%s]", alias, availableAliases));
+        }
+        apiWallets.removeIf(wallet -> normalizedAlias.equals(wallet.getAlias()));
+        return this;
+    }
+
+    /**
+     * Removes a wallet by alias after client construction if it exists.
+     *
+     * @param alias Wallet alias
+     * @return true if one wallet is removed; false if no matching alias exists
+     * @throws HypeError If alias is blank
+     */
+    public synchronized boolean removeWalletIfExists(String alias) {
+        String normalizedAlias = requireCanonicalAlias(alias);
+        Exchange removedExchange = exchangesByAlias.remove(normalizedAlias);
+        if (removedExchange == null) {
+            return false;
+        }
+        apiWallets.removeIf(wallet -> normalizedAlias.equals(wallet.getAlias()));
+        return true;
+    }
+
     private void addApiWalletInternal(ApiWallet apiWallet) {
         ApiWallet normalizedWallet = normalizeApiWallet(apiWallet);
+        if (hasDuplicateWallet(apiWallets, normalizedWallet)) {
+            return;
+        }
         exchangesByAlias.put(normalizedWallet.getAlias(), new Exchange(hypeHttpClient, normalizedWallet, info));
         apiWallets.add(normalizedWallet);
+    }
+
+    private static boolean hasDuplicateWallet(List<ApiWallet> existingWallets, ApiWallet walletToAdd) {
+        for (ApiWallet existingWallet : existingWallets) {
+            if (isSameWalletIdentity(existingWallet, walletToAdd)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSameWalletIdentity(ApiWallet left, ApiWallet right) {
+        return Objects.equals(left.getAlias(), right.getAlias())
+                || Objects.equals(left.getPrimaryWalletAddress(), right.getPrimaryWalletAddress())
+                || normalizePrivateKey(left.getApiWalletPrivateKey()).equals(normalizePrivateKey(right.getApiWalletPrivateKey()));
+    }
+
+    private static String normalizePrivateKey(String privateKey) {
+        if (privateKey == null) {
+            return "";
+        }
+        String normalizedKey = privateKey.startsWith("0x") ? privateKey.substring(2) : privateKey;
+        return normalizedKey.toLowerCase(Locale.ROOT);
+    }
+
+    private static String canonicalizeAlias(String alias) {
+        return alias.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String requireCanonicalAlias(String alias) {
+        if (alias == null || alias.trim().isEmpty()) {
+            throw new HypeError("Wallet alias cannot be null or empty.");
+        }
+        return canonicalizeAlias(alias);
+    }
+
+    private static String canonicalizeAddress(String address) {
+        if (address == null) {
+            return null;
+        }
+        String trimmedAddress = address.trim();
+        if (trimmedAddress.isEmpty()) {
+            return null;
+        }
+        return trimmedAddress.toLowerCase(Locale.ROOT);
+    }
+
+    private static String buildAvailableAliases(Set<String> aliases) {
+        return aliases.stream().sorted().collect(Collectors.joining(", "));
     }
 
     private static ApiWallet normalizeApiWallet(ApiWallet apiWallet) {
@@ -248,11 +351,15 @@ public class HyperliquidClient {
         validatePrivateKey(apiWallet.getApiWalletPrivateKey());
         Credentials credentials = Credentials.create(apiWallet.getApiWalletPrivateKey());
         apiWallet.setCredentials(credentials);
-        if (apiWallet.getPrimaryWalletAddress() == null || apiWallet.getPrimaryWalletAddress().trim().isEmpty()) {
-            apiWallet.setPrimaryWalletAddress(credentials.getAddress());
+        String normalizedPrimaryAddress = canonicalizeAddress(apiWallet.getPrimaryWalletAddress());
+        if (normalizedPrimaryAddress == null) {
+            normalizedPrimaryAddress = canonicalizeAddress(credentials.getAddress());
         }
+        apiWallet.setPrimaryWalletAddress(normalizedPrimaryAddress);
         if (apiWallet.getAlias() == null || apiWallet.getAlias().trim().isEmpty()) {
-            apiWallet.setAlias(apiWallet.getPrimaryWalletAddress());
+            apiWallet.setAlias(canonicalizeAlias(normalizedPrimaryAddress));
+        } else {
+            apiWallet.setAlias(canonicalizeAlias(apiWallet.getAlias()));
         }
         return apiWallet;
     }
@@ -516,6 +623,9 @@ public class HyperliquidClient {
             List<ApiWallet> builtApiWallets = new ArrayList<>();
             for (ApiWallet apiWallet : apiWallets) {
                 ApiWallet normalizedWallet = normalizeApiWallet(apiWallet);
+                if (hasDuplicateWallet(builtApiWallets, normalizedWallet)) {
+                    continue;
+                }
                 exchangesByAlias.put(normalizedWallet.getAlias(), new Exchange(hypeHttpClient, normalizedWallet, info));
                 builtApiWallets.add(normalizedWallet);
             }
