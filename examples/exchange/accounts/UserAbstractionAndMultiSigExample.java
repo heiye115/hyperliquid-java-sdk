@@ -3,7 +3,7 @@ package io.github.hyperliquid.sdk.examples.exchange.accounts;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.apis.Info;
-import io.github.hyperliquid.sdk.model.userabstraction.AbstractionType;
+import io.github.hyperliquid.sdk.model.userabstraction.UserAbstractionMode;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,7 +37,7 @@ public class UserAbstractionAndMultiSigExample {
 
         // Enable dex abstraction and set the preferred abstraction mode.
         System.out.println(exchange.userDexAbstraction(user, true));
-        System.out.println(exchange.userSetAbstraction(user, AbstractionType.UNIFIED_ACCOUNT, null));
+        System.out.println(exchange.userSetAbstraction(user, UserAbstractionMode.UNIFIED_ACCOUNT, null));
         System.out.println(info.userAbstraction(user));
 
         // Build a minimal inner action and send a multi-sig envelope.

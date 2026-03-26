@@ -5,7 +5,7 @@ import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import io.github.hyperliquid.sdk.model.order.*;
-import io.github.hyperliquid.sdk.model.userabstraction.AbstractionType;
+import io.github.hyperliquid.sdk.model.userabstraction.UserAbstractionMode;
 import io.github.hyperliquid.sdk.model.userabstraction.UserSetAbstraction;
 import io.github.hyperliquid.sdk.model.wallet.ApiWallet;
 import io.github.hyperliquid.sdk.utils.*;
@@ -2409,17 +2409,17 @@ public class Exchange {
     /**
      * Set User Abstraction
      *
-     * @param user             User address
-     * @param abstractionType  Abstraction level
-     * @param signatureChainId Optional EIP-712 chain ID in hexadecimal format for wallet signing context
+     * @param user                User address
+     * @param userAbstractionMode Abstraction level
+     * @param signatureChainId    Optional EIP-712 chain ID in hexadecimal format for wallet signing context
      * @return JSON response
      */
-    public UserSetAbstraction userSetAbstraction(String user, AbstractionType abstractionType, String signatureChainId) {
+    public UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode userAbstractionMode, String signatureChainId) {
         Map<String, Object> action = new LinkedHashMap<>();
         long nonce = Signing.getTimestampMs();
         action.put("type", "userSetAbstraction");
         action.put("user", user == null ? null : user.toLowerCase());
-        action.put("abstraction", abstractionType.getValue());
+        action.put("abstraction", userAbstractionMode.getValue());
         action.put("nonce", nonce);
 
         Map<String, Object> signature = Signing.signUserSetAbstractionAction(

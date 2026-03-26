@@ -1,6 +1,6 @@
 package io.github.hyperliquid.sdk.model.userabstraction;
 
-public enum AbstractionType {
+public enum UserAbstractionMode {
 
 
     DISABLED("disabled"),
@@ -9,7 +9,7 @@ public enum AbstractionType {
 
     private final String value;
 
-    AbstractionType(String value) {
+    UserAbstractionMode(String value) {
         this.value = value;
     }
 

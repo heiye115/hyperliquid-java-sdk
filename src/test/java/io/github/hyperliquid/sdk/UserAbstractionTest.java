@@ -1,7 +1,7 @@
 package io.github.hyperliquid.sdk;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.github.hyperliquid.sdk.model.userabstraction.AbstractionType;
+import io.github.hyperliquid.sdk.model.userabstraction.UserAbstractionMode;
 import io.github.hyperliquid.sdk.model.userabstraction.UserSetAbstraction;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ public class UserAbstractionTest {
      **/
     @Test
     public void userSetAbstraction() throws JsonProcessingException {
-        UserSetAbstraction abstraction = client.getExchange().userSetAbstraction("0x00000000000000000000000000000000", AbstractionType.UNIFIED_ACCOUNT, null);
+        UserSetAbstraction abstraction = client.getExchange().userSetAbstraction("0x00000000000000000000000000000000", UserAbstractionMode.UNIFIED_ACCOUNT, null);
         System.out.println(JSONUtil.writeValueAsString(abstraction));
     }
 }
