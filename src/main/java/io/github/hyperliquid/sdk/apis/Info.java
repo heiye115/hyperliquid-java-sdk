@@ -223,6 +223,22 @@ public class Info {
                 + ":" + coin + "'.");
     }
 
+    /**
+     * Perform strict symbol matching for dex-qualified resolution.
+     * <p>
+     * Matching rules:
+     * </p>
+     * <ul>
+     * <li>If universe symbol contains a dex prefix, it must exactly match
+     * {@code dex:coin}.</li>
+     * <li>If universe symbol has no prefix, it must exactly match {@code coin}.</li>
+     * </ul>
+     *
+     * @param universeName  Symbol value from the dex universe entry
+     * @param qualifiedCoin Input in {@code dex:coin} format
+     * @param coin          Input coin part without dex prefix
+     * @return true if strict matching succeeds; otherwise false
+     */
     private boolean matchesDexSymbol(String universeName, String qualifiedCoin, String coin) {
         int idx = universeName.indexOf(':');
         if (idx > 0 && idx < universeName.length() - 1) {
@@ -231,6 +247,22 @@ public class Info {
         return universeName.equalsIgnoreCase(coin);
     }
 
+    /**
+     * Build spot-derived asset mappings from spot meta.
+     * <p>
+     * This method populates:
+     * </p>
+     * <ul>
+     * <li>{@code coinToAssetCache} with spot names and base/quote aliases.</li>
+     * <li>{@code assetToSzDecimalsCache} with spot size precision from base token.</li>
+     * </ul>
+     * <p>
+     * It also records inserted keys/asset IDs to support safe cleanup during
+     * spot cache refresh.
+     * </p>
+     *
+     * @param spotMeta Spot metadata source
+     */
     private void buildSpotCoinMappingCache(SpotMeta spotMeta) {
         if (spotMeta == null || spotMeta.getUniverse() == null) {
             return;
@@ -278,6 +310,13 @@ public class Info {
         }
     }
 
+    /**
+     * Clear only spot-derived mappings from shared in-memory caches.
+     * <p>
+     * This method removes previously tracked spot keys and spot asset precision
+     * entries while preserving non-spot mappings.
+     * </p>
+     */
     private void clearSpotMappingCache() {
         for (String key : spotMappedCoinKeys) {
             coinToAssetCache.remove(key);
