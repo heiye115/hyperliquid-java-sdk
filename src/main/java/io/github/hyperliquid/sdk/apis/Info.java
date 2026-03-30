@@ -17,6 +17,7 @@ import io.github.hyperliquid.sdk.websocket.WebsocketManager;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -90,6 +91,16 @@ public class Info {
     private final Map<String, Integer> perpDexOffsetCache = new ConcurrentHashMap<>();
 
     /**
+     * Spot-specific coin keys written into coinToAssetCache.
+     */
+    private final Set<String> spotMappedCoinKeys = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Spot-specific asset IDs written into assetToSzDecimalsCache.
+     */
+    private final Set<Integer> spotMappedAssetIds = ConcurrentHashMap.newKeySet();
+
+    /**
      * Constructs an Info client using the default cache configuration.
      *
      * @param baseUrl        API base URL
@@ -131,7 +142,13 @@ public class Info {
         }
         this.spotMetaCache = spotMetaCacheBuilder.build();
 
-        this.allMidsCache = Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.SECONDS).build();
+        Caffeine<Object, Object> allMidsCacheBuilder = Caffeine.newBuilder()
+                .maximumSize(cacheConfig.getAllMidsCacheMaxSize())
+                .expireAfterWrite(1, TimeUnit.SECONDS);
+        if (cacheConfig.isRecordStats()) {
+            allMidsCacheBuilder.recordStats();
+        }
+        this.allMidsCache = allMidsCacheBuilder.build();
     }
 
     /**
@@ -223,14 +240,21 @@ public class Info {
             String coinName = u.getName();
             int assetId = 10000 + u.getIndex();
             if (coinName != null && !coinName.isBlank()) {
-                coinToAssetCache.putIfAbsent(coinName.toUpperCase(), assetId);
+                String key = coinName.toUpperCase();
+                Integer existing = coinToAssetCache.putIfAbsent(key, assetId);
+                if (existing == null) {
+                    spotMappedCoinKeys.add(key);
+                }
             }
             if (tokens != null && u.getTokens() != null && !u.getTokens().isEmpty()) {
                 Integer baseTokenIndex = u.getTokens().getFirst();
                 if (baseTokenIndex != null && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()) {
                     Integer szDecimals = tokens.get(baseTokenIndex).getSzDecimals();
                     if (szDecimals != null) {
-                        assetToSzDecimalsCache.putIfAbsent(assetId, szDecimals);
+                        Integer existing = assetToSzDecimalsCache.putIfAbsent(assetId, szDecimals);
+                        if (existing == null) {
+                            spotMappedAssetIds.add(assetId);
+                        }
                     }
                 }
                 if (u.getTokens().size() >= 2) {
@@ -242,12 +266,27 @@ public class Info {
                         String baseName = tokens.get(baseTokenIndex).getName();
                         String quoteName = tokens.get(quoteTokenIndex).getName();
                         if (baseName != null && quoteName != null) {
-                            coinToAssetCache.putIfAbsent((baseName + "/" + quoteName).toUpperCase(), assetId);
+                            String pairKey = (baseName + "/" + quoteName).toUpperCase();
+                            Integer existing = coinToAssetCache.putIfAbsent(pairKey, assetId);
+                            if (existing == null) {
+                                spotMappedCoinKeys.add(pairKey);
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private void clearSpotMappingCache() {
+        for (String key : spotMappedCoinKeys) {
+            coinToAssetCache.remove(key);
+        }
+        for (Integer assetId : spotMappedAssetIds) {
+            assetToSzDecimalsCache.remove(assetId);
+        }
+        spotMappedCoinKeys.clear();
+        spotMappedAssetIds.clear();
     }
 
     /**
@@ -664,14 +703,18 @@ public class Info {
      * @return Latest SpotMeta
      */
     public SpotMeta refreshSpotMetaCache() {
+        clearSpotMappingCache();
         spotMetaCache.invalidate("spotMeta");
-        return loadSpotMetaCache();
+        SpotMeta spotMeta = loadSpotMetaCache();
+        buildSpotCoinMappingCache(spotMeta);
+        return spotMeta;
     }
 
     /**
      * Clear all spotMeta caches.
      */
     public void clearSpotMetaCache() {
+        clearSpotMappingCache();
         spotMetaCache.invalidateAll();
     }
 
@@ -696,7 +739,7 @@ public class Info {
     public void warmUpCache() {
         loadMetaCache();
         // Preload default meta
-        loadSpotMetaCache();
+        buildSpotCoinMappingCache(loadSpotMetaCache());
         // Preload spotMeta
     }
 
@@ -718,7 +761,7 @@ public class Info {
         }
 
         // Preload spotMeta
-        loadSpotMetaCache();
+        buildSpotCoinMappingCache(loadSpotMetaCache());
     }
 
     /**

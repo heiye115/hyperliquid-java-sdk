@@ -16,6 +16,11 @@ public class CacheConfig {
     private int spotMetaCacheMaxSize = 10;
 
     /**
+     * allMids cache maximum capacity (default 64)
+     */
+    private int allMidsCacheMaxSize = 64;
+
+    /**
      * Cache expiration time (minutes, default 240 minutes)
      */
     private long expireAfterWriteMinutes = 240;
@@ -36,12 +41,15 @@ public class CacheConfig {
      *
      * @param metaCacheMaxSize        Meta cache maximum capacity
      * @param spotMetaCacheMaxSize    SpotMeta cache maximum capacity
+     * @param allMidsCacheMaxSize     allMids cache maximum capacity
      * @param expireAfterWriteMinutes Cache expiration time (minutes)
      * @param recordStats             Whether to enable cache statistics
      */
-    public CacheConfig(int metaCacheMaxSize, int spotMetaCacheMaxSize, long expireAfterWriteMinutes, boolean recordStats) {
+    public CacheConfig(int metaCacheMaxSize, int spotMetaCacheMaxSize, int allMidsCacheMaxSize,
+            long expireAfterWriteMinutes, boolean recordStats) {
         this.metaCacheMaxSize = metaCacheMaxSize;
         this.spotMetaCacheMaxSize = spotMetaCacheMaxSize;
+        this.allMidsCacheMaxSize = allMidsCacheMaxSize;
         this.expireAfterWriteMinutes = expireAfterWriteMinutes;
         this.recordStats = recordStats;
     }
@@ -101,6 +109,24 @@ public class CacheConfig {
     }
 
     /**
+     * Returns the maximum size of the allMids cache.
+     *
+     * @return allMids cache maximum size
+     */
+    public int getAllMidsCacheMaxSize() {
+        return allMidsCacheMaxSize;
+    }
+
+    /**
+     * Sets the maximum size of the allMids cache.
+     *
+     * @param allMidsCacheMaxSize allMids cache maximum size
+     */
+    public void setAllMidsCacheMaxSize(int allMidsCacheMaxSize) {
+        this.allMidsCacheMaxSize = allMidsCacheMaxSize;
+    }
+
+    /**
      * Returns cache expiration time in minutes.
      *
      * @return Expiration time in minutes
@@ -142,6 +168,7 @@ public class CacheConfig {
     public static class Builder {
         private int metaCacheMaxSize = 20;
         private int spotMetaCacheMaxSize = 10;
+        private int allMidsCacheMaxSize = 64;
         private long expireAfterWriteMinutes = 30;
         private boolean recordStats = true;
 
@@ -164,6 +191,17 @@ public class CacheConfig {
          */
         public Builder spotMetaCacheMaxSize(int maxSize) {
             this.spotMetaCacheMaxSize = maxSize;
+            return this;
+        }
+
+        /**
+         * Set allMids cache maximum capacity
+         *
+         * @param maxSize Maximum capacity
+         * @return Builder instance
+         */
+        public Builder allMidsCacheMaxSize(int maxSize) {
+            this.allMidsCacheMaxSize = maxSize;
             return this;
         }
 
@@ -195,7 +233,8 @@ public class CacheConfig {
          * @return CacheConfig instance
          */
         public CacheConfig build() {
-            return new CacheConfig(metaCacheMaxSize, spotMetaCacheMaxSize, expireAfterWriteMinutes, recordStats);
+            return new CacheConfig(metaCacheMaxSize, spotMetaCacheMaxSize, allMidsCacheMaxSize,
+                    expireAfterWriteMinutes, recordStats);
         }
     }
 }
