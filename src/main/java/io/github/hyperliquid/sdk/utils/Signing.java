@@ -274,6 +274,14 @@ public final class Signing {
         return orderRequestToOrderWire(coinId, req.isBuy(), req.getSz(), req.getLimitPx(), req.getOrderType(), req.getReduceOnly(), req.getCloid());
     }
 
+    public static Map<String, Object> orderRequestToOrderActionWire(int coinId, OrderRequest req) {
+        return orderRequestToOrderActionWire(coinId, req.getIsBuy(), req.getSz(), req.getLimitPx(), req.getOrderType(), req.getReduceOnly(), req.getCloid());
+    }
+
+    public static Map<String, Object> orderRequestToOrderActionWire(int coinId, ModifyOrderRequest req) {
+        return orderRequestToOrderActionWire(coinId, req.isBuy(), req.getSz(), req.getLimitPx(), req.getOrderType(), req.getReduceOnly(), req.getCloid());
+    }
+
     public static OrderWire orderRequestToOrderWire(Integer coin,
                                                     Boolean isBuy,
                                                     String sz,
@@ -285,6 +293,19 @@ public final class Signing {
         String pxStr = toWireFloat(limitPx);
         Object orderTypeWire = orderTypeToWire(orderType);
         return new OrderWire(coin, isBuy, szStr, pxStr, orderTypeWire, reduceOnly, cloid);
+    }
+
+    public static Map<String, Object> orderRequestToOrderActionWire(Integer coin,
+                                                                    Boolean isBuy,
+                                                                    String sz,
+                                                                    String limitPx,
+                                                                    OrderType orderType,
+                                                                    Boolean reduceOnly,
+                                                                    Cloid cloid) {
+        String szStr = toWireFloat(sz);
+        String pxStr = toWireFloat(limitPx);
+        Object orderTypeWire = orderTypeToWire(orderType);
+        return buildOrderActionWire(coin, isBuy, szStr, pxStr, orderTypeWire, reduceOnly, cloid);
     }
 
     private static String toWireFloat(String val) {
@@ -905,22 +926,39 @@ public final class Signing {
      * @return Map action object {"a": "BTC", "b": true, ...}
      */
     public static Map<String, Object> orderWiresToOrderAction(OrderWire orderWire) {
-        Map<String, Object> w = new LinkedHashMap<>();
-        // Key order strictly aligned with Python: a, b, p, s, r, t, (c last)
-        w.put("a", orderWire.coin);
-        w.put("b", orderWire.isBuy);
-        if (orderWire.limitPx != null) {
-            w.put("p", orderWire.limitPx);
+        return buildOrderActionWire(
+                orderWire.coin,
+                orderWire.isBuy,
+                orderWire.sz,
+                orderWire.limitPx,
+                orderWire.orderType,
+                orderWire.reduceOnly,
+                orderWire.cloid
+        );
+    }
+
+    private static Map<String, Object> buildOrderActionWire(Integer coin,
+                                                            Boolean isBuy,
+                                                            String sz,
+                                                            String limitPx,
+                                                            Object orderTypeWire,
+                                                            Boolean reduceOnly,
+                                                            Cloid cloid) {
+        Map<String, Object> wire = new LinkedHashMap<>();
+        wire.put("a", coin);
+        wire.put("b", isBuy);
+        if (limitPx != null) {
+            wire.put("p", limitPx);
         }
-        w.put("s", orderWire.sz);
-        w.put("r", orderWire.reduceOnly);
-        if (orderWire.orderType != null) {
-            w.put("t", orderWire.orderType);
+        wire.put("s", sz);
+        wire.put("r", reduceOnly);
+        if (orderTypeWire != null) {
+            wire.put("t", orderTypeWire);
         }
-        if (orderWire.cloid != null) {
-            w.put("c", orderWire.cloid.getRaw());
+        if (cloid != null) {
+            wire.put("c", cloid.getRaw());
         }
-        return w;
+        return wire;
     }
 
     /**

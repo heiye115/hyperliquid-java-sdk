@@ -3,6 +3,7 @@ package io.github.hyperliquid.sdk.apis;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
+import io.github.hyperliquid.sdk.model.info.SpotMeta;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
 import io.github.hyperliquid.sdk.model.order.*;
 import io.github.hyperliquid.sdk.model.userabstraction.UserAbstractionMode;
@@ -177,7 +178,7 @@ public class Exchange {
      */
     public Order order(OrderRequest req, Map<String, Object> builder) {
         OrderContext ctx = resolveOrderContext(req);
-        OrderWire wire = Signing.orderRequestToOrderWire(ctx.assetId(), ctx.request());
+        Map<String, Object> wire = Signing.orderRequestToOrderActionWire(ctx.assetId(), ctx.request());
         Map<String, Object> action = buildOrderAction(List.of(wire), builder);
         JsonNode node = postAction(action, req.getExpiresAfter());
         return JSONUtil.convertValue(node, Order.class);
@@ -194,7 +195,7 @@ public class Exchange {
                 yield new OrderContext(assetId, processed);
             }
             case SPOT -> {
-                int assetId = parseSpotAssetId(req.getCoin());
+                int assetId = resolveSpotAssetId(req.getCoin());
                 yield new OrderContext(assetId, req);
             }
             default -> throw new HypeError("Unsupported instrument type: " + req.getInstrumentType());
@@ -209,6 +210,32 @@ public class Exchange {
             throw new HypeError("Invalid asset number: " + coin);
         }
         return Integer.parseInt(coin);
+    }
+
+    /**
+     * Resolve spot coin input to canonical spot asset ID.
+     * <p>
+     * Supports two input forms:
+     * </p>
+     * <ul>
+     * <li>Numeric spot asset ID string (e.g. "10042")</li>
+     * <li>Spot symbol/name (e.g. "PURR", "WETH/USDC"), resolved via
+     * {@link Info#nameToAsset(String)}</li>
+     * </ul>
+     *
+     * @param coin Spot coin input
+     * @return Spot asset ID (must be &gt;= 10000)
+     * @throws HypeError If the input cannot be resolved to a valid spot asset
+     */
+    private int resolveSpotAssetId(String coin) {
+        if (NumberUtils.isPositiveInt(coin)) {
+            return parseSpotAssetId(coin);
+        }
+        Integer assetId = info.nameToAsset(coin);
+        if (assetId == null || assetId < 10000) {
+            throw new HypeError("Invalid spot coin: " + coin);
+        }
+        return assetId;
     }
 
     /**
@@ -497,7 +524,7 @@ public class Exchange {
     private OrderRequest prepareTriggerOrderRequest(OrderRequest req) {
         if (req.getLimitPx() == null) {
             Map<String, String> mids = info.allMids();
-            String midStr = mids.get(req.getCoin());
+            String midStr = resolveMidPrice(req.getCoin(), mids);
             if (midStr == null) {
                 throw new HypeError("No mid for coin " + req.getCoin());
             }
@@ -689,10 +716,10 @@ public class Exchange {
         for (OrderRequest order : requests) {
             effectiveRequests.add(preprocessOrder(order));
         }
-        List<OrderWire> wires = new ArrayList<>();
+        List<Map<String, Object>> wires = new ArrayList<>();
         for (OrderRequest order : effectiveRequests) {
-            int assetId = ensureAssetId(order.getCoin());
-            wires.add(Signing.orderRequestToOrderWire(assetId, order));
+            int assetId = resolveOrderAssetId(order);
+            wires.add(Signing.orderRequestToOrderActionWire(assetId, order));
         }
         Map<String, Object> action = buildOrderAction(wires, builder);
         if (grouping != null && !grouping.isEmpty()) {
@@ -825,8 +852,7 @@ public class Exchange {
      */
     public ModifyOrder modifyOrder(ModifyOrderRequest request, Long expiresAfter) {
         int assetId = ensureAssetId(request.getCoin());
-        OrderWire wire = Signing.orderRequestToOrderWire(assetId, request);
-        Map<String, Object> wireAction = Signing.orderWiresToOrderAction(wire);
+        Map<String, Object> wireAction = Signing.orderRequestToOrderActionWire(assetId, request);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "modify");
         action.put("oid", request.getOid());
@@ -858,11 +884,10 @@ public class Exchange {
         List<Map<String, Object>> actions = new ArrayList<>();
         for (ModifyOrderRequest request : requests) {
             int assetId = ensureAssetId(request.getCoin());
-            OrderWire orderWire = Signing.orderRequestToOrderWire(assetId, request);
             actions.add(new LinkedHashMap<>() {
                 {
                     put("oid", request.getOid());
-                    put("order", Signing.orderWiresToOrderAction(orderWire));
+                    put("order", Signing.orderRequestToOrderActionWire(assetId, request));
                 }
             });
         }
@@ -891,9 +916,11 @@ public class Exchange {
      * @param builder Optional builder parameters (can be null)
      * @return L1 action Map containing order information and builder data
      */
-    private Map<String, Object> buildOrderAction(List<OrderWire> wires, Map<String, Object> builder) {
-        Map<String, Object> action = Signing.orderWiresToOrderAction(wires);
-        // Keep default group "na" in Signing.orderWiresToOrderAction; do not override
+    private Map<String, Object> buildOrderAction(List<Map<String, Object>> wires, Map<String, Object> builder) {
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("type", "order");
+        action.put("orders", wires);
+        action.put("grouping", "na");
         if (builder != null && !builder.isEmpty()) {
             Map<String, Object> filtered = validateAndFilterBuilder(builder);
             if (!filtered.isEmpty()) {
@@ -1646,11 +1673,85 @@ public class Exchange {
      * @throws HypeError If the coin name is unknown or mapping fails
      */
     private int ensureAssetId(String coinName) {
+        if (NumberUtils.isPositiveInt(coinName)) {
+            return Integer.parseInt(coinName);
+        }
         Integer assetId = info.nameToAsset(coinName);
         if (assetId == null) {
             throw new HypeError("Unknown coin name: " + coinName);
         }
         return assetId;
+    }
+
+    /**
+     * Resolve the effective asset ID for an order request.
+     * <p>
+     * SPOT orders are resolved by spot-aware rules, while PERP orders are resolved
+     * by standard coin-to-asset mapping.
+     * </p>
+     *
+     * @param order Order request
+     * @return Effective asset ID used in wire payloads
+     */
+    private int resolveOrderAssetId(OrderRequest order) {
+        if (order.getInstrumentType() == InstrumentType.SPOT) {
+            return resolveSpotAssetId(order.getCoin());
+        }
+        return ensureAssetId(order.getCoin());
+    }
+
+    /**
+     * Resolve mid price for a coin key with spot fallback aliases.
+     * <p>
+     * Lookup order:
+     * </p>
+     * <ol>
+     * <li>Direct key lookup in allMids map.</li>
+     * <li>For spot assets, fallback to spot universe symbol key.</li>
+     * <li>For spot pairs, fallback to base/quote alias key.</li>
+     * </ol>
+     *
+     * @param coin Coin input
+     * @param mids allMids map response
+     * @return Mid price string if found; otherwise null
+     */
+    private String resolveMidPrice(String coin, Map<String, String> mids) {
+        String mid = mids.get(coin);
+        if (mid != null) {
+            return mid;
+        }
+        int assetId = ensureAssetId(coin);
+        if (assetId < 10000) {
+            return null;
+        }
+        SpotMeta spotMeta = info.loadSpotMetaCache();
+        List<SpotMeta.Universe> universe = spotMeta.getUniverse();
+        int spotIndex = assetId - 10000;
+        if (universe == null || spotIndex < 0 || spotIndex >= universe.size()) {
+            return null;
+        }
+        SpotMeta.Universe spot = universe.get(spotIndex);
+        if (spot.getName() != null) {
+            mid = mids.get(spot.getName());
+            if (mid != null) {
+                return mid;
+            }
+        }
+        List<SpotMeta.Token> tokens = spotMeta.getTokens();
+        if (tokens != null && spot.getTokens() != null && spot.getTokens().size() >= 2) {
+            Integer baseTokenIndex = spot.getTokens().get(0);
+            Integer quoteTokenIndex = spot.getTokens().get(1);
+            if (baseTokenIndex != null && quoteTokenIndex != null
+                    && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()
+                    && quoteTokenIndex >= 0 && quoteTokenIndex < tokens.size()) {
+                String baseName = tokens.get(baseTokenIndex).getName();
+                String quoteName = tokens.get(quoteTokenIndex).getName();
+                if (baseName != null && quoteName != null) {
+                    return mids.get(baseName + "/" + quoteName);
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -1734,7 +1835,7 @@ public class Exchange {
      */
     public String computeSlippagePrice(String coin, boolean isBuy, String slippage) {
         Map<String, String> mids = info.getCachedAllMids();
-        String midStr = mids.get(coin);
+        String midStr = resolveMidPrice(coin, mids);
         if (midStr == null) {
             throw new HypeError("Failed to get mid price for coin " + coin
                     + " (allMids returned empty or does not contain the coin)");
