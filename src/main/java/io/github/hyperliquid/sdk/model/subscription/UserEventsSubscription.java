@@ -10,27 +10,47 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * </p>
  */
 public class UserEventsSubscription extends Subscription {
-    
+
     @JsonProperty("type")
     private final String type = "userEvents";
-    
+
+    @JsonProperty("user")
+    private String user;
+
+
     /**
-     * Construct user events subscription.
+     * Default constructor.
      */
     public UserEventsSubscription() {
     }
-    
+
+    /**
+     * Construct user events subscription.
+     */
+    public UserEventsSubscription(String user) {
+        this.user = user;
+    }
+
     /**
      * Static factory method: create user events subscription.
      *
      * @return UserEventsSubscription instance
      */
-    public static UserEventsSubscription create() {
-        return new UserEventsSubscription();
+    public static UserEventsSubscription create(String user) {
+        return new UserEventsSubscription(user);
     }
-    
+
     @Override
     public String getType() {
         return type;
+    }
+
+    public String getUser() {
+        return user;
+    }
+
+    @Override
+    public String toIdentifier() {
+        return type + ":" + user;
     }
 }
