@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.subscription.*;
+import io.github.hyperliquid.sdk.utils.JSONUtil;
 
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -26,6 +28,10 @@ public class WebsocketTypeSafeExample {
                 .build();
 
         Info info = client.getInfo();
+        String userAddress = System.getenv("HL_USER_ADDRESS");
+        if (userAddress == null || userAddress.isBlank()) {
+            userAddress = "0x0000000000000000000000000000000000000000";
+        }
 
         System.out.println("=== Hyperliquid WebSocket Type-Safe Subscription Example ===\n");
 
@@ -123,12 +129,66 @@ public class WebsocketTypeSafeExample {
             }
         });
 
-        // ==================== 7. Keep Running to Receive Messages ====================
-        System.out.println("\nReceiving real-time market data, will exit after 60 seconds...\n");
+        System.out.println("--- Subscribe to userEvents and orderUpdates ---");
+        UserEventsSubscription userEvents = UserEventsSubscription.create();
+        info.subscribe(userEvents, msg -> System.out.println("[userEvents] " + msg.path("channel").asText()));
 
-        // Use CountDownLatch to wait for 60 seconds
+        OrderUpdatesSubscription orderUpdates = OrderUpdatesSubscription.of(userAddress);
+        info.subscribe(orderUpdates, msg -> System.out.println("[orderUpdates] " + msg.path("channel").asText()));
+
+        System.out.println("--- Subscribe to user channels with JsonNode ---");
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "userFills", "user", userAddress), JsonNode.class
+        ), msg -> System.out.println("[userFills] " + msg.path("channel").asText()));
+
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "userFundings", "user", userAddress), JsonNode.class
+        ), msg -> System.out.println("[userFundings] " + msg.path("channel").asText()));
+
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "userNonFundingLedgerUpdates", "user", userAddress), JsonNode.class
+        ), msg -> System.out.println("[userNonFundingLedgerUpdates] " + msg.path("channel").asText()));
+
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "webData2", "user", userAddress), JsonNode.class
+        ), msg -> System.out.println("[webData2] " + msg.path("channel").asText()));
+
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "activeAssetCtx", "coin", "BTC"), JsonNode.class
+        ), msg -> System.out.println("[activeAssetCtx-perp] " + msg.path("channel").asText()));
+
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "activeAssetCtx", "coin", "@1"), JsonNode.class
+        ), msg -> System.out.println("[activeAssetCtx-spot] " + msg.path("channel").asText()));
+
+        info.subscribe(JSONUtil.convertValue(
+                Map.of("type", "activeAssetData", "user", userAddress, "coin", "BTC"), JsonNode.class
+        ), msg -> System.out.println("[activeAssetData] " + msg.path("channel").asText()));
+
+        System.out.println("--- Subscribe to BTC Trades with Two Callbacks ---");
+        TradesSubscription btcTrades = TradesSubscription.of("BTC");
+        var btcTradesHandleA = info.subscribeWithHandle(btcTrades, msg ->
+                System.out.println("[BTC Trades Callback-A] tick received"));
+        var btcTradesHandleB = info.subscribeWithHandle(btcTrades, msg ->
+                System.out.println("[BTC Trades Callback-B] tick received"));
+
+        System.out.println("\nReceiving real-time market data for 20 seconds...\n");
         CountDownLatch latch = new CountDownLatch(1);
-        latch.await(60, TimeUnit.SECONDS);
+        latch.await(20, TimeUnit.SECONDS);
+
+        System.out.println("Unsubscribe BTC trades callback A by handle...");
+        boolean unsubscribedA = info.unsubscribe(btcTradesHandleA);
+        System.out.println("Callback A unsubscribed: " + unsubscribedA);
+
+        System.out.println("\nReceiving with callback B still active for 20 seconds...\n");
+        latch.await(20, TimeUnit.SECONDS);
+
+        System.out.println("Unsubscribe BTC trades callback B by subscription id...");
+        boolean unsubscribedB = info.unsubscribe(btcTradesHandleB.getSubscriptionId());
+        System.out.println("Callback B unsubscribed: " + unsubscribedB);
+
+        System.out.println("\nReceiving remaining subscriptions for final 20 seconds...\n");
+        latch.await(20, TimeUnit.SECONDS);
 
         // ==================== 8. Gracefully Close WebSocket ====================
         System.out.println("\nClosing WebSocket connection...");
@@ -136,4 +196,3 @@ public class WebsocketTypeSafeExample {
         System.out.println("WebSocket closed, program exiting.");
     }
 }
-

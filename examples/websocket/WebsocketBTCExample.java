@@ -153,7 +153,7 @@ public class WebsocketBTCExample {
                 JsonNode.class
         );
 
-        info.subscribe(bboSub, msg -> {
+        var bboHandle = info.subscribeWithHandle(bboSub, msg -> {
             JsonNode data = msg.get("data");
             if (data != null) {
                 String bidPrice = data.path("bid").path("px").asText();
@@ -165,12 +165,16 @@ public class WebsocketBTCExample {
             }
         });
 
-        // ==================== 7. Keep Running to Receive Messages ====================
-        System.out.println("\nReceiving BTC real-time market data, will exit after 60 seconds...\n");
-
-        // Use CountDownLatch to wait for 60 seconds
+        System.out.println("\nReceiving BTC real-time market data for 30 seconds...\n");
         CountDownLatch latch = new CountDownLatch(1);
-        latch.await(60, TimeUnit.SECONDS);
+        latch.await(30, TimeUnit.SECONDS);
+
+        System.out.println("Unsubscribe BBO by handle...");
+        boolean unsubscribedBbo = info.unsubscribe(bboHandle);
+        System.out.println("BBO unsubscribed by handle: " + unsubscribedBbo);
+
+        System.out.println("\nContinue receiving remaining subscriptions for another 30 seconds...\n");
+        latch.await(30, TimeUnit.SECONDS);
 
         // ==================== 8. Gracefully Close WebSocket ====================
         System.out.println("\nClosing WebSocket connection...");
@@ -178,4 +182,3 @@ public class WebsocketBTCExample {
         System.out.println("WebSocket closed, program exiting.");
     }
 }
-

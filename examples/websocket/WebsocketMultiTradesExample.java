@@ -33,7 +33,7 @@ public class WebsocketMultiTradesExample {
         System.out.println("--- Subscribe to BTC Trades ---");
         TradesSubscription btcTrades = TradesSubscription.of("BTC");
 
-        info.subscribe(btcTrades, msg -> {
+        var btcHandle = info.subscribeWithHandle(btcTrades, msg -> {
             // Parse BTC trade data
             JsonNode data = msg.get("data");
             if (data != null && data.isArray()) {
@@ -54,7 +54,7 @@ public class WebsocketMultiTradesExample {
         System.out.println("--- Subscribe to ETH Trades ---");
         TradesSubscription ethTrades = TradesSubscription.of("ETH");
 
-        info.subscribe(ethTrades, msg -> {
+        var ethHandle = info.subscribeWithHandle(ethTrades, msg -> {
             // Parse ETH trade data
             JsonNode data = msg.get("data");
             if (data != null && data.isArray()) {
@@ -80,12 +80,23 @@ public class WebsocketMultiTradesExample {
         });
         */
 
-        // ==================== 5. Keep Running to Receive Messages ====================
-        System.out.println("\nReceiving BTC and ETH real-time trades, will exit after 60 seconds...\n");
-
-        // Use CountDownLatch to wait for 60 seconds
+        System.out.println("\nReceiving BTC and ETH trades for 20 seconds...\n");
         CountDownLatch latch = new CountDownLatch(1);
-        latch.await(60, TimeUnit.SECONDS);
+        latch.await(20, TimeUnit.SECONDS);
+
+        System.out.println("Unsubscribe BTC callback by handle...");
+        boolean unsubscribedByHandle = info.unsubscribe(btcHandle);
+        System.out.println("BTC unsubscribed by handle: " + unsubscribedByHandle);
+
+        System.out.println("\nReceiving ETH trades only for 20 seconds...\n");
+        latch.await(20, TimeUnit.SECONDS);
+
+        System.out.println("Unsubscribe ETH callback by subscription id...");
+        boolean unsubscribedById = info.unsubscribe(ethHandle.getSubscriptionId());
+        System.out.println("ETH unsubscribed by id: " + unsubscribedById);
+
+        System.out.println("\nNo trade subscriptions for final 20 seconds...\n");
+        latch.await(20, TimeUnit.SECONDS);
 
         // ==================== 6. Gracefully Close WebSocket ====================
         System.out.println("\nClosing WebSocket connection...");
@@ -93,4 +104,3 @@ public class WebsocketMultiTradesExample {
         System.out.println("WebSocket closed, program exiting.");
     }
 }
-

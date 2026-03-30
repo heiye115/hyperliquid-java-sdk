@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -113,6 +114,7 @@ public class WebsocketManager {
      * Scheduled task scheduler (used for heartbeats, reconnection, and network monitoring)
      */
     private final ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1);
+    private final AtomicLong subscriptionIdGenerator = new AtomicLong(0L);
 
     /**
      * Connection status listener: used to notify connection, disconnection, reconnection, and network status changes.
@@ -188,10 +190,38 @@ public class WebsocketManager {
     public static class ActiveSubscription {
         public final JsonNode subscription;
         public final MessageCallback callback;
+        public final long subscriptionId;
 
         public ActiveSubscription(JsonNode s, MessageCallback c) {
+            this(s, c, 0L);
+        }
+
+        public ActiveSubscription(JsonNode s, MessageCallback c, long subscriptionId) {
             this.subscription = s;
             this.callback = c;
+            this.subscriptionId = subscriptionId;
+        }
+
+        public JsonNode getSubscription() {
+            return subscription;
+        }
+
+        public long getSubscriptionId() {
+            return subscriptionId;
+        }
+    }
+
+    public static class SubscriptionHandle {
+        private final long subscriptionId;
+        private final JsonNode subscription;
+
+        public SubscriptionHandle(long subscriptionId, JsonNode subscription) {
+            this.subscriptionId = subscriptionId;
+            this.subscription = subscription;
+        }
+
+        public long getSubscriptionId() {
+            return subscriptionId;
         }
 
         public JsonNode getSubscription() {
@@ -609,6 +639,10 @@ public class WebsocketManager {
      * @param callback     Callback
      */
     public void subscribe(Subscription subscription, MessageCallback callback) {
+        subscribeWithHandle(subscription, callback);
+    }
+
+    public SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback) {
         if (stopped) {
             throw new IllegalStateException("WebsocketManager has been stopped, cannot subscribe");
         }
@@ -619,9 +653,8 @@ public class WebsocketManager {
             throw new IllegalArgumentException("callback cannot be null");
         }
 
-        // Convert Subscription object to JsonNode
         JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
-        subscribe(jsonNode, callback);
+        return subscribeWithHandle(jsonNode, callback);
     }
 
     /**
@@ -631,6 +664,10 @@ public class WebsocketManager {
      * @param callback     Callback
      */
     public void subscribe(JsonNode subscription, MessageCallback callback) {
+        subscribeWithHandle(subscription, callback);
+    }
+
+    public SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback) {
         if (stopped) {
             throw new IllegalStateException("WebsocketManager has been stopped, cannot subscribe");
         }
@@ -643,13 +680,21 @@ public class WebsocketManager {
 
         String identifier = subscriptionToIdentifier(subscription);
         List<ActiveSubscription> list = subscriptions.computeIfAbsent(identifier, k -> new CopyOnWriteArrayList<>());
+        boolean hasSameSubscription = false;
         for (ActiveSubscription s : list) {
             if (s.subscription.equals(subscription)) {
-                return;
+                hasSameSubscription = true;
+                if (s.callback == callback) {
+                    return new SubscriptionHandle(s.subscriptionId, s.subscription);
+                }
             }
         }
-        list.add(new ActiveSubscription(subscription, callback));
-        sendSubscribe(subscription);
+        long subscriptionId = subscriptionIdGenerator.incrementAndGet();
+        list.add(new ActiveSubscription(subscription, callback, subscriptionId));
+        if (!hasSameSubscription) {
+            sendSubscribe(subscription);
+        }
+        return new SubscriptionHandle(subscriptionId, subscription);
     }
 
     private void sendSubscribe(JsonNode subscription) {
@@ -693,16 +738,67 @@ public class WebsocketManager {
 
         String identifier = subscriptionToIdentifier(subscription);
         List<ActiveSubscription> list = subscriptions.get(identifier);
+        boolean removed = false;
         if (list != null) {
-            list.removeIf(s -> s.subscription.equals(subscription));
+            removed = list.removeIf(s -> s.subscription.equals(subscription));
             if (list.isEmpty())
                 subscriptions.remove(identifier);
         }
+        if (removed) {
+            sendUnsubscribe(subscription);
+        }
+    }
 
+    public boolean unsubscribe(long subscriptionId) {
+        if (subscriptionId <= 0) {
+            return false;
+        }
+        for (Map.Entry<String, List<ActiveSubscription>> entry : subscriptions.entrySet()) {
+            List<ActiveSubscription> list = entry.getValue();
+            ActiveSubscription target = null;
+            for (ActiveSubscription subscription : list) {
+                if (subscription.subscriptionId == subscriptionId) {
+                    target = subscription;
+                    break;
+                }
+            }
+            if (target == null) {
+                continue;
+            }
+            JsonNode targetSubscription = target.subscription;
+            boolean removed = list.removeIf(s -> s.subscriptionId == subscriptionId);
+            if (!removed) {
+                return false;
+            }
+            boolean stillSubscribed = false;
+            for (ActiveSubscription remaining : list) {
+                if (remaining.subscription.equals(targetSubscription)) {
+                    stillSubscribed = true;
+                    break;
+                }
+            }
+            if (list.isEmpty()) {
+                subscriptions.remove(entry.getKey());
+            }
+            if (!stillSubscribed) {
+                sendUnsubscribe(targetSubscription);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean unsubscribe(SubscriptionHandle handle) {
+        if (handle == null) {
+            return false;
+        }
+        return unsubscribe(handle.subscriptionId);
+    }
+
+    private void sendUnsubscribe(JsonNode subscription) {
         if (webSocket == null || !connected) {
             return;
         }
-
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("method", "unsubscribe");
         payload.put("subscription", subscription);

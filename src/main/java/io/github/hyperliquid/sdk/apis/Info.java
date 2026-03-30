@@ -1751,6 +1751,12 @@ public class Info {
         wsManager.subscribe(subscription, callback);
     }
 
+    public WebsocketManager.SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
+        if (skipWs)
+            throw new HypeError("WebSocket disabled by skipWs");
+        return wsManager.subscribeWithHandle(subscription, callback);
+    }
+
     /**
      * Subscribe to WebSocket (compatible version, using JsonNode).
      * <p>
@@ -1765,6 +1771,12 @@ public class Info {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
         wsManager.subscribe(subscription, callback);
+    }
+
+    public WebsocketManager.SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
+        if (skipWs)
+            throw new HypeError("WebSocket disabled by skipWs");
+        return wsManager.subscribeWithHandle(subscription, callback);
     }
 
     /**
@@ -1804,6 +1816,18 @@ public class Info {
         if (skipWs)
             return;
         wsManager.unsubscribe(subscription);
+    }
+
+    public boolean unsubscribe(WebsocketManager.SubscriptionHandle handle) {
+        if (skipWs)
+            return false;
+        return wsManager.unsubscribe(handle);
+    }
+
+    public boolean unsubscribe(long subscriptionId) {
+        if (skipWs)
+            return false;
+        return wsManager.unsubscribe(subscriptionId);
     }
 
     /**
