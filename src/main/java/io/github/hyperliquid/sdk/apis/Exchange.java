@@ -2430,4 +2430,15 @@ public class Exchange {
         JsonNode jsonNode = postActionWithSignature(action, signature, nonce);
         return JSONUtil.convertValue(jsonNode, UserSetAbstraction.class);
     }
+
+    /**
+     * Set User Abstraction
+     *
+     * @param user                User address
+     * @param userAbstractionMode Abstraction level
+     * @return JSON response
+     */
+    public UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode userAbstractionMode) {
+        return userSetAbstraction(user, userAbstractionMode, null);
+    }
 }

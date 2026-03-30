@@ -84,6 +84,12 @@ public class Info {
     private final Map<Integer, Integer> assetToSzDecimalsCache = new ConcurrentHashMap<>();
 
     /**
+     * Perp dex to asset-id offset mapping cache.
+     * Key: dex name, value: offset (default dex offset is 0).
+     */
+    private final Map<String, Integer> perpDexOffsetCache = new ConcurrentHashMap<>();
+
+    /**
      * Constructs an Info client using the default cache configuration.
      *
      * @param baseUrl        API base URL
@@ -140,24 +146,173 @@ public class Info {
      * @throws HypeError Thrown when name cannot be mapped
      */
     public Integer nameToAsset(String coinName) {
-        String normalizedName = coinName.trim().toUpperCase();
+        String normalizedInput = coinName.trim();
+        DexQualifiedSymbol dexQualifiedSymbol = parseDexQualifiedSymbol(normalizedInput);
+        if (dexQualifiedSymbol != null) {
+            return resolveAssetIdFromDexMeta(dexQualifiedSymbol.dex(), dexQualifiedSymbol.coin());
+        }
+        String normalizedName = normalizedInput.toUpperCase();
 
-        // Prefer querying from the mapping cache first
         Integer assetId = coinToAssetCache.get(normalizedName);
         if (assetId != null) {
             return assetId;
         }
 
-        // Cache miss; load from meta and build mapping
         Meta meta = loadMetaCache();
         buildCoinMappingCache(meta);
 
-        // Query again
         assetId = coinToAssetCache.get(normalizedName);
         if (assetId == null) {
-            throw new HypeError("Unknown currency name:" + normalizedName);
+            SpotMeta spotMeta = loadSpotMetaCache();
+            buildSpotCoinMappingCache(spotMeta);
+            assetId = coinToAssetCache.get(normalizedName);
+            if (assetId == null) {
+                throw new HypeError("Strict symbol match failed for '" + coinName
+                        + "'. Expected format: 'COIN' (default dex) or 'dex:COIN' (specific dex).");
+            }
         }
         return assetId;
+    }
+
+    /**
+     * Resolve a dex-qualified symbol to the global asset ID.
+     * <p>
+     * The method loads meta for the given perp dex, finds the symbol index inside
+     * that dex universe, and then applies the dex offset rule to produce the
+     * global asset ID used by exchange actions.
+     * </p>
+     *
+     * @param dex  Perp dex name
+     * @param coin Symbol name inside the dex
+     * @return Global asset ID for signing and exchange payloads
+     * @throws HypeError If the dex or symbol cannot be found
+     */
+    private int resolveAssetIdFromDexMeta(String dex, String coin) {
+        Meta meta = loadMetaCache(dex);
+        if (meta == null || meta.getUniverse() == null) {
+            throw new HypeError("Strict symbol match failed for '" + dex + ":" + coin
+                    + "'. Dex '" + dex + "' has no available meta/universe.");
+        }
+        String qualifiedCoin = dex + ":" + coin;
+        List<Meta.Universe> universe = meta.getUniverse();
+        for (int assetId = 0; assetId < universe.size(); assetId++) {
+            Meta.Universe u = universe.get(assetId);
+            if (u.getName() != null && matchesDexSymbol(u.getName(), qualifiedCoin, coin)) {
+                return resolvePerpDexOffset(dex) + assetId;
+            }
+        }
+        throw new HypeError("Strict symbol match failed for '" + dex + ":" + coin
+                + "'. Expected an exact match in dex '" + dex + "' universe: either '" + coin + "' or '" + dex
+                + ":" + coin + "'.");
+    }
+
+    private boolean matchesDexSymbol(String universeName, String qualifiedCoin, String coin) {
+        int idx = universeName.indexOf(':');
+        if (idx > 0 && idx < universeName.length() - 1) {
+            return universeName.equalsIgnoreCase(qualifiedCoin);
+        }
+        return universeName.equalsIgnoreCase(coin);
+    }
+
+    private void buildSpotCoinMappingCache(SpotMeta spotMeta) {
+        if (spotMeta == null || spotMeta.getUniverse() == null) {
+            return;
+        }
+        List<SpotMeta.Token> tokens = spotMeta.getTokens();
+        for (SpotMeta.Universe u : spotMeta.getUniverse()) {
+            String coinName = u.getName();
+            int assetId = 10000 + u.getIndex();
+            if (coinName != null && !coinName.isBlank()) {
+                coinToAssetCache.putIfAbsent(coinName.toUpperCase(), assetId);
+            }
+            if (tokens != null && u.getTokens() != null && !u.getTokens().isEmpty()) {
+                Integer baseTokenIndex = u.getTokens().getFirst();
+                if (baseTokenIndex != null && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()) {
+                    Integer szDecimals = tokens.get(baseTokenIndex).getSzDecimals();
+                    if (szDecimals != null) {
+                        assetToSzDecimalsCache.putIfAbsent(assetId, szDecimals);
+                    }
+                }
+                if (u.getTokens().size() >= 2) {
+                    Integer quoteTokenIndex = u.getTokens().get(1);
+                    if (coinName != null && !coinName.isBlank()
+                            && baseTokenIndex != null && quoteTokenIndex != null
+                            && baseTokenIndex >= 0 && baseTokenIndex < tokens.size()
+                            && quoteTokenIndex >= 0 && quoteTokenIndex < tokens.size()) {
+                        String baseName = tokens.get(baseTokenIndex).getName();
+                        String quoteName = tokens.get(quoteTokenIndex).getName();
+                        if (baseName != null && quoteName != null) {
+                            coinToAssetCache.putIfAbsent((baseName + "/" + quoteName).toUpperCase(), assetId);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolve the numeric asset ID offset for a perp dex.
+     * <p>
+     * Default dex uses offset 0. Builder-deployed perp dexes follow the same
+     * offset scheme as the Python SDK: 110000 + (index - 1) * 10000, where index
+     * is the position in the {@code perpDexs} response after the default dex.
+     * </p>
+     *
+     * @param dex Perp dex name
+     * @return Asset ID offset for the specified dex
+     * @throws HypeError If the dex name is unknown
+     */
+    private int resolvePerpDexOffset(String dex) {
+        if (dex == null || dex.isBlank()) {
+            return 0;
+        }
+        Integer cachedOffset = perpDexOffsetCache.get(dex);
+        if (cachedOffset != null) {
+            return cachedOffset;
+        }
+        List<Map<String, Object>> perpDexs = perpDexsTyped();
+        for (int i = 1; i < perpDexs.size(); i++) {
+            Map<String, Object> perpDex = perpDexs.get(i);
+            if (perpDex == null) {
+                continue;
+            }
+            Object name = perpDex.get("name");
+            if (name != null && dex.equalsIgnoreCase(String.valueOf(name))) {
+                int offset = 110000 + (i - 1) * 10000;
+                perpDexOffsetCache.put(String.valueOf(name), offset);
+                return offset;
+            }
+        }
+        throw new HypeError("Strict symbol match failed because perp dex '" + dex
+                + "' is unknown. Ensure the dex exists in /info perpDexs.");
+    }
+
+    /**
+     * Parse an input symbol in {@code dex:symbol} format.
+     *
+     * @param inputName Raw symbol input provided by caller
+     * @return Parsed result when input is dex-qualified; otherwise {@code null}
+     */
+    private DexQualifiedSymbol parseDexQualifiedSymbol(String inputName) {
+        int idx = inputName.indexOf(':');
+        if (idx <= 0 || idx == inputName.length() - 1) {
+            return null;
+        }
+        String dex = inputName.substring(0, idx).trim();
+        String coin = inputName.substring(idx + 1).trim();
+        if (dex.isEmpty() || coin.isEmpty()) {
+            return null;
+        }
+        return new DexQualifiedSymbol(dex, coin);
+    }
+
+    /**
+     * Parsed representation of a dex-qualified symbol.
+     *
+     * @param dex  Perp dex name
+     * @param coin Symbol name inside the dex
+     */
+    private record DexQualifiedSymbol(String dex, String coin) {
     }
 
     /**
@@ -284,6 +439,7 @@ public class Info {
         // Clear coin mapping cache to force rebuild
         coinToAssetCache.clear();
         assetToSzDecimalsCache.clear();
+        perpDexOffsetCache.clear();
         return loadMetaCache(dex);
     }
 
@@ -303,6 +459,7 @@ public class Info {
         metaCache.invalidateAll();
         coinToAssetCache.clear();
         assetToSzDecimalsCache.clear();
+        perpDexOffsetCache.clear();
     }
 
     /**
@@ -421,6 +578,15 @@ public class Info {
         Integer szDecimals = assetToSzDecimalsCache.get(assetId);
         if (szDecimals != null) {
             return szDecimals;
+        }
+        if (assetId >= 10000) {
+            SpotMeta spotMeta = loadSpotMetaCache();
+            buildSpotCoinMappingCache(spotMeta);
+            szDecimals = assetToSzDecimalsCache.get(assetId);
+            if (szDecimals != null) {
+                return szDecimals;
+            }
+            throw new HypeError("szDecimals not defined for spot coin: " + coinName);
         }
         // Cache miss; load from meta
         Meta.Universe universe = getMetaUniverse(coinName);
@@ -1249,11 +1415,11 @@ public class Info {
     /**
      * Get user's token balances (spot clearinghouse state).
      *
-     * @param address User address
+     * @param user User address
      * @return Typed model SpotClearinghouseState
      */
-    public SpotClearinghouseState spotClearinghouseState(String address) {
-        Map<String, Object> payload = Map.of("type", "spotClearinghouseState", "user", address);
+    public SpotClearinghouseState spotClearinghouseState(String user) {
+        Map<String, Object> payload = Map.of("type", "spotClearinghouseState", "user", user);
         JsonNode node = postInfo(payload);
         return JSONUtil.convertValue(node, SpotClearinghouseState.class);
     }
