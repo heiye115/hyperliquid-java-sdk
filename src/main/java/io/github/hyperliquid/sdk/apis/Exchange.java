@@ -2,6 +2,7 @@ package io.github.hyperliquid.sdk.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
+import io.github.hyperliquid.sdk.model.approve.ApproveBuilderFee;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.SpotMeta;
 import io.github.hyperliquid.sdk.model.info.UpdateLeverage;
@@ -1206,7 +1207,7 @@ public class Exchange {
      * @return JSON response from the exchange
      * @throws HypeError If signing or the request fails
      */
-    public JsonNode approveBuilderFee(String builder, String maxFeeRate) {
+    public ApproveBuilderFee approveBuilderFee(String builder, String maxFeeRate) {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "approveBuilderFee");
@@ -1218,7 +1219,8 @@ public class Exchange {
                 apiWallet.getCredentials(),
                 action,
                 isMainnet());
-        return postActionWithSignature(action, signature, nonce);
+        JsonNode jsonNode = postActionWithSignature(action, signature, nonce);
+        return JSONUtil.convertValue(jsonNode, ApproveBuilderFee.class);
     }
 
     /**

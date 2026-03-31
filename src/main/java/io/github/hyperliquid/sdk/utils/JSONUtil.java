@@ -122,9 +122,9 @@ public class JSONUtil {
     /**
      * Converts an object using a TypeReference.
      *
-     * @param fromValue    Source value
+     * @param fromValue      Source value
      * @param toValueTypeRef Target type reference
-     * @param <T>          Target generic type
+     * @param <T>            Target generic type
      * @return Converted object
      * @throws IllegalArgumentException If conversion fails
      */
@@ -135,9 +135,9 @@ public class JSONUtil {
     /**
      * Converts an object using a JavaType.
      *
-     * @param fromValue  Source value
+     * @param fromValue   Source value
      * @param toValueType Target JavaType
-     * @param <T>        Target generic type
+     * @param <T>         Target generic type
      * @return Converted object
      * @throws IllegalArgumentException If conversion fails
      */
@@ -157,6 +157,7 @@ public class JSONUtil {
     public static <T> T convertValue(Object fromValue, Class<T> toValueType) throws IllegalArgumentException {
         return mapper.convertValue(fromValue, toValueType);
     }
+
 
     /**
      * Serializes an object to JSON bytes.
@@ -185,9 +186,9 @@ public class JSONUtil {
     /**
      * Deserializes a JSON string into a typed object.
      *
-     * @param content  JSON string
+     * @param content   JSON string
      * @param valueType Target type
-     * @param <T>      Target generic type
+     * @param <T>       Target generic type
      * @return Deserialized object
      * @throws JsonProcessingException If deserialization fails
      */

@@ -2045,4 +2045,26 @@ public class Info {
                 "user", user);
         return postInfo(payload);
     }
+
+    /**
+     * Query approved builders for user
+     *
+     * @param user User address (42-character hexadecimal format)
+     * @return List of approved builders (strings)
+     */
+    public List<String> approvedBuilders(String user) {
+        Map<String, Object> payload = Map.of(
+                "type", "approvedBuilders",
+                "user", user);
+        JsonNode jsonNode = postInfo(payload);
+        return JSONUtil.convertValue(jsonNode, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
+    }
+
+    /**
+     * Check builder fee approval
+     */
+    public Long maxBuilderFee(String user, String builder) {
+        Map<String, String> payload = Map.of("type", "maxBuilderFee", "user", user, "builder", builder);
+        return Long.parseLong(postInfo(payload).asText());
+    }
 }
