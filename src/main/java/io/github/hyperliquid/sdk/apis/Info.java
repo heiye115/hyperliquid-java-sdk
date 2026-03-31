@@ -1173,9 +1173,9 @@ public class Info {
      * @param address User address
      * @return JSON response
      */
-    public JsonNode userFees(String address) {
+    public UserFees userFees(String address) {
         Map<String, Object> payload = Map.of("type", "userFees", "user", address);
-        return postInfo(payload);
+        return JSONUtil.convertValue(postInfo(payload), UserFees.class);
     }
 
     /**

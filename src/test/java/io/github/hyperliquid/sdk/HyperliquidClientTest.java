@@ -561,7 +561,7 @@ public class HyperliquidClientTest {
     void testUserFees() {
         Info info = client.getInfo();
         resetLogs();
-        JsonNode fees = info.userFees(address);
+        UserFees fees = info.userFees(address);
         assertNotNull(fees);
         assertHttpLogsPresent();
     }
