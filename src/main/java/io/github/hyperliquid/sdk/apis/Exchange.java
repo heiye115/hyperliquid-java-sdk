@@ -1722,6 +1722,26 @@ public class Exchange {
         if (mid != null) {
             return mid;
         }
+        if (coin != null && coin.indexOf(':') < 0) {
+            String upperCoin = coin.toUpperCase();
+            mid = mids.get(upperCoin);
+            if (mid != null) {
+                return mid;
+            }
+        }
+        int colonIdx = coin.indexOf(':');
+        if (colonIdx > 0 && colonIdx < coin.length() - 1) {
+            String unqualified = coin.substring(colonIdx + 1);
+            mid = mids.get(unqualified);
+            if (mid != null) {
+                return mid;
+            }
+            String upper = unqualified.toUpperCase();
+            mid = mids.get(upper);
+            if (mid != null) {
+                return mid;
+            }
+        }
         int assetId = ensureAssetId(coin);
         if (assetId < 10000) {
             return null;
@@ -1836,7 +1856,8 @@ public class Exchange {
      * @throws HypeError If mid price is missing or number format is invalid
      */
     public String computeSlippagePrice(String coin, boolean isBuy, String slippage) {
-        Map<String, String> mids = info.getCachedAllMids();
+        String dex = extractDex(coin);
+        Map<String, String> mids = info.getCachedAllMids(dex);
         String midStr = resolveMidPrice(coin, mids);
         if (midStr == null) {
             throw new HypeError("Failed to get mid price for coin " + coin
@@ -1850,6 +1871,15 @@ public class Exchange {
         } catch (NumberFormatException e) {
             throw new HypeError("Invalid number format. midPrice: " + midStr + ", slippage: " + slippage);
         }
+    }
+
+    private String extractDex(String coin) {
+        if (coin == null) return null;
+        int idx = coin.indexOf(':');
+        if (idx > 0 && idx < coin.length() - 1) {
+            return coin.substring(0, idx);
+        }
+        return null;
     }
 
     /**

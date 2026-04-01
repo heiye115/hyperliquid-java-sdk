@@ -1748,13 +1748,17 @@ public class Info {
     public void subscribe(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        wsManager.subscribe(subscription, callback);
+        JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
+        JsonNode remapped = remapCoinInSubscription(jsonNode);
+        wsManager.subscribe(remapped, callback);
     }
 
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        return wsManager.subscribeWithHandle(subscription, callback);
+        JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
+        JsonNode remapped = remapCoinInSubscription(jsonNode);
+        return wsManager.subscribeWithHandle(remapped, callback);
     }
 
     /**
@@ -1770,13 +1774,15 @@ public class Info {
     public void subscribe(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        wsManager.subscribe(subscription, callback);
+        JsonNode remapped = remapCoinInSubscription(subscription);
+        wsManager.subscribe(remapped, callback);
     }
 
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        return wsManager.subscribeWithHandle(subscription, callback);
+        JsonNode remapped = remapCoinInSubscription(subscription);
+        return wsManager.subscribeWithHandle(remapped, callback);
     }
 
     /**
@@ -1815,7 +1821,8 @@ public class Info {
     public void unsubscribe(JsonNode subscription) {
         if (skipWs)
             return;
-        wsManager.unsubscribe(subscription);
+        JsonNode remapped = remapCoinInSubscription(subscription);
+        wsManager.unsubscribe(remapped);
     }
 
     public boolean unsubscribe(WebsocketManager.SubscriptionHandle handle) {
@@ -1828,6 +1835,29 @@ public class Info {
         if (skipWs)
             return false;
         return wsManager.unsubscribe(subscriptionId);
+    }
+
+    private JsonNode remapCoinInSubscription(JsonNode subscription) {
+        if (subscription == null || !subscription.has("type")) {
+            return subscription;
+        }
+        String type = subscription.get("type").asText();
+        boolean requiresCoin = "l2Book".equals(type) || "trades".equals(type) || "candle".equals(type)
+                || "bbo".equals(type) || "activeAssetCtx".equals(type);
+        if (!requiresCoin) {
+            return subscription;
+        }
+        JsonNode coinNode = subscription.get("coin");
+        if (coinNode == null || !coinNode.isTextual()) {
+            return subscription;
+        }
+        String coin = coinNode.asText();
+        int idx = coin.indexOf(':');
+        if (idx > 0 && idx < coin.length() - 1) {
+            String unqualified = coin.substring(idx + 1);
+            ((com.fasterxml.jackson.databind.node.ObjectNode) subscription).put("coin", unqualified);
+        }
+        return subscription;
     }
 
     /**
