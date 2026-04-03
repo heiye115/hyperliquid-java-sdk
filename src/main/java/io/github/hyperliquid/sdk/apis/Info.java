@@ -9,6 +9,10 @@ import io.github.hyperliquid.sdk.config.CacheConfig;
 import io.github.hyperliquid.sdk.model.info.*;
 import io.github.hyperliquid.sdk.model.order.Cloid;
 import io.github.hyperliquid.sdk.model.subscription.Subscription;
+import io.github.hyperliquid.sdk.model.subscription.BboSubscription;
+import io.github.hyperliquid.sdk.model.subscription.CandleSubscription;
+import io.github.hyperliquid.sdk.model.subscription.L2BookSubscription;
+import io.github.hyperliquid.sdk.model.subscription.TradesSubscription;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import io.github.hyperliquid.sdk.utils.HypeHttpClient;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
@@ -1748,17 +1752,15 @@ public class Info {
     public void subscribe(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
-        JsonNode remapped = remapCoinInSubscription(jsonNode);
-        wsManager.subscribe(remapped, callback);
+        remapCoinInSubscription(subscription);
+        wsManager.subscribe(subscription, callback);
     }
 
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
-        JsonNode remapped = remapCoinInSubscription(jsonNode);
-        return wsManager.subscribeWithHandle(remapped, callback);
+        remapCoinInSubscription(subscription);
+        return wsManager.subscribeWithHandle(subscription, callback);
     }
 
     /**
@@ -1774,15 +1776,15 @@ public class Info {
     public void subscribe(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        JsonNode remapped = remapCoinInSubscription(subscription);
-        wsManager.subscribe(remapped, callback);
+        remapCoinInSubscription(subscription);
+        wsManager.subscribe(subscription, callback);
     }
 
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
-        JsonNode remapped = remapCoinInSubscription(subscription);
-        return wsManager.subscribeWithHandle(remapped, callback);
+        remapCoinInSubscription(subscription);
+        return wsManager.subscribeWithHandle(subscription, callback);
     }
 
     /**
@@ -1810,6 +1812,7 @@ public class Info {
     public void unsubscribe(Subscription subscription) {
         if (skipWs)
             return;
+        remapCoinInSubscription(subscription);
         wsManager.unsubscribe(subscription);
     }
 
@@ -1821,8 +1824,8 @@ public class Info {
     public void unsubscribe(JsonNode subscription) {
         if (skipWs)
             return;
-        JsonNode remapped = remapCoinInSubscription(subscription);
-        wsManager.unsubscribe(remapped);
+        remapCoinInSubscription(subscription);
+        wsManager.unsubscribe(subscription);
     }
 
     public boolean unsubscribe(WebsocketManager.SubscriptionHandle handle) {
@@ -1837,27 +1840,52 @@ public class Info {
         return wsManager.unsubscribe(subscriptionId);
     }
 
-    private JsonNode remapCoinInSubscription(JsonNode subscription) {
-        if (subscription == null || !subscription.has("type")) {
-            return subscription;
+    /**
+     * Remap coin in subscription, stripping dex prefix (e.g. "dex:BTC" → "BTC").
+     * Matches official SDK's _remap_coin_subscription pattern.
+     * Mutates the Subscription object directly via setCoin, preserving the wsManager execution path.
+     */
+    private void remapCoinInSubscription(Subscription subscription) {
+        String coin = getSubscriptionCoin(subscription);
+        if (coin == null) return;
+        int idx = coin.indexOf(':');
+        if (idx > 0 && idx < coin.length() - 1) {
+            setSubscriptionCoin(subscription, coin.substring(idx + 1));
         }
+    }
+
+    /**
+     * Remap coin in subscription (JsonNode version).
+     * For subscriptions created via raw JsonNode (e.g. activeAssetCtx which has no dedicated class).
+     */
+    private void remapCoinInSubscription(JsonNode subscription) {
+        if (subscription == null || !subscription.has("type")) return;
         String type = subscription.get("type").asText();
         boolean requiresCoin = "l2Book".equals(type) || "trades".equals(type) || "candle".equals(type)
                 || "bbo".equals(type) || "activeAssetCtx".equals(type);
-        if (!requiresCoin) {
-            return subscription;
-        }
+        if (!requiresCoin) return;
         JsonNode coinNode = subscription.get("coin");
-        if (coinNode == null || !coinNode.isTextual()) {
-            return subscription;
-        }
+        if (coinNode == null || !coinNode.isTextual()) return;
         String coin = coinNode.asText();
         int idx = coin.indexOf(':');
         if (idx > 0 && idx < coin.length() - 1) {
-            String unqualified = coin.substring(idx + 1);
-            ((com.fasterxml.jackson.databind.node.ObjectNode) subscription).put("coin", unqualified);
+            ((com.fasterxml.jackson.databind.node.ObjectNode) subscription).put("coin", coin.substring(idx + 1));
         }
-        return subscription;
+    }
+
+    private static String getSubscriptionCoin(Subscription subscription) {
+        if (subscription instanceof TradesSubscription) return ((TradesSubscription) subscription).getCoin();
+        if (subscription instanceof L2BookSubscription) return ((L2BookSubscription) subscription).getCoin();
+        if (subscription instanceof BboSubscription) return ((BboSubscription) subscription).getCoin();
+        if (subscription instanceof CandleSubscription) return ((CandleSubscription) subscription).getCoin();
+        return null;
+    }
+
+    private static void setSubscriptionCoin(Subscription subscription, String coin) {
+        if (subscription instanceof TradesSubscription) ((TradesSubscription) subscription).setCoin(coin);
+        else if (subscription instanceof L2BookSubscription) ((L2BookSubscription) subscription).setCoin(coin);
+        else if (subscription instanceof BboSubscription) ((BboSubscription) subscription).setCoin(coin);
+        else if (subscription instanceof CandleSubscription) ((CandleSubscription) subscription).setCoin(coin);
     }
 
     /**
