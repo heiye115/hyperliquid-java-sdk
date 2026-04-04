@@ -105,6 +105,18 @@ public class Info {
     private final Set<Integer> spotMappedAssetIds = ConcurrentHashMap.newKeySet();
 
     /**
+     * Name-to-coin mapping cache.
+     * Maps user-facing names (uppercase) to canonical coin names used by the WebSocket server.
+     * Identity for most coins (e.g. "BTC" -> "BTC"), pair aliases for spots (e.g. "BTC/USDC" -> spot coin name).
+     */
+    private final Map<String, String> nameToCoinCache = new ConcurrentHashMap<>();
+
+    /**
+     * Spot-specific keys written into nameToCoinCache (for selective cleanup).
+     */
+    private final Set<String> spotMappedNameToCoinKeys = ConcurrentHashMap.newKeySet();
+
+    /**
      * Constructs an Info client using the default cache configuration.
      *
      * @param baseUrl        API base URL
@@ -281,6 +293,9 @@ public class Info {
                 if (existing == null) {
                     spotMappedCoinKeys.add(key);
                 }
+                if (nameToCoinCache.putIfAbsent(key, coinName) == null) {
+                    spotMappedNameToCoinKeys.add(key);
+                }
             }
             if (tokens != null && u.getTokens() != null && !u.getTokens().isEmpty()) {
                 Integer baseTokenIndex = u.getTokens().getFirst();
@@ -307,6 +322,9 @@ public class Info {
                             if (existing == null) {
                                 spotMappedCoinKeys.add(pairKey);
                             }
+                            if (nameToCoinCache.putIfAbsent(pairKey, coinName) == null) {
+                                spotMappedNameToCoinKeys.add(pairKey);
+                            }
                         }
                     }
                 }
@@ -328,8 +346,12 @@ public class Info {
         for (Integer assetId : spotMappedAssetIds) {
             assetToSzDecimalsCache.remove(assetId);
         }
+        for (String key : spotMappedNameToCoinKeys) {
+            nameToCoinCache.remove(key);
+        }
         spotMappedCoinKeys.clear();
         spotMappedAssetIds.clear();
+        spotMappedNameToCoinKeys.clear();
     }
 
     /**
@@ -522,6 +544,7 @@ public class Info {
         coinToAssetCache.clear();
         assetToSzDecimalsCache.clear();
         perpDexOffsetCache.clear();
+        nameToCoinCache.clear();
         return loadMetaCache(dex);
     }
 
@@ -542,6 +565,7 @@ public class Info {
         coinToAssetCache.clear();
         assetToSzDecimalsCache.clear();
         perpDexOffsetCache.clear();
+        nameToCoinCache.clear();
     }
 
     /**
@@ -611,6 +635,7 @@ public class Info {
             if (u.getName() != null) {
                 String coinName = u.getName().toUpperCase();
                 coinToAssetCache.put(coinName, assetId);
+                nameToCoinCache.put(coinName, u.getName());
                 if (u.getSzDecimals() != null) {
                     assetToSzDecimalsCache.put(assetId, u.getSzDecimals());
                 }
@@ -1841,16 +1866,25 @@ public class Info {
     }
 
     /**
-     * Remap coin in subscription, stripping dex prefix (e.g. "dex:BTC" → "BTC").
-     * Matches official SDK's _remap_coin_subscription pattern.
+     * Remap coin in subscription to canonical form.
+     * Uses nameToCoin lookup (aligned with official SDK's _remap_coin_subscription),
+     * with dex prefix stripping as fallback for dex-qualified symbols.
      * Mutates the Subscription object directly via setCoin, preserving the wsManager execution path.
      */
     private void remapCoinInSubscription(Subscription subscription) {
-        String coin = getSubscriptionCoin(subscription);
+        String coin = null;
+        if (subscription instanceof TradesSubscription) coin = ((TradesSubscription) subscription).getCoin();
+        else if (subscription instanceof L2BookSubscription) coin = ((L2BookSubscription) subscription).getCoin();
+        else if (subscription instanceof BboSubscription) coin = ((BboSubscription) subscription).getCoin();
+        else if (subscription instanceof CandleSubscription) coin = ((CandleSubscription) subscription).getCoin();
         if (coin == null) return;
-        int idx = coin.indexOf(':');
-        if (idx > 0 && idx < coin.length() - 1) {
-            setSubscriptionCoin(subscription, coin.substring(idx + 1));
+
+        String resolved = resolveSubscriptionCoin(coin);
+        if (!resolved.equals(coin)) {
+            if (subscription instanceof TradesSubscription) ((TradesSubscription) subscription).setCoin(resolved);
+            else if (subscription instanceof L2BookSubscription) ((L2BookSubscription) subscription).setCoin(resolved);
+            else if (subscription instanceof BboSubscription) ((BboSubscription) subscription).setCoin(resolved);
+            else if (subscription instanceof CandleSubscription) ((CandleSubscription) subscription).setCoin(resolved);
         }
     }
 
@@ -1867,25 +1901,53 @@ public class Info {
         JsonNode coinNode = subscription.get("coin");
         if (coinNode == null || !coinNode.isTextual()) return;
         String coin = coinNode.asText();
-        int idx = coin.indexOf(':');
-        if (idx > 0 && idx < coin.length() - 1) {
-            ((com.fasterxml.jackson.databind.node.ObjectNode) subscription).put("coin", coin.substring(idx + 1));
+        String resolved = resolveSubscriptionCoin(coin);
+        if (!resolved.equals(coin)) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) subscription).put("coin", resolved);
         }
     }
 
-    private static String getSubscriptionCoin(Subscription subscription) {
-        if (subscription instanceof TradesSubscription) return ((TradesSubscription) subscription).getCoin();
-        if (subscription instanceof L2BookSubscription) return ((L2BookSubscription) subscription).getCoin();
-        if (subscription instanceof BboSubscription) return ((BboSubscription) subscription).getCoin();
-        if (subscription instanceof CandleSubscription) return ((CandleSubscription) subscription).getCoin();
-        return null;
+    /**
+     * Resolve subscription coin name to canonical form.
+     * <p>
+     * Lookup order:
+     * 1. nameToCoinCache (aligned with official SDK's name_to_coin dict)
+     * 2. dex prefix stripping (Java enhancement for "dex:COIN" format)
+     * 3. pass-through unchanged
+     * </p>
+     *
+     * @param coin Raw coin name from subscription
+     * @return Canonical coin name for WebSocket server
+     */
+    private String resolveSubscriptionCoin(String coin) {
+        ensureNameToCoinLoaded();
+
+        String mapped = nameToCoinCache.get(coin.toUpperCase());
+        if (mapped != null) return mapped;
+
+        int idx = coin.indexOf(':');
+        if (idx > 0 && idx < coin.length() - 1) {
+            return coin.substring(idx + 1);
+        }
+
+        return coin;
     }
 
-    private static void setSubscriptionCoin(Subscription subscription, String coin) {
-        if (subscription instanceof TradesSubscription) ((TradesSubscription) subscription).setCoin(coin);
-        else if (subscription instanceof L2BookSubscription) ((L2BookSubscription) subscription).setCoin(coin);
-        else if (subscription instanceof BboSubscription) ((BboSubscription) subscription).setCoin(coin);
-        else if (subscription instanceof CandleSubscription) ((CandleSubscription) subscription).setCoin(coin);
+    /**
+     * Ensure nameToCoinCache is populated before subscription remap.
+     * Matches official SDK's eager initialization pattern.
+     */
+    private void ensureNameToCoinLoaded() {
+        if (nameToCoinCache.isEmpty()) {
+            try {
+                loadMetaCache();
+                SpotMeta spotMeta = loadSpotMetaCache();
+                buildSpotCoinMappingCache(spotMeta);
+            } catch (Exception e) {
+                // Log but don't block subscription - allow pass-through for edge cases
+                // like network unavailability during first subscribe
+            }
+        }
     }
 
     /**
