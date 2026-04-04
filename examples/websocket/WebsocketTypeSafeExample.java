@@ -130,7 +130,7 @@ public class WebsocketTypeSafeExample {
         });
 
         System.out.println("--- Subscribe to userEvents and orderUpdates ---");
-        UserEventsSubscription userEvents = UserEventsSubscription.create();
+        UserEventsSubscription userEvents = UserEventsSubscription.create("0x0000000000000000000000000000000000000000");
         info.subscribe(userEvents, msg -> System.out.println("[userEvents] " + msg.path("channel").asText()));
 
         OrderUpdatesSubscription orderUpdates = OrderUpdatesSubscription.of(userAddress);

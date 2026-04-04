@@ -425,4 +425,22 @@ public class OrderTest {
         Candle candle = client.getInfo().candleSnapshotLatest("@1270", CandleInterval.MINUTE_1);
         System.out.println(JSONUtil.writeValueAsString(candle));
     }
+
+    @Test
+    public void testl2Book() throws JsonProcessingException {
+        L2Book l2Book = client.getInfo().l2Book("BTC");
+        System.out.println(JSONUtil.writeValueAsString(l2Book));
+    }
+
+    @Test
+    public void testUpdateLeverage() throws JsonProcessingException {
+        UpdateLeverage updateLeverage = client.getExchange().updateLeverage("xyz:SILVER", false, 3);
+        System.out.println(JSONUtil.writeValueAsString(updateLeverage));
+    }
+
+    @Test
+    public void testComputeSlippagePrice() throws JsonProcessingException {
+        String price = client.getExchange().computeSlippagePrice("xyz:SILVER", true, "0.055");
+        System.out.println(price);
+    }
 }
