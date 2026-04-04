@@ -3,20 +3,23 @@ package io.github.hyperliquid.sdk.model.userabstraction;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * User set abstraction
+ * Response model for {@link io.github.hyperliquid.sdk.apis.Exchange#userSetAbstraction(String, UserAbstractionMode)}.
  */
 public class UserSetAbstraction {
 
     /**
-     * Status default "ok"
+     * Top-level status (typically {@code "ok"}).
      */
     private String status;
 
     /**
-     * Response
+     * Raw JSON response from the exchange.
      */
     private JsonNode response;
 
+    /**
+     * Optional structured subtype field when the server returns a typed wrapper.
+     */
     public static class Response {
 
         private String type;

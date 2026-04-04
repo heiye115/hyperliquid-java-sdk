@@ -3,17 +3,18 @@ package io.github.hyperliquid.sdk.model.approve;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Approve a builder fee result
+ * Response body for {@link io.github.hyperliquid.sdk.apis.Exchange#approveBuilderFee(String, String)}:
+ * top-level {@code status} plus raw JSON {@code response} from the exchange.
  */
 public class ApproveBuilderFee {
 
     /**
-     * Status ok/ err
+     * Top-level status ({@code ok} / {@code err}).
      */
     private String status;
 
     /**
-     * Response
+     * Parsed JSON payload for the approve-builder-fee action.
      */
     private JsonNode response;
 

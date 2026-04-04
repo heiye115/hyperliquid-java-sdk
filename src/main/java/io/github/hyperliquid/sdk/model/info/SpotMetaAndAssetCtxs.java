@@ -5,6 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+/**
+ * Typed result for {@code spotMetaAndAssetCtxs} info requests: a tuple {@code [SpotMeta, List<SpotAssetCtx>]}
+ * deserialized from a JSON array.
+ */
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
 public class SpotMetaAndAssetCtxs {
     @JsonProperty(index = 0)

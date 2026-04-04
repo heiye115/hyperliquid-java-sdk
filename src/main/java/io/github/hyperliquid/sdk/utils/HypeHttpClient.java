@@ -7,6 +7,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
+/**
+ * Thin HTTP client for Hyperliquid REST endpoints ({@code /info}, {@code /exchange}).
+ * <p>
+ * Uses the provided {@link OkHttpClient} for connection pooling and timeouts; serializes JSON bodies
+ * with {@link JSONUtil}.
+ * </p>
+ */
 public class HypeHttpClient {
 
     private static final Logger log = LoggerFactory.getLogger(HypeHttpClient.class);
@@ -17,6 +24,10 @@ public class HypeHttpClient {
 
     private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
 
+    /**
+     * @param baseUrl API root URL (e.g. {@link io.github.hyperliquid.sdk.utils.Constants#MAINNET_API_URL}), without trailing slash
+     * @param client  Configured OkHttp client (timeouts, etc.)
+     */
     public HypeHttpClient(String baseUrl, OkHttpClient client) {
         this.baseUrl = baseUrl;
         this.client = client;

@@ -1,15 +1,19 @@
 package io.github.hyperliquid.sdk.model.info;
 
-/** User rate limit information */
+/**
+ * Rate-limit snapshot for a user from the {@code userRateLimit} info request.
+ * <p>
+ * Fields mirror the exchange JSON: cumulative volume and request usage vs cap.
+ * </p>
+ */
 public class UserRateLimit {
-    /** Cumulative trading volume (string) */
+    /** Cumulative trading volume (string, exchange format). */
     private String cumVlm;
-    /** Number of requests used */
+    /** Number of API requests consumed in the current window. */
     private Long nRequestsUsed;
-    /** Request count limit */
+    /** Maximum requests allowed in the window. */
     private Long nRequestsCap;
 
-    // Getter and Setter methods
     public String getCumVlm() {
         return cumVlm;
     }

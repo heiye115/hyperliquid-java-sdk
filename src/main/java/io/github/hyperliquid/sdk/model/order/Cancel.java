@@ -4,15 +4,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.List;
 
+/**
+ * Response model for {@link io.github.hyperliquid.sdk.apis.Exchange#cancel(String, long)},
+ * {@link io.github.hyperliquid.sdk.apis.Exchange#cancels(java.util.List)}, and cancel-by-cloid variants.
+ */
 public class Cancel {
 
     /**
-     * The status of the request.
+     * Top-level status string from the exchange (e.g. {@code "ok"} or {@code "err"}).
      */
     private String status;
 
     /**
-     * The response of the request.
+     * Structured response body when status is successful.
      */
     private Response response;
 
@@ -40,10 +44,13 @@ public class Cancel {
                 '}';
     }
 
+    /**
+     * Nested payload for a successful cancel response.
+     */
     public static class Response {
 
         /**
-         * The type of the response. "cancel"
+         * Response type discriminator (typically {@code "cancel"}).
          */
         private String type;
 
@@ -73,10 +80,16 @@ public class Cancel {
                     '}';
         }
 
+        /**
+         * Per-order cancel outcomes from the API.
+         */
         public static class Data {
 
             private List<JsonNode> statuses;
 
+            /**
+             * @return One JSON node per cancel in the batch (order matches request order)
+             */
             public List<JsonNode> getStatuses() {
                 return statuses;
             }

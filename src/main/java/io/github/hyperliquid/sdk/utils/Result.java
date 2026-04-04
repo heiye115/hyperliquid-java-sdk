@@ -47,7 +47,13 @@ public final class Result<T> {
         return err;
     }
 
-    /** Success mapping */
+    /**
+     * Maps the success value when {@link #isOk()}; propagates the error unchanged when {@link #isErr()}.
+     *
+     * @param mapper Transform applied to the success payload
+     * @param <U>    New success type
+     * @return Mapped success or the original failure
+     */
     public <U> Result<U> map(Function<T, U> mapper) {
         if (isOk()) {
             return Result.ok(mapper.apply(ok));
@@ -55,7 +61,12 @@ public final class Result<T> {
         return Result.err(err);
     }
 
-    /** Failure mapping */
+    /**
+     * Maps the error when {@link #isErr()}; returns {@code this} unchanged when {@link #isOk()}.
+     *
+     * @param mapper Transform applied to {@link ApiError}
+     * @return Result with replaced error or unchanged success
+     */
     public Result<T> mapErr(Function<ApiError, ApiError> mapper) {
         if (isErr()) {
             return Result.err(mapper.apply(err));

@@ -2,6 +2,10 @@ package io.github.hyperliquid.sdk.model.info;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * Spot market context for one instrument: prices, volume, and supply fields returned by
+ * {@code spotMetaAndAssetCtxs} (aligned with Hyperliquid info API).
+ */
 public class SpotAssetCtx {
     @JsonProperty("dayNtlVlm")
     private String dayNtlVlm;

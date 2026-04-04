@@ -1781,6 +1781,19 @@ public class Info {
         wsManager.subscribe(subscription, callback);
     }
 
+    /**
+     * Subscribe to WebSocket (type-safe) and return a handle for targeted unsubscribe.
+     * <p>
+     * Equivalent to {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} but returns
+     * a {@link WebsocketManager.SubscriptionHandle} so you can cancel this subscription by id
+     * without removing other callbacks for the same channel.
+     * </p>
+     *
+     * @param subscription Subscription object (typed model)
+     * @param callback     Message callback
+     * @return Handle carrying the server subscription payload and a unique local id
+     * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
+     */
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
@@ -1805,6 +1818,14 @@ public class Info {
         wsManager.subscribe(subscription, callback);
     }
 
+    /**
+     * Subscribe to WebSocket using a raw JSON subscription object and return an unsubscribe handle.
+     *
+     * @param subscription Subscription JSON (must include {@code type}, and {@code coin} or {@code user} as required)
+     * @param callback     Message callback
+     * @return Handle for {@link #unsubscribe(WebsocketManager.SubscriptionHandle)} or {@link #unsubscribe(long)}
+     * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
+     */
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         if (skipWs)
             throw new HypeError("WebSocket disabled by skipWs");
@@ -1853,12 +1874,25 @@ public class Info {
         wsManager.unsubscribe(subscription);
     }
 
+    /**
+     * Unsubscribe a single callback registration using the handle returned from
+     * {@link #subscribeWithHandle(Subscription, WebsocketManager.MessageCallback)}.
+     *
+     * @param handle Non-null handle from a prior {@code subscribeWithHandle} call
+     * @return {@code true} if a subscription entry was removed; {@code false} if WebSocket is disabled or handle not found
+     */
     public boolean unsubscribe(WebsocketManager.SubscriptionHandle handle) {
         if (skipWs)
             return false;
         return wsManager.unsubscribe(handle);
     }
 
+    /**
+     * Unsubscribe by the numeric id from {@link WebsocketManager.SubscriptionHandle#getSubscriptionId()}.
+     *
+     * @param subscriptionId Positive id assigned when the subscription was registered
+     * @return {@code true} if an entry was removed; {@code false} if not found, id invalid, or WebSocket disabled
+     */
     public boolean unsubscribe(long subscriptionId) {
         if (skipWs)
             return false;

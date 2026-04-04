@@ -16,8 +16,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * WebSocket Manager.
- * Manages connections, subscriptions, heartbeats, and message distribution.
+ * Manages a single WebSocket connection to Hyperliquid's public WS API ({@code wss://host/ws}).
+ * <p>
+ * Responsibilities: connect/reconnect with exponential backoff, resubscribe after reconnect,
+ * route incoming messages to callbacks by subscription identifier, optional HTTP HEAD network probing
+ * while disconnected, and periodic application-level {@code ping} frames.
+ * </p>
  */
 public class WebsocketManager {
 
@@ -162,9 +166,12 @@ public class WebsocketManager {
     private final List<ConnectionListener> connectionListeners = Collections.synchronizedList(new ArrayList<>());
 
     /**
-     * Callback interface
+     * Invoked for each inbound JSON message whose channel matches an active subscription.
      */
     public interface MessageCallback {
+        /**
+         * @param msg Parsed WebSocket payload (channel-specific structure)
+         */
         void onMessage(JsonNode msg);
     }
 
@@ -185,13 +192,20 @@ public class WebsocketManager {
     }
 
     /**
-     * Active subscription record
+     * One registered subscription: the exact JSON sent to the server, the callback, and a local id for
+     * {@link #unsubscribe(long)} / {@link #unsubscribe(SubscriptionHandle)}.
      */
     public static class ActiveSubscription {
+        /** Subscription body as sent in {@code subscribe}. */
         public final JsonNode subscription;
+        /** User callback for matching channel messages. */
         public final MessageCallback callback;
+        /** Monotonic id unique within this manager instance. */
         public final long subscriptionId;
 
+        /**
+         * Legacy constructor: assigns {@link #subscriptionId} {@code 0} (not targetable by {@link #unsubscribe(long)}).
+         */
         public ActiveSubscription(JsonNode s, MessageCallback c) {
             this(s, c, 0L);
         }
@@ -211,6 +225,10 @@ public class WebsocketManager {
         }
     }
 
+    /**
+     * Opaque handle returned by {@link #subscribeWithHandle} to remove one callback without affecting
+     * other subscribers to the same channel.
+     */
     public static class SubscriptionHandle {
         private final long subscriptionId;
         private final JsonNode subscription;
@@ -220,10 +238,16 @@ public class WebsocketManager {
             this.subscription = subscription;
         }
 
+        /**
+         * @return Local id passed to {@link #unsubscribe(long)}
+         */
         public long getSubscriptionId() {
             return subscriptionId;
         }
 
+        /**
+         * @return Subscription JSON registered for this handle
+         */
         public JsonNode getSubscription() {
             return subscription;
         }
@@ -511,10 +535,20 @@ public class WebsocketManager {
         return false;
     }
 
+    /**
+     * Overrides the URL used for HTTP HEAD network probes while disconnected (default: {@link #baseUrl}).
+     *
+     * @param url Full URL reachable from the client (e.g. {@code https://api.hyperliquid.xyz})
+     */
     public void setNetworkProbeUrl(String url) {
         this.probeUrl = url;
     }
 
+    /**
+     * When {@code true}, skips HTTP probing and treats the network as always available for reconnect logic.
+     *
+     * @param disabled {@code true} to disable probes
+     */
     public void setNetworkProbeDisabled(boolean disabled) {
         this.probeDisabled = disabled;
     }
@@ -642,6 +676,15 @@ public class WebsocketManager {
         subscribeWithHandle(subscription, callback);
     }
 
+    /**
+     * Type-safe subscribe that returns a {@link SubscriptionHandle} for later {@link #unsubscribe(SubscriptionHandle)}.
+     *
+     * @param subscription Typed subscription model
+     * @param callback     Message callback
+     * @return Handle identifying this registration
+     * @throws IllegalStateException    If {@link #stop()} was called
+     * @throws IllegalArgumentException If {@code subscription} or {@code callback} is null
+     */
     public SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback) {
         if (stopped) {
             throw new IllegalStateException("WebsocketManager has been stopped, cannot subscribe");
@@ -667,6 +710,15 @@ public class WebsocketManager {
         subscribeWithHandle(subscription, callback);
     }
 
+    /**
+     * Subscribe with a raw JSON subscription object and return a handle for targeted unsubscribe.
+     *
+     * @param subscription Subscription JSON (e.g. {@code {"type":"l2Book","coin":"BTC"}})
+     * @param callback     Message callback
+     * @return Handle with unique {@link SubscriptionHandle#getSubscriptionId()}
+     * @throws IllegalStateException    If {@link #stop()} was called
+     * @throws IllegalArgumentException If {@code subscription} or {@code callback} is null
+     */
     public SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback) {
         if (stopped) {
             throw new IllegalStateException("WebsocketManager has been stopped, cannot subscribe");
@@ -749,6 +801,13 @@ public class WebsocketManager {
         }
     }
 
+    /**
+     * Removes the subscription entry with the given locally generated id. If no other identical
+     * subscription JSON remains for that channel, sends a server {@code unsubscribe} message.
+     *
+     * @param subscriptionId Value from {@link SubscriptionHandle#getSubscriptionId()} (must be {@code > 0})
+     * @return {@code true} if an entry was removed
+     */
     public boolean unsubscribe(long subscriptionId) {
         if (subscriptionId <= 0) {
             return false;
@@ -788,6 +847,12 @@ public class WebsocketManager {
         return false;
     }
 
+    /**
+     * Convenience for {@link #unsubscribe(long)} using {@link SubscriptionHandle#getSubscriptionId()}.
+     *
+     * @param handle Non-null handle from {@link #subscribeWithHandle}
+     * @return {@code false} if {@code handle} is null or no matching entry exists
+     */
     public boolean unsubscribe(SubscriptionHandle handle) {
         if (handle == null) {
             return false;

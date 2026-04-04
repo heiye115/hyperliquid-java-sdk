@@ -3,20 +3,19 @@ package io.github.hyperliquid.sdk.model.info;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Update leverage operation return
+ * Response model for {@link io.github.hyperliquid.sdk.apis.Exchange#updateLeverage(String, boolean, int)}.
  */
 public class UpdateLeverage {
     /**
-     * Top-level status (e.g., "ok"/"error")
+     * Top-level status (e.g. {@code "ok"} or {@code "err"}).
      */
     private String status;
     
     /**
-     * Response body (type, etc.)
+     * Raw JSON response body from the exchange.
      */
     private JsonNode response;
 
-    // Getter and Setter methods
     public String getStatus() {
         return status;
     }
