@@ -136,6 +136,23 @@ public class Info {
      * @param cacheConfig    Cache configuration
      */
     public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig) {
+        this(baseUrl, hypeHttpClient, skipWs, cacheConfig, null);
+    }
+
+    /**
+     * Constructs an Info client with perp DEX preloading support.
+     * <p>
+     * When perpDexs is specified, meta for each DEX is loaded during initialization,
+     * enabling WebSocket subscriptions for builder-deployed perp DEX symbols.
+     * </p>
+     *
+     * @param baseUrl        API base URL
+     * @param hypeHttpClient HTTP client wrapper
+     * @param skipWs         Whether to skip WebSocket initialization
+     * @param cacheConfig    Cache configuration
+     * @param perpDexs       List of perp DEX names to preload (null means only default DEX)
+     */
+    public Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig, List<String> perpDexs) {
         this.hypeHttpClient = hypeHttpClient;
         this.skipWs = skipWs;
         if (!skipWs) {
@@ -165,6 +182,11 @@ public class Info {
             allMidsCacheBuilder.recordStats();
         }
         this.allMidsCache = allMidsCacheBuilder.build();
+
+        // Preload perp DEX meta if specified
+        if (perpDexs != null && !perpDexs.isEmpty()) {
+            warmUpCache(perpDexs);
+        }
     }
 
     /**
@@ -357,9 +379,9 @@ public class Info {
     /**
      * Resolve the numeric asset ID offset for a perp dex.
      * <p>
-     * Default dex uses offset 0. Builder-deployed perp dexes follow the same
-     * offset scheme as the Python SDK: 110000 + (index - 1) * 10000, where index
-     * is the position in the {@code perpDexs} response after the default dex.
+     * Default dex uses offset 0. Builder-deployed perp dexes use offset:
+     * 110000 + (index - 1) * 10000, where index is the position in the
+     * {@code perpDexs} response after the default dex.
      * </p>
      *
      * @param dex Perp dex name
@@ -1609,7 +1631,7 @@ public class Info {
     }
 
     /**
-     * Order status query (by Cloid, aligned with Python query_order_by_cloid).
+     * Order status query by client order ID (Cloid).
      *
      * @param address User address
      * @param cloid   Client order ID
@@ -1901,9 +1923,13 @@ public class Info {
 
     /**
      * Remap coin in subscription to canonical form.
-     * Uses nameToCoin lookup (aligned with official SDK's _remap_coin_subscription),
-     * with dex prefix stripping as fallback for dex-qualified symbols.
-     * Mutates the Subscription object directly via setCoin, preserving the wsManager execution path.
+     * <p>
+     * Looks up coin in nameToCoinCache and throws if not found.
+     * Mutates the Subscription object directly via setCoin.
+     * </p>
+     *
+     * @param subscription Subscription object
+     * @throws HypeError If coin is not found in nameToCoinCache
      */
     private void remapCoinInSubscription(Subscription subscription) {
         String coin = null;
@@ -1924,7 +1950,12 @@ public class Info {
 
     /**
      * Remap coin in subscription (JsonNode version).
+     * <p>
      * For subscriptions created via raw JsonNode (e.g. activeAssetCtx which has no dedicated class).
+     * </p>
+     *
+     * @param subscription Subscription JSON object
+     * @throws HypeError If coin is not found in nameToCoinCache
      */
     private void remapCoinInSubscription(JsonNode subscription) {
         if (subscription == null || !subscription.has("type")) return;
@@ -1944,32 +1975,32 @@ public class Info {
     /**
      * Resolve subscription coin name to canonical form.
      * <p>
-     * Lookup order:
-     * 1. nameToCoinCache (aligned with official SDK's name_to_coin dict)
-     * 2. dex prefix stripping (Java enhancement for "dex:COIN" format)
-     * 3. pass-through unchanged
+     * Looks up coin in nameToCoinCache and throws if not found.
      * </p>
      *
      * @param coin Raw coin name from subscription
      * @return Canonical coin name for WebSocket server
+     * @throws HypeError If coin is not found in nameToCoinCache
      */
     private String resolveSubscriptionCoin(String coin) {
         ensureNameToCoinLoaded();
 
         String mapped = nameToCoinCache.get(coin.toUpperCase());
-        if (mapped != null) return mapped;
-
-        int idx = coin.indexOf(':');
-        if (idx > 0 && idx < coin.length() - 1) {
-            return coin.substring(idx + 1);
+        if (mapped != null) {
+            return mapped;
         }
 
-        return coin;
+        throw new HypeError("Coin '" + coin + "' not found in name_to_coin mapping. " +
+                "Please use a valid coin name (e.g., 'ETH', 'BTC').");
     }
 
     /**
      * Ensure nameToCoinCache is populated before subscription remap.
-     * Matches official SDK's eager initialization pattern.
+     * <p>
+     * Uses eager initialization pattern. Throws if metadata cannot be loaded.
+     * </p>
+     *
+     * @throws HypeError If metadata cannot be loaded
      */
     private void ensureNameToCoinLoaded() {
         if (nameToCoinCache.isEmpty()) {
@@ -1978,8 +2009,8 @@ public class Info {
                 SpotMeta spotMeta = loadSpotMetaCache();
                 buildSpotCoinMappingCache(spotMeta);
             } catch (Exception e) {
-                // Log but don't block subscription - allow pass-through for edge cases
-                // like network unavailability during first subscribe
+                throw new HypeError("Failed to load name_to_coin mapping: " + e.getMessage() +
+                        ". Cannot resolve subscription coin.", e);
             }
         }
     }

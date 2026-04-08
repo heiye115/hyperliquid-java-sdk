@@ -145,9 +145,9 @@ public final class Signing {
     }
 
     /**
-     * Convert floating-point number to string representation (consistent with Python float_to_wire).
+     * Convert floating-point number to string representation.
      * Rules:
-     * - First format the value to 8 decimal places (rounding rules consistent with Python formatting);
+     * - First format the value to 8 decimal places;
      * - If the difference between formatted and original value >= 1e-12, throw an exception (avoid unacceptable rounding);
      * - Normalize by removing trailing zeros and scientific notation;
      * - Normalize "-0" to "0".
@@ -157,7 +157,7 @@ public final class Signing {
      * @throws IllegalArgumentException Thrown when rounding error exceeds threshold
      */
     public static String floatToWire(double value) {
-        // Format string to 8 decimal places, simulating Python's f"{x:.8f}"
+        // Format string to 8 decimal places
         String rounded = String.format(java.util.Locale.US, "%.8f", value);
         double roundedDouble = Double.parseDouble(rounded);
         if (Math.abs(roundedDouble - value) >= 1e-12) {
@@ -173,7 +173,7 @@ public final class Signing {
     }
 
     /**
-     * Convert floating-point number to integer for hashing (consistent with Python float_to_int_for_hashing, magnified by 1e8).
+     * Convert floating-point number to integer for hashing (magnified by 1e8).
      * <p>
      * Rules:
      * - with_decimals = x * 10^8;
@@ -199,7 +199,7 @@ public final class Signing {
     }
 
     /**
-     * Generic integer conversion: Magnify by 10^power and round (consistent with Python float_to_int).
+     * Generic integer conversion: Magnify by 10^power and round.
      * <p>
      * Rules:
      * - with_decimals = x * 10^power;
@@ -213,7 +213,7 @@ public final class Signing {
      */
     public static long floatToInt(double value, int power) {
         double withDecimals = value * Math.pow(10, power);
-        double rounded = Math.rint(withDecimals); // Rounding to nearest even, similar to Python's round behavior
+        double rounded = Math.rint(withDecimals); // Rounding to nearest even
         if (Math.abs(rounded - withDecimals) >= 1e-3) {
             throw new IllegalArgumentException("floatToInt causes rounding: " + value);
         }
@@ -327,7 +327,7 @@ public final class Signing {
      * @return 32-byte hash
      */
     public static byte[] actionHash(Object action, long nonce, String vaultAddress, Long expiresAfter) {
-        // Fully aligned with Python's action_hash serialization and concatenation rules:
+        // Action hash serialization and concatenation rules:
         // 1) MessagePack Map encoding of action (preserving insertion order);
         // 2) Directly append 8-byte big-endian raw bytes of nonce;
         // 3) vaultAddress: null -> append single byte 0x00; non-null -> append 0x01 followed by 20-byte address;
@@ -369,7 +369,7 @@ public final class Signing {
     }
 
     /**
-     * Encode any Java object in a manner equivalent to Python's msgpack.packb.
+     * Encode any Java object using MessagePack serialization.
      * Supports Map (recommended to use LinkedHashMap to maintain insertion order), List, String, numbers, boolean, and null.
      */
     private static byte[] packAsMsgpack(Object obj) throws java.io.IOException {
@@ -432,7 +432,7 @@ public final class Signing {
             // Other types (e.g., custom POJOs) uniformly converted to Map or String
             case OrderWire ow -> {
                 Map<String, Object> m = new LinkedHashMap<>();
-                // Key order strictly aligned with Python: a, b, p, s, r, t, (c last)
+                // Key order: a, b, p, s, r, t, (c last)
                 m.put("a", ow.coin);
                 m.put("b", ow.isBuy);
                 if (ow.limitPx != null)
@@ -508,7 +508,7 @@ public final class Signing {
      * @throws HypeError Thrown when serialization or signing process encounters exceptions (wraps underlying exception information)
      */
     public static Map<String, Object> signTypedData(Credentials credentials, String typedDataJson) {
-        // Use standard EIP-712 structured data encoding and signing (consistent with Python eth_account.encode_typed_data).
+        // Use standard EIP-712 structured data encoding and signing.
         try {
             org.web3j.crypto.StructuredDataEncoder encoder = new org.web3j.crypto.StructuredDataEncoder(typedDataJson);
             byte[] digest = encoder.hashStructuredData();
@@ -529,7 +529,7 @@ public final class Signing {
     }
 
     /**
-     * Construct Phantom Agent (consistent with Python construct_phantom_agent).
+     * Construct Phantom Agent for L1 action signing.
      */
     public static Map<String, Object> constructPhantomAgent(byte[] hash, boolean isMainnet) {
         Map<String, Object> agent = new LinkedHashMap<>();
@@ -540,7 +540,7 @@ public final class Signing {
     }
 
     /**
-     * Generate EIP-712 TypedData JSON (consistent with Python l1_payload).
+     * Generate EIP-712 TypedData JSON for L1 action.
      */
     public static String l1PayloadJson(Map<String, Object> phantomAgent) {
         Map<String, Object> domain = new LinkedHashMap<>();
@@ -588,7 +588,7 @@ public final class Signing {
     }
 
     /**
-     * Construct EIP-712 TypedData JSON for user-signed action (consistent with Python user_signed_payload).
+     * Construct EIP-712 TypedData JSON for user-signed action.
      * Description:
      * - primaryType is the specific transaction type, e.g., "HyperliquidTransaction:UsdSend".
      * - payloadTypes is the list of field type definitions for that transaction type, e.g., USD_SEND_SIGN_TYPES.
@@ -644,7 +644,7 @@ public final class Signing {
     }
 
     /**
-     * Sign user-signed action (consistent with Python sign_user_signed_action).
+     * Sign user-signed action.
      * Rules:
      * - Prefer action.signatureChainId when provided by caller.
      * - If missing/blank, automatically set signatureChainId by network:
@@ -850,7 +850,7 @@ public final class Signing {
     }
 
     /**
-     * Recover signer address from L1 action signature (consistent with Python recover_agent_or_user_from_l1_action).
+     * Recover signer address from L1 action signature.
      *
      * @param action       L1 action (Map or List)
      * @param vaultAddress Valid vault address (can be null)
@@ -871,7 +871,7 @@ public final class Signing {
     }
 
     /**
-     * Recover user address from user-signed action (consistent with Python recover_user_from_user_signed_action).
+     * Recover user address from user-signed action.
      * Note: Will not modify action's signatureChainId, only set hyperliquidChain based on isMainnet.
      *
      * @param action       Action message (must contain signatureChainId)
@@ -980,7 +980,7 @@ public final class Signing {
     }
 
     /**
-     * Multi-signature action signing (aligned with Python sign_multi_sig_action).
+     * Multi-signature action signing.
      * <p>
      * Used for multi-signature accounts to execute operations, requires constructing special multiSigActionHash and signing.
      * </p>

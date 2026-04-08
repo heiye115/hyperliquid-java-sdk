@@ -265,7 +265,7 @@ public class Exchange {
     /**
      * Format order price (limit and trigger price) based on asset precision.
      * <p>
-     * Rules aligned with Python SDK:
+     * Formatting rules:
      * 1. First round to 5 significant digits
      * 2. Then round to decimal places (perpetual: 6-szDecimals; spot: 8-szDecimals)
      * </p>
@@ -996,7 +996,7 @@ public class Exchange {
     /**
      * Set Agent abstraction mode.
      *
-     * @param abstraction Agent abstraction value (Python-compatible: "u", "p", "i")
+     * @param abstraction Agent abstraction value (valid values: "u", "p", "i")
      * @return JSON response from the exchange
      * @throws HypeError If the request fails
      */
@@ -1540,16 +1540,17 @@ public class Exchange {
 
     /**
      * User authorization and creation of new Agent (API Wallet).
-     * Consistent with Python Exchange.approve_agent:
+     * <p>
+     * Implementation:
      * - Randomly generate 32-byte private key to get agentAddress;
      * - Construct {type:"approveAgent", agentAddress, agentName?, nonce} user
      * signed action;
      * - Sign using
      * signUserSignedAction(primaryType="HyperliquidTransaction:ApproveAgent");
      * - Send to /exchange and return server response with new private key.
+     * </p>
      * <p>
-     * Note: When name is null, the agentName field is not included in the action
-     * (aligned with Python).
+     * Note: When name is null, the agentName field is not included in the action.
      *
      * @param name Optional Agent name (for display purposes), can be null
      * @return Server response and generated Agent private key/address
@@ -1585,9 +1586,8 @@ public class Exchange {
      *
      * <p>
      * Rules:
-     * - nonce uses millisecond timestamp (consistent with Python get_timestamp_ms);
-     * - usdClassTransfer/sendAsset type actions do not include vaultAddress
-     * (maintain Python behavior consistency);
+     * - nonce uses millisecond timestamp;
+     * - usdClassTransfer/sendAsset type actions do not include vaultAddress;
      * - Other actions use the set vaultAddress and expiresAfter;
      * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
@@ -1602,9 +1602,8 @@ public class Exchange {
      * Send L1 action and sign (support custom expiration time).
      * <p>
      * Rules:
-     * - nonce uses millisecond timestamp (consistent with Python get_timestamp_ms);
-     * - usdClassTransfer/sendAsset type actions do not include vaultAddress
-     * (maintain Python behavior consistency);
+     * - nonce uses millisecond timestamp;
+     * - usdClassTransfer/sendAsset type actions do not include vaultAddress;
      * - Other actions use the set vaultAddress;
      * - Use Signing.signL1Action to complete TypedData construction and signing.
      *
@@ -2097,8 +2096,7 @@ public class Exchange {
     // ==================== Spot Sub Account Transfer ====================
 
     /**
-     * Spot sub account transfer (aligned with Python SDK's
-     * sub_account_spot_transfer).
+     * Spot sub account transfer.
      * <p>
      * Used to transfer spot tokens between main account and Spot sub account.
      * </p>
@@ -2127,7 +2125,7 @@ public class Exchange {
     // ==================== Multi-Signature Operations ====================
 
     /**
-     * Multi-signature operation (aligned with Python SDK's multi_sig).
+     * Multi-signature operation.
      * <p>
      * Used for multi-signature accounts to execute operations, requiring signatures
      * from multiple signers.
@@ -2192,7 +2190,7 @@ public class Exchange {
     }
 
     /**
-     * PerpDeploy register asset (aligned with Python SDK's perp_deploy_register_asset).
+     * PerpDeploy register asset.
      *
      * @param dex           Perp dex name
      * @param maxGas        Maximum gas
@@ -2242,8 +2240,7 @@ public class Exchange {
     }
 
     /**
-     * PerpDeploy Oracle settings (aligned with Python SDK's
-     * perp_deploy_set_oracle).
+     * PerpDeploy Oracle settings.
      * <p>
      * Used for Oracle price updates in Builder-deployed perp dex.
      * </p>
@@ -2310,7 +2307,7 @@ public class Exchange {
     }
 
     /**
-     * EVM BigBlocks switch (aligned with Python SDK's use_big_blocks).
+     * EVM BigBlocks switch.
      * <p>
      * Used to enable/disable EVM Big Blocks functionality.
      * </p>
@@ -2330,7 +2327,7 @@ public class Exchange {
     // ====================
 
     /**
-     * C Validator registration (aligned with Python SDK's c_validator_register).
+     * C Validator registration.
      * <p>
      * Used to register new validator nodes in the Hyperliquid consensus protocol.
      * This is a professional feature for advanced users who want to participate
@@ -2399,8 +2396,7 @@ public class Exchange {
     }
 
     /**
-     * C Validator change configuration (aligned with Python SDK's
-     * c_validator_change_profile).
+     * C Validator change configuration.
      * <p>
      * Used to modify validator node configuration information. All parameters can
      * be null, only non-null parameters are updated.
@@ -2450,8 +2446,7 @@ public class Exchange {
     }
 
     /**
-     * C Validator unregistration (aligned with Python SDK's
-     * c_validator_unregister).
+     * C Validator unregistration.
      * <p>
      * Used to unregister validator nodes.
      * </p>
@@ -2467,7 +2462,7 @@ public class Exchange {
     }
 
     /**
-     * C Signer jail self (aligned with Python SDK's c_signer_jail_self).
+     * C Signer jail self.
      * <p>
      * Used for validators to actively jail their own signers.
      * </p>
@@ -2479,7 +2474,7 @@ public class Exchange {
     }
 
     /**
-     * C Signer unjail self (aligned with Python SDK's c_signer_unjail_self).
+     * C Signer unjail self.
      * <p>
      * Used for validators to remove the jailed status of their signers.
      * </p>
@@ -2505,7 +2500,7 @@ public class Exchange {
     }
 
     /**
-     * Noop test operation (aligned with Python SDK's noop).
+     * Noop test operation.
      * <p>
      * Used to test signatures and network connectivity, without executing any
      * actual operations.

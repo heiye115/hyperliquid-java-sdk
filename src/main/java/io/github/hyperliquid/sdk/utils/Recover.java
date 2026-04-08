@@ -8,8 +8,7 @@ import java.util.Map;
  *
  * <p>Background and purpose:
  * - When the backend receives /exchange and other requests, it verifies signatures and recovers the signer address from typed data;
- * - This utility class is for client-side "offline recovery/verification" to help developers confirm the signer before submission;
- * - Fully aligned with Python SDK's recover_agent_or_user_from_l1_action / recover_user_from_user_signed_action.
+ * - This utility class is for client-side "offline recovery/verification" to help developers confirm the signer before submission.
  *
  * <p>Typical use cases:
  * - Quick debugging: given r/s/v and action body, recover address to locate the signer;
@@ -23,7 +22,7 @@ public final class Recover {
     /**
      * Recover signer address from L1 action signature.
      *
-     * <p>Consistent with Python recover_agent_or_user_from_l1_action:
+     * <p>Implementation:
      * Calculate actionHash -> construct phantom agent -> generate EIP-712 typed data -> recover address using r/s/v.
      *
      * @param action       L1 action (Map or List), e.g., cancel, order, modify order, etc.
@@ -59,7 +58,7 @@ public final class Recover {
     /**
      * Recover user address from user-signed action.
      *
-     * <p>Consistent with Python recover_user_from_user_signed_action:
+     * <p>Implementation:
      * Construct EIP-712 typed data based on primaryType and payloadTypes;
      * Set action.hyperliquidChain to Mainnet/Testnet (without modifying signatureChainId);
      * Recover address using r/s/v.

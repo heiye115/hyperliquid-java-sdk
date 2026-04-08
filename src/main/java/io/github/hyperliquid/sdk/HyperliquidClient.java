@@ -2,6 +2,7 @@ package io.github.hyperliquid.sdk;
 
 import io.github.hyperliquid.sdk.apis.Exchange;
 import io.github.hyperliquid.sdk.apis.Info;
+import io.github.hyperliquid.sdk.config.CacheConfig;
 import io.github.hyperliquid.sdk.model.wallet.ApiWallet;
 import io.github.hyperliquid.sdk.utils.Constants;
 import io.github.hyperliquid.sdk.utils.HypeError;
@@ -439,6 +440,15 @@ public class HyperliquidClient {
         private boolean autoWarmUpCache = true;
 
         /**
+         * List of perp DEX names to preload during initialization.
+         * <p>
+         * When specified, meta for each DEX is loaded at startup, enabling
+         * WebSocket subscriptions for builder-deployed perp DEX symbols (e.g., "test:ABC").
+         * </p>
+         */
+        private List<String> perpDexs = null;
+
+        /**
          * Set custom API base URL.
          *
          * @param baseUrl API base URL
@@ -596,6 +606,43 @@ public class HyperliquidClient {
             return this;
         }
 
+        /**
+         * Set the list of perp DEX names to preload during initialization.
+         * <p>
+         * When specified, meta for each DEX is loaded at startup, enabling
+         * WebSocket subscriptions for builder-deployed perp DEX symbols (e.g., "test:ABC").
+         * </p>
+         *
+         * <pre>{@code
+         * // Example: Preload a builder-deployed perp DEX
+         * HyperliquidClient client = HyperliquidClient.builder()
+         *     .perpDexs(List.of("test"))
+         *     .build();
+         * // Now can subscribe to "test:ABC" via WebSocket
+         * }</pre>
+         *
+         * @param perpDexs List of perp DEX names (null or empty means only default DEX)
+         * @return Builder instance
+         */
+        public Builder perpDexs(List<String> perpDexs) {
+            this.perpDexs = perpDexs;
+            return this;
+        }
+
+        /**
+         * Add a single perp DEX name to the preload list.
+         *
+         * @param dex Perp DEX name
+         * @return Builder instance
+         */
+        public Builder addPerpDex(String dex) {
+            if (this.perpDexs == null) {
+                this.perpDexs = new ArrayList<>();
+            }
+            this.perpDexs.add(dex);
+            return this;
+        }
+
         private OkHttpClient getOkHttpClient() {
             return okHttpClient != null ? okHttpClient
                     : new OkHttpClient.Builder()
@@ -610,6 +657,7 @@ public class HyperliquidClient {
          * <p>
          * During build, wallets are normalized and bound to Exchange instances.
          * When auto warm-up is enabled, commonly used metadata caches are loaded.
+         * When perpDexs is specified, meta for each DEX is preloaded.
          * </p>
          *
          * @return Initialized HyperliquidClient
@@ -618,7 +666,8 @@ public class HyperliquidClient {
         public HyperliquidClient build() {
             OkHttpClient httpClient = getOkHttpClient();
             HypeHttpClient hypeHttpClient = new HypeHttpClient(baseUrl, httpClient);
-            Info info = new Info(baseUrl, hypeHttpClient, skipWs);
+            // Create Info with perpDexs support for builder-deployed DEX preloading
+            Info info = new Info(baseUrl, hypeHttpClient, skipWs, CacheConfig.defaultConfig(), perpDexs);
             Map<String, Exchange> exchangesByAlias = new LinkedHashMap<>();
             List<ApiWallet> builtApiWallets = new ArrayList<>();
             for (ApiWallet apiWallet : apiWallets) {
@@ -631,7 +680,8 @@ public class HyperliquidClient {
             }
 
             // Automatic cache warming (improves first-call performance)
-            if (autoWarmUpCache) {
+            // Note: If perpDexs was specified, warmUpCache was already called in Info constructor
+            if (autoWarmUpCache && (perpDexs == null || perpDexs.isEmpty())) {
                 try {
                     info.warmUpCache();
                 } catch (Exception e) {

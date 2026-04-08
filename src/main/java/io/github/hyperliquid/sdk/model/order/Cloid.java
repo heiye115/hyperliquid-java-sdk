@@ -9,16 +9,16 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 
 /**
- * Client order ID (Cloid) Java implementation, aligned with Python version.
+ * Client order ID (Cloid) implementation.
  *
  * <p>
  * - String must start with "0x" and the subsequent hexadecimal characters must be 32 in length (i.e., 16 bytes);
  * - Throws TypeError when not conforming to the above format:
  * - Prefix not 0x -> "cloid is not a hex string"
  * - Length not 32 -> "cloid is not 16 bytes"
- * - from_int(cloid: int) will format with 0x prefix, width 34 (including 0x), left-padded with zeros if insufficient;
- * - from_str(cloid: str) directly wraps;
- * - to_raw() returns the raw string.
+ * - fromInt(int) will format with 0x prefix, width 34 (including 0x), left-padded with zeros if insufficient;
+ * - fromStr(String) directly wraps;
+ * - toRaw() returns the raw string.
  */
 public class Cloid {
 
@@ -65,7 +65,7 @@ public class Cloid {
     }
 
     /**
-     * Factory method: construct Cloid from integer (aligned with Python from_int).
+     * Factory method: construct Cloid from integer.
      *
      * @param cloid integer value (Java int)
      * @return Cloid instance
@@ -105,7 +105,7 @@ public class Cloid {
     }
 
     /**
-     * Factory method: construct Cloid from string (aligned with Python from_str).
+     * Factory method: construct Cloid from string.
      *
      * @param cloid string (must satisfy 0x + 32 hex rule)
      * @return Cloid instance
@@ -155,7 +155,7 @@ public class Cloid {
     }
 
     /**
-     * Return raw string (aligned with Python to_raw).
+     * Return raw string.
      *
      * @return raw string (0x + 32 hex)
      */
