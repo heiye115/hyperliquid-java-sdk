@@ -6,6 +6,8 @@
 
 应用侧推荐通过 **`Info.subscribe(...)`** 使用，以便与 `meta`/`spotMeta` 一致的 **coin 名称规范化**（`remapCoinInSubscription`）。
 
+**Builder-deployed 永续 DEX 符号**（如 `xyz:SP500`）需在订阅前通过 `HyperliquidClient.builder().perpDexs(List.of("xyz"))` 预加载该 DEX 元数据。
+
 ## 构造与生命周期
 
 | 方法 | 说明 |

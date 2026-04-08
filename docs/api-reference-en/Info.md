@@ -10,6 +10,7 @@ Maps to Hyperliquid **`POST /info`**, plus WebSocket subscription helpers when *
 |-------------|-------------|
 | `Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs)` | Default `CacheConfig` |
 | `Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig)` | Custom cache config |
+| `Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig, List<String> perpDexs)` | Preload builder-deployed perp DEX metadata |
 
 Applications normally obtain `Info` via `HyperliquidClient.builder()...build()`, not `new Info(...)`.
 
@@ -138,6 +139,8 @@ Multi-DEX perp: `dex:COIN` uses that DEX’s `meta` and offset rules (offset rel
 ## WebSocket (when `skipWs == false`)
 
 If the client was built with `skipWs(true)`, these throw `HypeError("WebSocket disabled by skipWs")` or no-op per method.
+
+**Note:** For builder-deployed perp DEX symbols (e.g., `xyz:SP500`), preload the DEX via `HyperliquidClient.builder().perpDexs(List.of("xyz"))` before subscribing.
 
 | Method | Description |
 |--------|-------------|

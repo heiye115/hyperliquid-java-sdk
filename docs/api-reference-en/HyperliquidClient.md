@@ -50,6 +50,8 @@ Private key rules: non-empty hex, **64 characters** (`0x` allowed), must pass se
 | `Builder skipWs(boolean skipWs)` | If true, WebSocket is not initialized (`Info` WS features throw or no-op) |
 | `Builder okHttpClient(OkHttpClient client)` | Custom client; otherwise built from `timeout` |
 | `Builder disableAutoWarmUpCache()` | Skips `info.warmUpCache()` on `build()` (default runs it; failure logs warn only) |
+| `Builder perpDexs(List<String> perpDexs)` | Preload builder-deployed perp DEX metadata (e.g., `List.of("xyz")` for `xyz:SP500` WebSocket subscriptions) |
+| `Builder addPerpDex(String dex)` | Add a single DEX name to the preload list |
 | `Builder addPrivateKey(String privateKey)` | Add one wallet |
 | `Builder addPrivateKey(String alias, String privateKey)` | Key + alias |
 | `Builder addPrivateKeys(List<String> pks)` | Add many keys |

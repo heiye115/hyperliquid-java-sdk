@@ -131,7 +131,11 @@ HyperliquidClient client = HyperliquidClient.builder()
         // --- 性能优化 ---
         // 启动时会自动预热缓存，仅在对启动耗时极其敏感时才建议关闭
         // .disableAutoWarmUpCache()
-        
+
+        // --- Builder-deployed DEX (用于订阅 "xyz:SP500" 等符号的 WebSocket 数据) ---
+        // .perpDexs(List.of("xyz"))
+        // .addPerpDex("anotherDex")
+
         // --- (可选)网络设置 ---
         // 设置自定义HTTP客户端
         .okHttpClient(customClient)

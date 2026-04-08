@@ -50,6 +50,8 @@
 | `Builder skipWs(boolean skipWs)` | `true` 时不初始化 WebSocket（`Info` 内相关能力不可用或会抛错） |
 | `Builder okHttpClient(OkHttpClient client)` | 自定义 `OkHttpClient`；未设置则按 `timeout` 构建 |
 | `Builder disableAutoWarmUpCache()` | 关闭构建时自动预热缓存（默认 `build()` 会调用 `info.warmUpCache()`，失败仅打 warn，客户端仍可用） |
+| `Builder perpDexs(List<String> perpDexs)` | 预加载 builder-deployed 永续 DEX 元数据（如 `List.of("xyz")` 用于订阅 `xyz:SP500` 的 WebSocket） |
+| `Builder addPerpDex(String dex)` | 添加单个 DEX 名称到预加载列表 |
 | `Builder addPrivateKey(String privateKey)` | 添加一个钱包（私钥） |
 | `Builder addPrivateKey(String alias, String privateKey)` | 私钥 + 别名 |
 | `Builder addPrivateKeys(List<String> pks)` | 批量添加私钥 |

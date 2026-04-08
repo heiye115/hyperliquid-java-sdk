@@ -6,6 +6,8 @@ Created inside `Info` when **`skipWs` is false**. URL rule: `http`→`ws`, `http
 
 Prefer **`Info.subscribe(...)`** so **`coin` is remapped** consistently with `meta`/`spotMeta` (`remapCoinInSubscription`).
 
+**Builder-deployed perp DEX symbols** (e.g., `xyz:SP500`) require preloading the DEX metadata via `HyperliquidClient.builder().perpDexs(List.of("xyz"))` before subscribing.
+
 ## Construction and lifecycle
 
 | Method | Description |

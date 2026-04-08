@@ -132,6 +132,10 @@ HyperliquidClient client = HyperliquidClient.builder()
         // Cache warm-up is enabled by default; disable only when startup latency is critical
         // .disableAutoWarmUpCache()
 
+        // --- Builder-deployed DEX (for WebSocket subscriptions to symbols like "xyz:SP500") ---
+        // .perpDexs(List.of("xyz"))
+        // .addPerpDex("anotherDex")
+
         // --- (optional)Network ---
         // Set custom HTTP client
         .okHttpClient(customClient)

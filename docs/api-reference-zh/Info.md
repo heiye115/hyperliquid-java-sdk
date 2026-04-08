@@ -10,6 +10,7 @@
 |--------|------|
 | `Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs)` | 默认 `CacheConfig` |
 | `Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig)` | 自定义缓存配置 |
+| `Info(String baseUrl, HypeHttpClient hypeHttpClient, boolean skipWs, CacheConfig cacheConfig, List<String> perpDexs)` | 预加载 builder-deployed 永续 DEX 元数据 |
 
 应用代码一般通过 `HyperliquidClient.builder()...build()` 获得 `Info`，无需直接 `new Info(...)`。
 
@@ -138,6 +139,8 @@
 ## WebSocket（`skipWs == false` 时可用）
 
 若构建客户端时 `skipWs(true)`，下列方法会抛 `HypeError("WebSocket disabled by skipWs")` 或静默 no-op（见各方法）。
+
+**注意：** 订阅 builder-deployed 永续 DEX 符号（如 `xyz:SP500`）前，需通过 `HyperliquidClient.builder().perpDexs(List.of("xyz"))` 预加载该 DEX 元数据。
 
 | 方法 | 说明 |
 |------|------|
