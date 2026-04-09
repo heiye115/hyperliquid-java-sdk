@@ -1587,6 +1587,17 @@ public class Info {
     }
 
     /**
+     * Query sub-account list.
+     *
+     * @param address User address
+     * @return JSON response
+     */
+    public List<SubAccount> querySubAccountsTyped(String address) {
+        Map<String, Object> payload = Map.of("type", "subAccounts", "user", address);
+        return JSONUtil.toList(postInfo(payload), SubAccount.class);
+    }
+
+    /**
      * Query user to multi-signature signer mapping.
      *
      * @param address User address
@@ -1640,7 +1651,7 @@ public class Info {
      *
      * @param address User address
      * @return JSON response
-     * @deprecated: Prefer @link #userSetAbstraction.
+     * @deprecated Prefer @link #userSetAbstraction.
      */
     @Deprecated
     public JsonNode queryUserDexAbstractionState(String address) {
