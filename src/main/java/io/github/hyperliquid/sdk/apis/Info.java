@@ -210,12 +210,15 @@ public class Info {
         }
 
         Meta meta = loadMetaCache();
-        buildCoinMappingCache(meta);
+        // buildCoinMappingCache is already called inside loadMetaCache()
+        // with offset=0 for default DEX
 
         assetId = coinToAssetCache.get(normalizedName);
         if (assetId == null) {
-            SpotMeta spotMeta = loadSpotMetaCache();
-            buildSpotCoinMappingCache(spotMeta);
+            // Only build spot mapping cache if not already built
+            if (spotMappedCoinKeys.isEmpty()) {
+                buildSpotCoinMappingCache(loadSpotMetaCache());
+            }
             assetId = coinToAssetCache.get(normalizedName);
             if (assetId == null) {
                 throw new HypeError("Strict symbol match failed for '" + coinName
@@ -246,10 +249,15 @@ public class Info {
         }
         String qualifiedCoin = dex + ":" + coin;
         List<Meta.Universe> universe = meta.getUniverse();
-        for (int assetId = 0; assetId < universe.size(); assetId++) {
-            Meta.Universe u = universe.get(assetId);
+        for (int localAssetId = 0; localAssetId < universe.size(); localAssetId++) {
+            Meta.Universe u = universe.get(localAssetId);
             if (u.getName() != null && matchesDexSymbol(u.getName(), qualifiedCoin, coin)) {
-                return resolvePerpDexOffset(dex) + assetId;
+                int globalAssetId = resolvePerpDexOffset(dex) + localAssetId;
+                // Cache szDecimals for builder-deployed DEX symbols (align with Python SDK)
+                if (u.getSzDecimals() != null) {
+                    assetToSzDecimalsCache.put(globalAssetId, u.getSzDecimals());
+                }
+                return globalAssetId;
             }
         }
         throw new HypeError("Strict symbol match failed for '" + dex + ":" + coin
@@ -543,8 +551,10 @@ public class Info {
         String cacheKey = buildMetaCacheKey(dex);
         return metaCache.get(cacheKey, key -> {
             Meta meta = meta(dex);
+            // Calculate offset: default DEX uses 0, builder-deployed DEX uses 110000+
+            int offset = (dex == null || dex.isEmpty()) ? 0 : resolvePerpDexOffset(dex);
             // Automatically build coin mapping cache after loading meta
-            buildCoinMappingCache(meta);
+            buildCoinMappingCache(meta, offset);
             return meta;
         });
     }
@@ -640,22 +650,29 @@ public class Info {
      * For each universe element with a valid name, it creates entries in both
      * caches.
      * </p>
+     * <p>
+     * <strong>Important:</strong> The offset parameter must be provided to ensure
+     * correct global asset IDs for builder-deployed DEX perp contracts.
+     * Align with Python SDK set_perp_meta logic.
+     * </p>
      *
-     * @param meta Meta object containing universe data
+     * @param meta   Meta object containing universe data
+     * @param offset Asset ID offset (0 for default DEX, 110000+ for builder-deployed DEX)
      */
-    private void buildCoinMappingCache(Meta meta) {
+    private void buildCoinMappingCache(Meta meta, int offset) {
         if (meta == null || meta.getUniverse() == null) {
             return;
         }
         List<Meta.Universe> universe = meta.getUniverse();
-        for (int assetId = 0; assetId < universe.size(); assetId++) {
-            Meta.Universe u = universe.get(assetId);
+        for (int localAssetId = 0; localAssetId < universe.size(); localAssetId++) {
+            Meta.Universe u = universe.get(localAssetId);
             if (u.getName() != null) {
+                int globalAssetId = localAssetId + offset;
                 String coinName = u.getName().toUpperCase();
-                coinToAssetCache.put(coinName, assetId);
+                coinToAssetCache.put(coinName, globalAssetId);
                 nameToCoinCache.put(coinName, u.getName());
                 if (u.getSzDecimals() != null) {
-                    assetToSzDecimalsCache.put(assetId, u.getSzDecimals());
+                    assetToSzDecimalsCache.put(globalAssetId, u.getSzDecimals());
                 }
             }
         }
@@ -664,20 +681,34 @@ public class Info {
     /**
      * Get universe element from meta by coin name.
      * <p>
-     * Optimization: Query asset ID from mapping cache first, then get corresponding
-     * Universe element.
+     * Supports both default DEX and builder-deployed DEX symbols.
+     * For builder-deployed DEX symbols, use format "dex:coin" (e.g., "xyz:ABC").
      * </p>
      *
-     * @param coinName Coin name
+     * @param coinName Coin name (can be "COIN" for default dex or "dex:COIN" for specific dex)
      * @return Corresponding Universe element
      * @throws HypeError Thrown when name does not exist
      */
     public Meta.Universe getMetaUniverse(String coinName) {
-        // Get asset ID via nameToAsset (automatically uses cache)
+        // Get asset ID via nameToAsset (automatically handles dex prefix)
         Integer assetId = nameToAsset(coinName);
-        List<Meta.Universe> universe = loadMetaCache().getUniverse();
-        if (assetId >= 0 && assetId < universe.size()) {
-            return universe.get(assetId);
+        
+        // Determine which DEX to load based on assetId range
+        String dex = null;
+        int localAssetId = assetId;
+        
+        // Builder-deployed DEX (assetId >= 110000)
+        if (assetId >= 110000) {
+            DexQualifiedSymbol dexQualifiedSymbol = parseDexQualifiedSymbol(coinName.trim());
+            if (dexQualifiedSymbol != null) {
+                dex = dexQualifiedSymbol.dex();
+                localAssetId = assetId - resolvePerpDexOffset(dex);
+            }
+        }
+        
+        List<Meta.Universe> universe = loadMetaCache(dex).getUniverse();
+        if (localAssetId >= 0 && localAssetId < universe.size()) {
+            return universe.get(localAssetId);
         }
         throw new HypeError("Unknown currency name:" + coinName);
     }
@@ -704,16 +735,42 @@ public class Info {
         if (szDecimals != null) {
             return szDecimals;
         }
+        
+        // Builder-deployed DEX perp contracts (assetId >= 110000)
+        // Align with Python SDK: perp_dex_to_offset = 110000 + (i-1) * 10000
+        if (assetId >= 110000) {
+            DexQualifiedSymbol dexQualifiedSymbol = parseDexQualifiedSymbol(coinName.trim());
+            if (dexQualifiedSymbol == null) {
+                throw new HypeError("Builder-deployed DEX symbol must be in 'dex:coin' format, got: " + coinName);
+            }
+            String dex = dexQualifiedSymbol.dex();
+            int offset = resolvePerpDexOffset(dex);
+            int localAssetId = assetId - offset;
+            Meta meta = loadMetaCache(dex);
+            if (meta != null && meta.getUniverse() != null && localAssetId >= 0 && localAssetId < meta.getUniverse().size()) {
+                Meta.Universe u = meta.getUniverse().get(localAssetId);
+                szDecimals = u.getSzDecimals();
+                if (szDecimals != null) {
+                    assetToSzDecimalsCache.put(assetId, szDecimals);
+                    return szDecimals;
+                }
+            }
+            throw new HypeError("szDecimals not defined for builder-deployed DEX coin: " + coinName);
+        }
+        
+        // Spot assets (10000 <= assetId < 110000)
         if (assetId >= 10000) {
-            SpotMeta spotMeta = loadSpotMetaCache();
-            buildSpotCoinMappingCache(spotMeta);
+            // Only build spot mapping cache if not already built
+            if (spotMappedCoinKeys.isEmpty()) {
+                buildSpotCoinMappingCache(loadSpotMetaCache());
+            }
             szDecimals = assetToSzDecimalsCache.get(assetId);
             if (szDecimals != null) {
                 return szDecimals;
             }
             throw new HypeError("szDecimals not defined for spot coin: " + coinName);
         }
-        // Cache miss; load from meta
+        // Cache miss; load from meta (default DEX perp contracts, assetId < 10000)
         Meta.Universe universe = getMetaUniverse(coinName);
         szDecimals = universe.getSzDecimals();
 

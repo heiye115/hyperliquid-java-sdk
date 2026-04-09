@@ -1717,17 +1717,21 @@ public class Exchange {
      * @return Mid price string if found; otherwise null
      */
     private String resolveMidPrice(String coin, Map<String, String> mids) {
+        // 1. Direct key lookup
         String mid = mids.get(coin);
         if (mid != null) {
             return mid;
         }
+        
+        // 2. Uppercase lookup (for non-dex-qualified symbols)
         if (coin != null && coin.indexOf(':') < 0) {
-            String upperCoin = coin.toUpperCase();
-            mid = mids.get(upperCoin);
+            mid = mids.get(coin.toUpperCase());
             if (mid != null) {
                 return mid;
             }
         }
+        
+        // 3. Strip dex prefix and lookup (for dex-qualified symbols like "xyz:BTC")
         int colonIdx = coin.indexOf(':');
         if (colonIdx > 0 && colonIdx < coin.length() - 1) {
             String unqualified = coin.substring(colonIdx + 1);
@@ -1735,29 +1739,36 @@ public class Exchange {
             if (mid != null) {
                 return mid;
             }
-            String upper = unqualified.toUpperCase();
-            mid = mids.get(upper);
+            mid = mids.get(unqualified.toUpperCase());
             if (mid != null) {
                 return mid;
             }
         }
+        
+        // 4. Spot asset fallback (assetId >= 10000)
         int assetId = ensureAssetId(coin);
         if (assetId < 10000) {
             return null;
         }
+        
+        // Single loadSpotMetaCache call, reused for both universe and tokens lookup
         SpotMeta spotMeta = info.loadSpotMetaCache();
         List<SpotMeta.Universe> universe = spotMeta.getUniverse();
         int spotIndex = assetId - 10000;
         if (universe == null || spotIndex < 0 || spotIndex >= universe.size()) {
             return null;
         }
+        
         SpotMeta.Universe spot = universe.get(spotIndex);
+        // Try spot universe name
         if (spot.getName() != null) {
             mid = mids.get(spot.getName());
             if (mid != null) {
                 return mid;
             }
         }
+        
+        // Try base/quote pair alias (e.g., "BTC/USDC")
         List<SpotMeta.Token> tokens = spotMeta.getTokens();
         if (tokens != null && spot.getTokens() != null && spot.getTokens().size() >= 2) {
             Integer baseTokenIndex = spot.getTokens().get(0);
