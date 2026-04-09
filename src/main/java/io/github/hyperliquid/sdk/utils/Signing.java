@@ -24,8 +24,15 @@ import java.util.*;
  */
 public final class Signing {
 
-    public static final String MAINNET_USER_SIGNATURE_CHAIN_ID = "0xa4b1";
-    public static final String TESTNET_USER_SIGNATURE_CHAIN_ID = "0x66eee";
+    private static final String MAINNET_USER_SIGNATURE_CHAIN_ID = "0xa4b1";
+    private static final String TESTNET_USER_SIGNATURE_CHAIN_ID = "0x66eee";
+
+    /**
+     * Multi-signature chain IDs (different from user signature chain IDs)
+     */
+    public static final String MAINNET_MULTISIG_CHAIN_ID = "0x66eee";
+    private static final String TESTNET_MULTISIG_CHAIN_ID = "0x66eef";
+
     private static final String TYPE_USER_DEX_ABSTRACTION = "userDexAbstraction";
     private static final String TYPE_USD_SEND = "usdSend";
     private static final String TYPE_SPOT_SEND = "spotSend";
@@ -52,70 +59,81 @@ public final class Signing {
     private static final String APPROVE_AGENT_PRIMARY_TYPE = "HyperliquidTransaction:ApproveAgent";
     private static final String USER_SET_ABSTRACTION_PRIMARY_TYPE = "HyperliquidTransaction:UserSetAbstraction";
 
+    /**
+     * Create a field definition for EIP-712 typed data.
+     *
+     * @param name Field name
+     * @param type Field type (e.g., "string", "address", "bool", "uint64")
+     * @return Field definition map
+     */
+    private static Map<String, Object> field(String name, String type) {
+        return Map.of("name", name, "type", type);
+    }
+
     private static final List<Map<String, Object>> USER_DEX_ABSTRACTION_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "user", "type", "address"),
-            Map.of("name", "enabled", "type", "bool"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("user", "address"),
+            field("enabled", "bool"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> USD_SEND_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "destination", "type", "string"),
-            Map.of("name", "amount", "type", "string"),
-            Map.of("name", "time", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("destination", "string"),
+            field("amount", "string"),
+            field("time", "uint64"));
     private static final List<Map<String, Object>> SPOT_SEND_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "destination", "type", "string"),
-            Map.of("name", "token", "type", "string"),
-            Map.of("name", "amount", "type", "string"),
-            Map.of("name", "time", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("destination", "string"),
+            field("token", "string"),
+            field("amount", "string"),
+            field("time", "uint64"));
     private static final List<Map<String, Object>> WITHDRAW_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "destination", "type", "string"),
-            Map.of("name", "amount", "type", "string"),
-            Map.of("name", "time", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("destination", "string"),
+            field("amount", "string"),
+            field("time", "uint64"));
     private static final List<Map<String, Object>> USD_CLASS_TRANSFER_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "amount", "type", "string"),
-            Map.of("name", "toPerp", "type", "bool"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("amount", "string"),
+            field("toPerp", "bool"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> SEND_ASSET_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "destination", "type", "string"),
-            Map.of("name", "sourceDex", "type", "string"),
-            Map.of("name", "destinationDex", "type", "string"),
-            Map.of("name", "token", "type", "string"),
-            Map.of("name", "amount", "type", "string"),
-            Map.of("name", "fromSubAccount", "type", "string"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("destination", "string"),
+            field("sourceDex", "string"),
+            field("destinationDex", "string"),
+            field("token", "string"),
+            field("amount", "string"),
+            field("fromSubAccount", "string"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> APPROVE_BUILDER_FEE_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "maxFeeRate", "type", "string"),
-            Map.of("name", "builder", "type", "address"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("maxFeeRate", "string"),
+            field("builder", "address"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> SET_REFERRER_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "code", "type", "string"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("code", "string"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> TOKEN_DELEGATE_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "validator", "type", "address"),
-            Map.of("name", "wei", "type", "uint64"),
-            Map.of("name", "isUndelegate", "type", "bool"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("validator", "address"),
+            field("wei", "uint64"),
+            field("isUndelegate", "bool"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> CONVERT_TO_MULTI_SIG_USER_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "signers", "type", "string"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("signers", "string"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> APPROVE_AGENT_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "agentAddress", "type", "address"),
-            Map.of("name", "agentName", "type", "string"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("agentAddress", "address"),
+            field("agentName", "string"),
+            field("nonce", "uint64"));
     private static final List<Map<String, Object>> USER_SET_ABSTRACTION_SIGN_TYPES = List.of(
-            Map.of("name", "hyperliquidChain", "type", "string"),
-            Map.of("name", "user", "type", "address"),
-            Map.of("name", "abstraction", "type", "string"),
-            Map.of("name", "nonce", "type", "uint64"));
+            field("hyperliquidChain", "string"),
+            field("user", "address"),
+            field("abstraction", "string"),
+            field("nonce", "uint64"));
 
     private static final Map<String, UserSignedActionSpec> USER_SIGNED_ACTION_SPECS = Map.ofEntries(
             Map.entry(TYPE_USER_DEX_ABSTRACTION, new UserSignedActionSpec(USER_DEX_ABSTRACTION_PRIMARY_TYPE, USER_DEX_ABSTRACTION_SIGN_TYPES)),
@@ -722,6 +740,31 @@ public final class Signing {
     }
 
     /**
+     * Normalize v value to recovery ID (0 or 1).
+     * <p>
+     * Supports multiple v formats:
+     * - Standard EIP-712: v=27 or 28 -> recId = 0 or 1
+     * - Raw recId: v=0 or 1 -> recId = v
+     * - EIP-155 style: v >= 35 -> recId = (v - 35) % 2
+     *
+     * @param v The v value from signature
+     * @return Normalized recovery ID (0 or 1)
+     * @throws HypeError If v value is unsupported
+     */
+    private static int normalizeRecId(int v) {
+        if (v == 27 || v == 28) {
+            return v - 27;
+        } else if (v == 0 || v == 1) {
+            return v;
+        } else if (v >= 35) {
+            // EIP-155-style v values
+            return (v - 35) % 2;
+        } else {
+            throw new HypeError("Unsupported v value for recovery: " + v);
+        }
+    }
+
+    /**
      * Generic: Recover address from EIP-712 TypedData JSON and r/s/v signature.
      *
      * @param typedDataJson EIP-712 TypedData JSON string
@@ -741,17 +784,7 @@ public final class Signing {
             // Pure EIP-712 non-prefixed recovery: directly perform ecrecover based on digest and r/s/v, avoiding any additional hashing or prefixes.
             // Note: web3j's signedMessageToKey may hash the input or couple with prefix conventions, here we use a lower-level
             // recoverFromSignature.
-            int recId;
-            if (vInt == 27 || vInt == 28) {
-                recId = vInt - 27;
-            } else if (vInt == 0 || vInt == 1) {
-                recId = vInt;
-            } else if (vInt >= 35) {
-                // Compatible with EIP-155-style v values (although EIP-712 typically doesn't carry chainId), only for robustness handling
-                recId = (vInt - 35) % 2;
-            } else {
-                throw new HypeError("Unsupported v value for recovery: " + vInt);
-            }
+            int recId = normalizeRecId(vInt);
             java.math.BigInteger rBI = new java.math.BigInteger(1, r);
             java.math.BigInteger sBI = new java.math.BigInteger(1, s);
             java.math.BigInteger pubKey = recoverPublicKeyFromSignature(recId, rBI, sBI, digest);
@@ -776,16 +809,7 @@ public final class Signing {
         int vInt = Integer.parseInt(String.valueOf(signature.get("v")));
         byte[] r = Numeric.hexStringToByteArray(rHex);
         byte[] s = Numeric.hexStringToByteArray(sHex);
-        int recId;
-        if (vInt == 27 || vInt == 28) {
-            recId = vInt - 27;
-        } else if (vInt == 0 || vInt == 1) {
-            recId = vInt;
-        } else if (vInt >= 35) {
-            recId = (vInt - 35) % 2;
-        } else {
-            throw new HypeError("Unsupported v value for recovery: " + vInt);
-        }
+        int recId = normalizeRecId(vInt);
         java.math.BigInteger rBI = new java.math.BigInteger(1, r);
         java.math.BigInteger sBI = new java.math.BigInteger(1, s);
         java.math.BigInteger pubKey = recoverPublicKeyFromSignature(recId, rBI, sBI, digest);
@@ -1023,7 +1047,7 @@ public final class Signing {
         enrichedPayload.put("multiSigActionHash", "0x" + Numeric.toHexStringNoPrefix(innerActionHash));
 
         // 5. Construct EIP-712 TypedData
-        String chainId = isMainnet ? "0x66eee" : "0x66eef";
+        String chainId = isMainnet ? MAINNET_MULTISIG_CHAIN_ID : TESTNET_MULTISIG_CHAIN_ID;
         Map<String, Object> domain = new LinkedHashMap<>();
         domain.put("name", "Exchange");
         domain.put("version", "1");

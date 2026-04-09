@@ -18,8 +18,8 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static io.github.hyperliquid.sdk.utils.Signing.MAINNET_USER_SIGNATURE_CHAIN_ID;
-import static io.github.hyperliquid.sdk.utils.Signing.TESTNET_USER_SIGNATURE_CHAIN_ID;
+import static io.github.hyperliquid.sdk.utils.Signing.MAINNET_MULTISIG_CHAIN_ID;
+
 
 /**
  * Exchange client for Hyperliquid SDK, responsible for order placement,
@@ -2162,7 +2162,7 @@ public class Exchange {
         // Build multiSig action
         Map<String, Object> multiSigAction = new LinkedHashMap<>();
         multiSigAction.put("type", "multiSig");
-        multiSigAction.put("signatureChainId", isMainnet() ? MAINNET_USER_SIGNATURE_CHAIN_ID : TESTNET_USER_SIGNATURE_CHAIN_ID);
+        multiSigAction.put("signatureChainId", MAINNET_MULTISIG_CHAIN_ID);
         multiSigAction.put("signatures", signatures);
 
         // Build payload

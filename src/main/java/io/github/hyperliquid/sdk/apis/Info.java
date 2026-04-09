@@ -897,22 +897,26 @@ public class Info {
 
     /**
      * Warm up cache (support specifying dex list).
+     * <p>
+     * Always loads default DEX meta first (contains BTC, ETH, etc.),
+     * then loads any additional builder-deployed DEX meta.
+     * </p>
      *
      * @param dexList List of dex names to preload (null or empty list means only
      *                load default dex)
      */
     public void warmUpCache(List<String> dexList) {
-        if (dexList == null || dexList.isEmpty()) {
-            warmUpCache();
-            return;
+        // 1. Always load default DEX first (contains BTC, ETH, etc.)
+        loadMetaCache();
+
+        // 2. Load additional builder-deployed DEX if specified
+        if (dexList != null && !dexList.isEmpty()) {
+            for (String dex : dexList) {
+                loadMetaCache(dex);
+            }
         }
 
-        // Preload meta for specified dex
-        for (String dex : dexList) {
-            loadMetaCache(dex);
-        }
-
-        // Preload spotMeta
+        // 3. Preload spotMeta and coin mapping
         buildSpotCoinMappingCache(loadSpotMetaCache());
     }
 
