@@ -8,11 +8,7 @@ import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import io.github.hyperliquid.sdk.config.CacheConfig;
 import io.github.hyperliquid.sdk.model.info.*;
 import io.github.hyperliquid.sdk.model.order.Cloid;
-import io.github.hyperliquid.sdk.model.subscription.Subscription;
-import io.github.hyperliquid.sdk.model.subscription.BboSubscription;
-import io.github.hyperliquid.sdk.model.subscription.CandleSubscription;
-import io.github.hyperliquid.sdk.model.subscription.L2BookSubscription;
-import io.github.hyperliquid.sdk.model.subscription.TradesSubscription;
+import io.github.hyperliquid.sdk.model.subscription.*;
 import io.github.hyperliquid.sdk.utils.HypeError;
 import io.github.hyperliquid.sdk.utils.HypeHttpClient;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
@@ -1370,34 +1366,19 @@ public class Info {
         return postInfo(payload);
     }
 
-    /**
-     * Historical order query.
-     *
-     * @param address User address
-     * @param startMs Start milliseconds
-     * @param endMs   End milliseconds
-     * @return JSON response
-     */
-    public JsonNode historicalOrders(String address, long startMs, long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "historicalOrders");
-        payload.put("user", address);
-        payload.put("startTime", startMs);
-        payload.put("endTime", endMs);
-        return postInfo(payload);
-    }
 
     /**
-     * Historical order query (latest records, server default window).
+     * Retrieve a user's historical orders
+     * Returns at most 2000 most recent historical orders
      *
      * @param address User address
-     * @return JSON response
+     * @return List of HistoricalOrders
      */
-    public JsonNode historicalOrders(String address) {
+    public List<HistoricalOrders> historicalOrders(String address) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "historicalOrders");
         payload.put("user", address);
-        return postInfo(payload);
+        return JSONUtil.toList(postInfo(payload), HistoricalOrders.class);
     }
 
     /**
