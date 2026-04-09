@@ -18,6 +18,9 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static io.github.hyperliquid.sdk.utils.Signing.MAINNET_USER_SIGNATURE_CHAIN_ID;
+import static io.github.hyperliquid.sdk.utils.Signing.TESTNET_USER_SIGNATURE_CHAIN_ID;
+
 /**
  * Exchange client for Hyperliquid SDK, responsible for order placement,
  * cancellation,
@@ -125,12 +128,7 @@ public class Exchange {
      * @return JSON response
      */
     public JsonNode scheduleCancel(Long timeMs) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "scheduleCancel");
-        if (timeMs != null) {
-            action.put("time", timeMs);
-        }
-        return postAction(action);
+        return postAction(action("scheduleCancel", "time", timeMs));
     }
 
     /**
@@ -425,8 +423,7 @@ public class Exchange {
                 req.getOrderType().getLimit() != null &&
                 req.getOrderType().getLimit().getTif() == Tif.IOC &&
                 Boolean.FALSE.equals(req.getReduceOnly())) {
-            String slip = req.getSlippage() != null ? req.getSlippage()
-                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = resolveSlippage(req);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
             return true;
@@ -473,8 +470,7 @@ public class Exchange {
             req.setSz(sz);
         }
         if (req.getLimitPx() == null) {
-            String slip = req.getSlippage() != null ? req.getSlippage()
-                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = resolveSlippage(req);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
         }
@@ -678,12 +674,10 @@ public class Exchange {
         int assetId = ensureAssetId(coinName);
         try {
             long ntli = Signing.floatToUsdInt(Double.parseDouble(amount));
-            Map<String, Object> action = new LinkedHashMap<>();
-            action.put("type", "updateIsolatedMargin");
-            action.put("asset", assetId);
-            action.put("isBuy", true);
-            action.put("ntli", ntli);
-            return postAction(action);
+            return postAction(action("updateIsolatedMargin",
+                    "asset", assetId,
+                    "isBuy", true,
+                    "ntli", ntli));
         } catch (NumberFormatException e) {
             throw new HypeError("Invalid amount format: " + amount + ". Must be a valid number.");
         }
@@ -987,10 +981,7 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode agentEnableDexAbstraction() {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "agentEnableDexAbstraction");
-        // Directly reuse L1 sending logic
-        return postAction(action);
+        return postAction(action("agentEnableDexAbstraction"));
     }
 
     /**
@@ -1001,10 +992,7 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode agentSetAbstraction(String abstraction) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "agentSetAbstraction");
-        action.put("abstraction", abstraction);
-        return postAction(action);
+        return postAction(action("agentSetAbstraction", "abstraction", abstraction));
     }
 
     /**
@@ -1019,7 +1007,7 @@ public class Exchange {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "userDexAbstraction");
-        action.put("user", user == null ? null : user.toLowerCase());
+        action.put("user", safeLower(user));
         action.put("enabled", enabled);
         action.put("nonce", nonce);
 
@@ -1039,10 +1027,7 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode createSubAccount(String name) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "createSubAccount");
-        action.put("name", name);
-        return postAction(action);
+        return postAction(action("createSubAccount", "name", name));
     }
 
     /**
@@ -1055,12 +1040,10 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "subAccountTransfer");
-        action.put("subAccountUser", subAccountUser == null ? null : subAccountUser.toLowerCase());
-        action.put("isDeposit", isDeposit);
-        action.put("usd", usd);
-        return postAction(action);
+        return postAction(action("subAccountTransfer",
+                "subAccountUser", safeLower(subAccountUser),
+                "isDeposit", isDeposit,
+                "usd", usd));
     }
 
     /**
@@ -1211,7 +1194,7 @@ public class Exchange {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "approveBuilderFee");
-        action.put("builder", builder == null ? null : builder.toLowerCase());
+        action.put("builder", safeLower(builder));
         action.put("maxFeeRate", maxFeeRate);
         action.put("nonce", nonce);
 
@@ -1265,7 +1248,7 @@ public class Exchange {
         long nonce = Signing.getTimestampMs();
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "tokenDelegate");
-        action.put("validator", validator == null ? null : validator.toLowerCase());
+        action.put("validator", safeLower(validator));
         action.put("wei", wei);
         action.put("isUndelegate", isUndelegate);
         action.put("nonce", nonce);
@@ -1308,12 +1291,10 @@ public class Exchange {
      * @throws HypeError If the request fails
      */
     public JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "vaultTransfer");
-        action.put("vaultAddress", vaultAddress == null ? null : vaultAddress.toLowerCase());
-        action.put("isDeposit", isDeposit);
-        action.put("usd", usd);
-        return postAction(action);
+        return postAction(action("vaultTransfer",
+                "vaultAddress", safeLower(vaultAddress),
+                "isDeposit", isDeposit,
+                "usd", usd));
     }
 
     /**
@@ -1357,7 +1338,7 @@ public class Exchange {
         List<List<Object>> userAndWeiWire = new ArrayList<>();
         if (userAndWei != null) {
             for (String[] pair : userAndWei) {
-                String user = pair[0] == null ? null : pair[0].toLowerCase();
+                String user = safeLower(pair[0]);
                 String wei = pair[1];
                 List<Object> entry = new ArrayList<>();
                 entry.add(user);
@@ -1421,7 +1402,7 @@ public class Exchange {
     public JsonNode spotDeployFreezeUser(int token, String user, boolean freeze) {
         Map<String, Object> freezeUser = new LinkedHashMap<>();
         freezeUser.put("token", token);
-        freezeUser.put("user", user == null ? null : user.toLowerCase());
+        freezeUser.put("user", safeLower(user));
         freezeUser.put("freeze", freeze);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "spotDeploy");
@@ -1722,7 +1703,7 @@ public class Exchange {
         if (mid != null) {
             return mid;
         }
-        
+
         // 2. Uppercase lookup (for non-dex-qualified symbols)
         if (coin != null && coin.indexOf(':') < 0) {
             mid = mids.get(coin.toUpperCase());
@@ -1730,7 +1711,7 @@ public class Exchange {
                 return mid;
             }
         }
-        
+
         // 3. Strip dex prefix and lookup (for dex-qualified symbols like "xyz:BTC")
         int colonIdx = coin.indexOf(':');
         if (colonIdx > 0 && colonIdx < coin.length() - 1) {
@@ -1744,13 +1725,13 @@ public class Exchange {
                 return mid;
             }
         }
-        
+
         // 4. Spot asset fallback (assetId >= 10000)
         int assetId = ensureAssetId(coin);
         if (assetId < 10000) {
             return null;
         }
-        
+
         // Single loadSpotMetaCache call, reused for both universe and tokens lookup
         SpotMeta spotMeta = info.loadSpotMetaCache();
         List<SpotMeta.Universe> universe = spotMeta.getUniverse();
@@ -1758,7 +1739,7 @@ public class Exchange {
         if (universe == null || spotIndex < 0 || spotIndex >= universe.size()) {
             return null;
         }
-        
+
         SpotMeta.Universe spot = universe.get(spotIndex);
         // Try spot universe name
         if (spot.getName() != null) {
@@ -1767,7 +1748,7 @@ public class Exchange {
                 return mid;
             }
         }
-        
+
         // Try base/quote pair alias (e.g., "BTC/USDC")
         List<SpotMeta.Token> tokens = spotMeta.getTokens();
         if (tokens != null && spot.getTokens() != null && spot.getTokens().size() >= 2) {
@@ -1952,27 +1933,7 @@ public class Exchange {
      * @throws HypeError Thrown when there is no position to close
      */
     public Order closePositionMarket(String coin, String sz, String slippage, Cloid cloid) {
-        // Query current position
-        double szi = inferSignedPosition(coin);
-        if (szi == 0.0) {
-            throw new HypeError("No position to close for coin " + coin);
-        }
-
-        // Infer closing direction: sell if long; buy if short
-        boolean isBuy = szi < 0;
-
-        // Determine closing quantity
-        String closeSz = (sz != null && !sz.isEmpty()) ? sz : String.valueOf(Math.abs(szi));
-
-        // Build market close request
-        OrderRequest req = OrderRequest.Close.market(coin, isBuy, closeSz, cloid);
-
-        // Set slippage (if provided)
-        if (slippage != null && !slippage.isEmpty()) {
-            req.setSlippage(slippage);
-        }
-
-        return order(req);
+        return closePositionMarket(coin, sz, slippage, cloid, null);
     }
 
     /**
@@ -2079,8 +2040,7 @@ public class Exchange {
 
             // Build market close request
             OrderRequest req = OrderRequest.Close.market(pos.getCoin(), isBuy, String.valueOf(closeSz), null);
-            String slip = req.getSlippage() != null ? req.getSlippage()
-                    : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+            String slip = resolveSlippage(req);
             String slipPx = computeSlippagePrice(req.getCoin(), Boolean.TRUE.equals(req.getIsBuy()), slip);
             req.setLimitPx(slipPx);
             closeOrders.add(req);
@@ -2104,6 +2064,53 @@ public class Exchange {
         return Constants.MAINNET_API_URL.equals(hypeHttpClient.getBaseUrl());
     }
 
+    /**
+     * Safely convert address to lowercase, handling null values.
+     *
+     * @param address Address string (can be null)
+     * @return Lowercase address or null if input is null
+     */
+    private String safeLower(String address) {
+        return address == null ? null : address.toLowerCase();
+    }
+
+    /**
+     * Resolve effective slippage for an order request.
+     * <p>
+     * Priority: request slippage &gt; coin-specific default &gt; global default
+     * </p>
+     *
+     * @param req Order request
+     * @return Effective slippage value
+     */
+    private String resolveSlippage(OrderRequest req) {
+        return req.getSlippage() != null ? req.getSlippage()
+                : defaultSlippageByCoin.getOrDefault(req.getCoin(), defaultSlippage);
+    }
+
+    /**
+     * Build an action map with type and optional key-value pairs.
+     * <p>
+     * Null values are automatically skipped, simplifying optional parameter handling.
+     * </p>
+     *
+     * @param type      Action type (e.g., "scheduleCancel", "updateLeverage")
+     * @param keyValues Alternating key-value pairs (e.g., "asset", assetId, "isCross", crossed)
+     * @return LinkedHashMap containing the action
+     */
+    private Map<String, Object> action(String type, Object... keyValues) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", type);
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            Object key = keyValues[i];
+            Object value = keyValues[i + 1];
+            if (key != null && value != null) {
+                map.put(String.valueOf(key), value);
+            }
+        }
+        return map;
+    }
+
     // ==================== Spot Sub Account Transfer ====================
 
     /**
@@ -2122,15 +2129,11 @@ public class Exchange {
      */
 
     public JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "subAccountSpotTransfer");
-        action.put("subAccountUser", subAccountUser == null ? null : subAccountUser.toLowerCase());
-        action.put("isDeposit", isDeposit);
-        action.put("token", token);
-        action.put("amount", amount);
-        // Use the string directly
-
-        return postAction(action);
+        return postAction(action("subAccountSpotTransfer",
+                "subAccountUser", safeLower(subAccountUser),
+                "isDeposit", isDeposit,
+                "token", token,
+                "amount", amount));
     }
 
     // ==================== Multi-Signature Operations ====================
@@ -2159,7 +2162,7 @@ public class Exchange {
         // Build multiSig action
         Map<String, Object> multiSigAction = new LinkedHashMap<>();
         multiSigAction.put("type", "multiSig");
-        multiSigAction.put("signatureChainId", "0x66eee");
+        multiSigAction.put("signatureChainId", isMainnet() ? MAINNET_USER_SIGNATURE_CHAIN_ID : TESTNET_USER_SIGNATURE_CHAIN_ID);
         multiSigAction.put("signatures", signatures);
 
         // Build payload
@@ -2327,11 +2330,7 @@ public class Exchange {
      * @return JSON response
      */
     public JsonNode useBigBlocks(boolean enable) {
-        Map<String, Object> action = new LinkedHashMap<>();
-        action.put("type", "evmUserModify");
-        action.put("usingBigBlocks", enable);
-
-        return postAction(action);
+        return postAction(action("evmUserModify", "usingBigBlocks", enable));
     }
 
     // ==================== C Validator Operations (Professional Features)
@@ -2557,7 +2556,7 @@ public class Exchange {
         Map<String, Object> action = new LinkedHashMap<>();
         long nonce = Signing.getTimestampMs();
         action.put("type", "userSetAbstraction");
-        action.put("user", user == null ? null : user.toLowerCase());
+        action.put("user", safeLower(user));
         action.put("abstraction", userAbstractionMode.getValue());
         action.put("nonce", nonce);
 

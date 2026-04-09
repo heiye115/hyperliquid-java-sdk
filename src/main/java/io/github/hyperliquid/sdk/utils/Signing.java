@@ -24,8 +24,8 @@ import java.util.*;
  */
 public final class Signing {
 
-    private static final String MAINNET_USER_SIGNATURE_CHAIN_ID = "0xa4b1";
-    private static final String TESTNET_USER_SIGNATURE_CHAIN_ID = "0x66eee";
+    public static final String MAINNET_USER_SIGNATURE_CHAIN_ID = "0xa4b1";
+    public static final String TESTNET_USER_SIGNATURE_CHAIN_ID = "0x66eee";
     private static final String TYPE_USER_DEX_ABSTRACTION = "userDexAbstraction";
     private static final String TYPE_USD_SEND = "usdSend";
     private static final String TYPE_SPOT_SEND = "spotSend";
@@ -670,8 +670,8 @@ public final class Signing {
     }
 
     public static Map<String, Object> signKnownUserSignedAction(Credentials credentials,
-                                                                 Map<String, Object> action,
-                                                                 boolean isMainnet) {
+                                                                Map<String, Object> action,
+                                                                boolean isMainnet) {
         if (action == null) {
             throw new HypeError("Action cannot be null.");
         }

@@ -155,34 +155,34 @@ public class Info {
             this.wsManager = new WebsocketManager(baseUrl);
         }
         // Initialize caches according to the configuration
-        Caffeine<Object, Object> metaCacheBuilder = Caffeine.newBuilder()
-                .maximumSize(cacheConfig.getMetaCacheMaxSize())
-                .expireAfterWrite(cacheConfig.getExpireAfterWriteMinutes(), TimeUnit.MINUTES);
-        if (cacheConfig.isRecordStats()) {
-            metaCacheBuilder.recordStats();
-        }
-        this.metaCache = metaCacheBuilder.build();
-
-        Caffeine<Object, Object> spotMetaCacheBuilder = Caffeine.newBuilder()
-                .maximumSize(cacheConfig.getSpotMetaCacheMaxSize())
-                .expireAfterWrite(cacheConfig.getExpireAfterWriteMinutes(), TimeUnit.MINUTES);
-        if (cacheConfig.isRecordStats()) {
-            spotMetaCacheBuilder.recordStats();
-        }
-        this.spotMetaCache = spotMetaCacheBuilder.build();
-
-        Caffeine<Object, Object> allMidsCacheBuilder = Caffeine.newBuilder()
-                .maximumSize(cacheConfig.getAllMidsCacheMaxSize())
-                .expireAfterWrite(1, TimeUnit.SECONDS);
-        if (cacheConfig.isRecordStats()) {
-            allMidsCacheBuilder.recordStats();
-        }
-        this.allMidsCache = allMidsCacheBuilder.build();
+        this.metaCache = buildCache(cacheConfig.getMetaCacheMaxSize(), cacheConfig.getExpireAfterWriteMinutes(), cacheConfig.isRecordStats());
+        this.spotMetaCache = buildCache(cacheConfig.getSpotMetaCacheMaxSize(), cacheConfig.getExpireAfterWriteMinutes(), cacheConfig.isRecordStats());
+        this.allMidsCache = buildCache(cacheConfig.getAllMidsCacheMaxSize(), 0, cacheConfig.isRecordStats()); // 0 means 1 second
 
         // Preload perp DEX meta if specified
         if (perpDexs != null && !perpDexs.isEmpty()) {
             warmUpCache(perpDexs);
         }
+    }
+
+    /**
+     * Build a Caffeine cache with common configuration.
+     *
+     * @param maxSize         Maximum cache size
+     * @param expireMinutes   Expiration time in minutes (0 means 1 second)
+     * @param recordStats     Whether to record statistics
+     * @param <K>             Key type
+     * @param <V>             Value type
+     * @return Configured cache
+     */
+    private <K, V> Cache<K, V> buildCache(int maxSize, long expireMinutes, boolean recordStats) {
+        Caffeine<Object, Object> builder = Caffeine.newBuilder()
+                .maximumSize(maxSize)
+                .expireAfterWrite(expireMinutes == 0 ? 1 : expireMinutes, expireMinutes == 0 ? TimeUnit.SECONDS : TimeUnit.MINUTES);
+        if (recordStats) {
+            builder.recordStats();
+        }
+        return builder.build();
     }
 
     /**
@@ -253,7 +253,7 @@ public class Info {
             Meta.Universe u = universe.get(localAssetId);
             if (u.getName() != null && matchesDexSymbol(u.getName(), qualifiedCoin, coin)) {
                 int globalAssetId = resolvePerpDexOffset(dex) + localAssetId;
-                // Cache szDecimals for builder-deployed DEX symbols (align with Python SDK)
+                // Cache szDecimals for builder-deployed DEX symbols
                 if (u.getSzDecimals() != null) {
                     assetToSzDecimalsCache.put(globalAssetId, u.getSzDecimals());
                 }
@@ -461,18 +461,36 @@ public class Info {
     }
 
     /**
+     * Build a request payload map with type and optional key-value pairs.
+     * <p>
+     * Null values are automatically skipped, simplifying optional parameter handling.
+     * </p>
+     *
+     * @param type      Request type (e.g., "meta", "allMids")
+     * @param keyValues Alternating key-value pairs (e.g., "user", address, "dex", dex)
+     * @return LinkedHashMap containing the payload
+     */
+    private Map<String, Object> payload(String type, Object... keyValues) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", type);
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            Object key = keyValues[i];
+            Object value = keyValues[i + 1];
+            if (key != null && value != null) {
+                map.put(String.valueOf(key), value);
+            }
+        }
+        return map;
+    }
+
+    /**
      * Query all mid prices (allMids), typed return, can specify perp dex name.
      *
      * @param dex Perp dex name (can be empty or null)
      * @return Coin to mid price mapping
      */
     public Map<String, String> allMids(String dex) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "allMids");
-        if (dex != null) {
-            payload.put("dex", dex);
-        }
-        JsonNode node = postInfo(payload);
+        JsonNode node = postInfo(payload("allMids", "dex", dex));
         return JSONUtil.convertValue(node,
                 TypeFactory.defaultInstance().constructMapType(Map.class, String.class, String.class));
     }
@@ -653,7 +671,6 @@ public class Info {
      * <p>
      * <strong>Important:</strong> The offset parameter must be provided to ensure
      * correct global asset IDs for builder-deployed DEX perp contracts.
-     * Align with Python SDK set_perp_meta logic.
      * </p>
      *
      * @param meta   Meta object containing universe data
@@ -737,7 +754,6 @@ public class Info {
         }
         
         // Builder-deployed DEX perp contracts (assetId >= 110000)
-        // Align with Python SDK: perp_dex_to_offset = 110000 + (i-1) * 10000
         if (assetId >= 110000) {
             DexQualifiedSymbol dexQualifiedSymbol = parseDexQualifiedSymbol(coinName.trim());
             if (dexQualifiedSymbol == null) {
@@ -789,12 +805,7 @@ public class Info {
      * @return Typed metadata object Meta
      */
     public Meta meta(String dex) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "meta");
-        if (dex != null) {
-            payload.put("dex", dex);
-        }
-        return JSONUtil.convertValue(postInfo(payload), Meta.class);
+        return JSONUtil.convertValue(postInfo(payload("meta", "dex", dex)), Meta.class);
     }
 
     /**
@@ -807,8 +818,7 @@ public class Info {
      * @return A {@link JsonNode} containing the raw JSON response with perpetual asset information.
      */
     public JsonNode metaAndAssetCtxs() {
-        Map<String, Object> payload = Map.of("type", "metaAndAssetCtxs");
-        return postInfo(payload);
+        return postInfo(payload("metaAndAssetCtxs"));
     }
 
     /**
@@ -827,8 +837,7 @@ public class Info {
      * @return Typed model SpotMeta
      */
     public SpotMeta spotMeta() {
-        Map<String, Object> payload = Map.of("type", "spotMeta");
-        return JSONUtil.convertValue(postInfo(payload), SpotMeta.class);
+        return JSONUtil.convertValue(postInfo(payload("spotMeta")), SpotMeta.class);
     }
 
     /**
@@ -913,8 +922,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode spotMetaAndAssetCtxs() {
-        Map<String, Object> payload = Map.of("type", "spotMetaAndAssetCtxs");
-        return postInfo(payload);
+        return postInfo(payload("spotMetaAndAssetCtxs"));
     }
 
     /**
@@ -940,16 +948,7 @@ public class Info {
      * @return Typed model L2Book
      */
     public L2Book l2Book(String coin, Integer nSigFigs, Integer mantissa) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "l2Book");
-        payload.put("coin", coin);
-        if (nSigFigs != null) {
-            payload.put("nSigFigs", nSigFigs);
-        }
-        if (mantissa != null) {
-            payload.put("mantissa", mantissa);
-        }
-        return JSONUtil.convertValue(postInfo(payload), L2Book.class);
+        return JSONUtil.convertValue(postInfo(payload("l2Book", "coin", coin, "nSigFigs", nSigFigs, "mantissa", mantissa)), L2Book.class);
     }
 
     /**
@@ -1010,10 +1009,7 @@ public class Info {
         req.put("interval", interval.getCode());
         req.put("startTime", startTime);
         req.put("endTime", endTime);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "candleSnapshot");
-        payload.put("req", req);
-        return JSONUtil.toList(postInfo(payload), Candle.class);
+        return JSONUtil.toList(postInfo(payload("candleSnapshot", "req", req)), Candle.class);
     }
 
     /**
@@ -1031,7 +1027,6 @@ public class Info {
      */
     public Candle candleSnapshotLatest(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
-        // Query the last two periods to ensure a completed candlestick is obtained
         long startTime = endTime - (interval.toMillis() * 2);
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
         return !candles.isEmpty() ? candles.getLast() : null;
@@ -1060,14 +1055,10 @@ public class Info {
         if (count > 5000) {
             throw new HypeError("count cannot exceed 5000 (API limit)");
         }
-
         long endTime = System.currentTimeMillis();
-        // Add a buffer of 2 periods to ensure data integrity
         long startTime = endTime - (interval.toMillis() * (count + 2));
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
-
-        // If the returned data exceeds the requested quantity, keep the last 'count'
-        // entries
+        // Truncate to requested count if necessary
         if (candles.size() > count) {
             return candles.subList(candles.size() - count, candles.size());
         }
@@ -1093,10 +1084,8 @@ public class Info {
         if (days <= 0) {
             throw new HypeError("days must be greater than 0");
         }
-
         long endTime = System.currentTimeMillis();
-        long startTime = endTime - (days * 24 * 60 * 60 * 1000L);
-        // days in milliseconds
+        long startTime = endTime - (days * 24L * 60 * 60 * 1000);
         return candleSnapshot(coin, interval, startTime, endTime);
     }
 
@@ -1159,11 +1148,8 @@ public class Info {
      */
     public Candle candleSnapshotCurrent(String coin, CandleInterval interval) {
         long endTime = System.currentTimeMillis();
-        // Query the current and previous periods to ensure data availability
         long startTime = endTime - (interval.toMillis() * 2);
         List<Candle> candles = candleSnapshot(coin, interval, startTime, endTime);
-
-        // Return the last candlestick (currently being generated)
         return !candles.isEmpty() ? candles.getLast() : null;
     }
 
@@ -1185,90 +1171,44 @@ public class Info {
      * @return Unfilled order list
      */
     public List<OpenOrder> openOrders(String address, String dex) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "openOrders");
-        payload.put("user", address);
-        if (dex != null) {
-            payload.put("dex", dex);
-        }
-        return JSONUtil.toList(postInfo(payload), OpenOrder.class);
-    }
-
-    /**
-     * Query user fills (by time range) with default parameters.
-     * <p>
-     * Returns up to 2000 entries; only the latest 10000 entries are available.
-     * This is a convenience method that calls
-     * {@link #userFillsByTime(String, Long, Long, Boolean)} with null values
-     * for endTime and aggregateByTime.
-     * </p>
-     *
-     * @param address   User address
-     * @param startTime Start milliseconds
-     * @return Fill list
-     */
-    public List<UserFill> userFillsByTime(String address, Long startTime) {
-        return userFillsByTime(address, startTime, null, null);
-    }
-
-    /**
-     * Query user fills (by time range) without aggregation.
-     * <p>
-     * Returns up to 2000 entries; only the latest 10000 entries are available.
-     * This is a convenience method that calls
-     * {@link #userFillsByTime(String, Long, Long, Boolean)} with a null value
-     * for aggregateByTime.
-     * </p>
-     *
-     * @param address   User address
-     * @param startTime Start milliseconds
-     * @param endTime   End milliseconds
-     * @return Fill list
-     */
-    public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime) {
-        return userFillsByTime(address, startTime, endTime, null);
-    }
-
-    /**
-     * Query user fills (by time range) with optional time aggregation.
-     * <p>
-     * Returns up to 2000 entries; only the latest 10000 entries are available.
-     * This is a convenience method that calls
-     * {@link #userFillsByTime(String, Long, Long, Boolean)} with a null value
-     * for endTime.
-     * </p>
-     *
-     * @param address         User address
-     * @param startTime       Start milliseconds
-     * @param aggregateByTime Whether to aggregate by time
-     * @return Fill list
-     */
-    public List<UserFill> userFillsByTime(String address, Long startTime, Boolean aggregateByTime) {
-        return userFillsByTime(address, startTime, null, aggregateByTime);
+        return JSONUtil.toList(postInfo(payload("openOrders", "user", address, "dex", dex)), OpenOrder.class);
     }
 
     /**
      * Query user fills (by time range).
+     * <p>
      * Returns up to 2000 entries; only the latest 10000 entries are available.
+     * </p>
      *
      * @param address         User address
      * @param startTime       Start milliseconds
-     * @param endTime         End milliseconds (optional)
-     * @param aggregateByTime Whether to aggregate by time (optional)
+     * @param endTime         End milliseconds (optional, pass null to omit)
+     * @param aggregateByTime Whether to aggregate by time (optional, pass null to omit)
      * @return Fill list
      */
     public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime, Boolean aggregateByTime) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userFillsByTime");
-        payload.put("user", address);
-        payload.put("startTime", startTime);
-        if (endTime != null) {
-            payload.put("endTime", endTime);
-        }
-        if (aggregateByTime != null) {
-            payload.put("aggregateByTime", aggregateByTime);
-        }
-        return JSONUtil.toList(postInfo(payload), UserFill.class);
+        return JSONUtil.toList(postInfo(payload("userFillsByTime", "user", address, "startTime", startTime, "endTime", endTime, "aggregateByTime", aggregateByTime)), UserFill.class);
+    }
+    
+    /**
+     * Query user fills by time range (convenience overload without endTime and aggregateByTime).
+     */
+    public List<UserFill> userFillsByTime(String address, Long startTime) {
+        return userFillsByTime(address, startTime, null, null);
+    }
+    
+    /**
+     * Query user fills by time range (convenience overload without aggregateByTime).
+     */
+    public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime) {
+        return userFillsByTime(address, startTime, endTime, null);
+    }
+    
+    /**
+     * Query user fills by time range (convenience overload without endTime).
+     */
+    public List<UserFill> userFillsByTime(String address, Long startTime, Boolean aggregateByTime) {
+        return userFillsByTime(address, startTime, null, aggregateByTime);
     }
 
     /**
@@ -1278,8 +1218,7 @@ public class Info {
      * @return JSON response
      */
     public UserFees userFees(String address) {
-        Map<String, Object> payload = Map.of("type", "userFees", "user", address);
-        return JSONUtil.convertValue(postInfo(payload), UserFees.class);
+        return JSONUtil.convertValue(postInfo(payload("userFees", "user", address)), UserFees.class);
     }
 
     /**
@@ -1303,14 +1242,7 @@ public class Info {
      * @return {@code List<FundingHistory>} response
      */
     public List<FundingHistory> fundingHistory(String coin, long startMs, Long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "fundingHistory");
-        payload.put("coin", coin);
-        payload.put("startTime", startMs);
-        if (endMs != null) {
-            payload.put("endTime", endMs);
-        }
-        return JSONUtil.toList(postInfo(payload), FundingHistory.class);
+        return JSONUtil.toList(postInfo(payload("fundingHistory", "coin", coin, "startTime", startMs, "endTime", endMs)), FundingHistory.class);
     }
 
     /**
@@ -1327,14 +1259,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userFundingHistory(String address, long startMs, Long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userFunding");
-        payload.put("user", address);
-        payload.put("startTime", startMs);
-        if (endMs != null) {
-            payload.put("endTime", endMs);
-        }
-        return postInfo(payload);
+        return postInfo(payload("userFunding", "user", address, "startTime", startMs, "endTime", endMs));
     }
 
     /**
@@ -1384,12 +1309,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userFundingHistory(String address, String coin, long startMs, long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userFunding");
-        payload.put("user", address);
-        payload.put("startTime", startMs);
-        payload.put("endTime", endMs);
-        return postInfo(payload);
+        return postInfo(payload("userFunding", "user", address, "startTime", startMs, "endTime", endMs));
     }
 
     /**
@@ -1413,14 +1333,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userNonFundingLedgerUpdates(String address, long startMs, Long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userNonFundingLedgerUpdates");
-        payload.put("user", address);
-        payload.put("startTime", startMs);
-        if (endMs != null) {
-            payload.put("endTime", endMs);
-        }
-        return postInfo(payload);
+        return postInfo(payload("userNonFundingLedgerUpdates", "user", address, "startTime", startMs, "endTime", endMs));
     }
 
 
@@ -1432,10 +1345,7 @@ public class Info {
      * @return List of HistoricalOrders
      */
     public List<HistoricalOrders> historicalOrders(String address) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "historicalOrders");
-        payload.put("user", address);
-        return JSONUtil.toList(postInfo(payload), HistoricalOrders.class);
+        return JSONUtil.toList(postInfo(payload("historicalOrders", "user", address)), HistoricalOrders.class);
     }
 
     /**
@@ -1447,12 +1357,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userTwapSliceFills(String address, long startMs, long endMs) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userTwapSliceFills");
-        payload.put("user", address);
-        payload.put("startTime", startMs);
-        payload.put("endTime", endMs);
-        return postInfo(payload);
+        return postInfo(payload("userTwapSliceFills", "user", address, "startTime", startMs, "endTime", endMs));
     }
 
     /**
@@ -1462,10 +1367,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userTwapSliceFills(String address) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userTwapSliceFills");
-        payload.put("user", address);
-        return postInfo(payload);
+        return postInfo(payload("userTwapSliceFills", "user", address));
     }
 
     /**
@@ -1476,13 +1378,7 @@ public class Info {
      * @return Frontend unfilled order list
      */
     public List<FrontendOpenOrder> frontendOpenOrders(String address, String dex) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "frontendOpenOrders");
-        payload.put("user", address);
-        if (dex != null) {
-            payload.put("dex", dex);
-        }
-        return JSONUtil.toList(postInfo(payload), FrontendOpenOrder.class);
+        return JSONUtil.toList(postInfo(payload("frontendOpenOrders", "user", address, "dex", dex)), FrontendOpenOrder.class);
     }
 
     /**
@@ -1499,24 +1395,15 @@ public class Info {
      * User recent fills (up to 2000 entries).
      *
      * @param address         User address
-     * @param aggregateByTime Whether to aggregate by time (optional)
+     * @param aggregateByTime Whether to aggregate by time (optional, pass null to omit)
      * @return Fill list
      */
     public List<UserFill> userFills(String address, Boolean aggregateByTime) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "userFills");
-        payload.put("user", address);
-        if (aggregateByTime != null) {
-            payload.put("aggregateByTime", aggregateByTime);
-        }
-        return JSONUtil.toList(postInfo(payload), UserFill.class);
+        return JSONUtil.toList(postInfo(payload("userFills", "user", address, "aggregateByTime", aggregateByTime)), UserFill.class);
     }
 
     /**
-     * User recent fills (up to 2000 entries) without time aggregation.
-     *
-     * @param address User address
-     * @return Fill list
+     * User recent fills without time aggregation (convenience overload).
      */
     public List<UserFill> userFills(String address) {
         return userFills(address, null);
@@ -1528,8 +1415,7 @@ public class Info {
      * @return JSON array
      */
     public JsonNode perpDexs() {
-        Map<String, Object> payload = Map.of("type", "perpDexs");
-        return postInfo(payload);
+        return postInfo(payload("perpDexs"));
     }
 
     /**
@@ -1554,13 +1440,8 @@ public class Info {
      * @return Typed model ClearinghouseState
      */
     public ClearinghouseState clearinghouseState(String address, String dex) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "clearinghouseState");
-        payload.put("user", address);
-        if (dex != null && !dex.isEmpty()) {
-            payload.put("dex", dex);
-        }
-        return JSONUtil.convertValue(postInfo(payload), ClearinghouseState.class);
+        // Note: Only include dex when it's non-empty (API behavior)
+        return JSONUtil.convertValue(postInfo(payload("clearinghouseState", "user", address, "dex", dex != null && !dex.isEmpty() ? dex : null)), ClearinghouseState.class);
     }
 
     /**
@@ -1590,9 +1471,7 @@ public class Info {
      * @return Typed model SpotClearinghouseState
      */
     public SpotClearinghouseState spotClearinghouseState(String user) {
-        Map<String, Object> payload = Map.of("type", "spotClearinghouseState", "user", user);
-        JsonNode node = postInfo(payload);
-        return JSONUtil.convertValue(node, SpotClearinghouseState.class);
+        return JSONUtil.convertValue(postInfo(payload("spotClearinghouseState", "user", user)), SpotClearinghouseState.class);
     }
 
     /**
@@ -1603,13 +1482,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode vaultDetails(String vaultAddress, String user) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "vaultDetails");
-        payload.put("vaultAddress", vaultAddress);
-        if (user != null) {
-            payload.put("user", user);
-        }
-        return postInfo(payload);
+        return postInfo(payload("vaultDetails", "vaultAddress", vaultAddress, "user", user));
     }
 
     /**
@@ -1619,8 +1492,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode spotDeployState(String address) {
-        Map<String, Object> payload = Map.of("type", "spotDeployState", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("spotDeployState", "user", address));
     }
 
     /**
@@ -1630,8 +1502,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode portfolio(String address) {
-        Map<String, Object> payload = Map.of("type", "portfolio", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("portfolio", "user", address));
     }
 
     /**
@@ -1641,8 +1512,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userRole(String address) {
-        Map<String, Object> payload = Map.of("type", "userRole", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("userRole", "user", address));
     }
 
     /**
@@ -1652,8 +1522,7 @@ public class Info {
      * @return Typed model UserRateLimit
      */
     public UserRateLimit userRateLimit(String address) {
-        Map<String, Object> payload = Map.of("type", "userRateLimit", "user", address);
-        return JSONUtil.convertValue(postInfo(payload), UserRateLimit.class);
+        return JSONUtil.convertValue(postInfo(payload("userRateLimit", "user", address)), UserRateLimit.class);
     }
 
     /**
@@ -1664,8 +1533,7 @@ public class Info {
      * @return Typed model OrderStatus
      */
     public OrderStatus orderStatus(String address, Long oid) {
-        Map<String, Object> payload = Map.of("type", "orderStatus", "user", address, "oid", oid);
-        return JSONUtil.convertValue(postInfo(payload), OrderStatus.class);
+        return JSONUtil.convertValue(postInfo(payload("orderStatus", "user", address, "oid", oid)), OrderStatus.class);
     }
 
     /**
@@ -1679,8 +1547,7 @@ public class Info {
         if (cloid == null) {
             throw new HypeError("cloid cannot be null");
         }
-        Map<String, Object> payload = Map.of("type", "orderStatus", "user", address, "oid", cloid.getRaw());
-        return JSONUtil.convertValue(postInfo(payload), OrderStatus.class);
+        return JSONUtil.convertValue(postInfo(payload("orderStatus", "user", address, "oid", cloid.getRaw())), OrderStatus.class);
     }
 
     /**
@@ -1702,8 +1569,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode queryReferralState(String address) {
-        Map<String, Object> payload = Map.of("type", "referral", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("referral", "user", address));
     }
 
     /**
@@ -1713,8 +1579,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode querySubAccounts(String address) {
-        Map<String, Object> payload = Map.of("type", "subAccounts", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("subAccounts", "user", address));
     }
 
     /**
@@ -1724,8 +1589,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode queryUserToMultiSigSigners(String address) {
-        Map<String, Object> payload = Map.of("type", "userToMultiSigSigners", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("userToMultiSigSigners", "user", address));
     }
 
     /**
@@ -1734,8 +1598,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode queryPerpDeployAuctionStatus() {
-        Map<String, Object> payload = Map.of("type", "perpDeployAuctionStatus");
-        return postInfo(payload);
+        return postInfo(payload("perpDeployAuctionStatus"));
     }
 
     /**
@@ -1754,10 +1617,7 @@ public class Info {
      * @return JSON object
      */
     public JsonNode perpDexStatus(String dex) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "perpDexStatus");
-        payload.put("dex", dex == null ? "" : dex);
-        return postInfo(payload);
+        return postInfo(payload("perpDexStatus", "dex", dex == null ? "" : dex));
     }
 
     /**
@@ -1780,8 +1640,7 @@ public class Info {
      */
     @Deprecated
     public JsonNode queryUserDexAbstractionState(String address) {
-        Map<String, Object> payload = Map.of("type", "userDexAbstraction", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("userDexAbstraction", "user", address));
     }
 
     /**
@@ -1791,8 +1650,7 @@ public class Info {
      * @return User abstraction state ("unifiedAccount" | "portfolioMargin" | "disabled" | "default" | "dexAbstraction")
      **/
     public String userAbstraction(String user) {
-        Map<String, Object> payload = Map.of("type", "userAbstraction", "user", user);
-        return postInfo(payload).asText();
+        return postInfo(payload("userAbstraction", "user", user)).asText();
     }
 
     /**
@@ -1802,8 +1660,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode userVaultEquities(String address) {
-        Map<String, Object> payload = Map.of("type", "userVaultEquities", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("userVaultEquities", "user", address));
     }
 
     /**
@@ -1813,8 +1670,7 @@ public class Info {
      * @return JSON response
      */
     public JsonNode extraAgents(String address) {
-        Map<String, Object> payload = Map.of("type", "extraAgents", "user", address);
-        return postInfo(payload);
+        return postInfo(payload("extraAgents", "user", address));
     }
 
     /**
@@ -1835,8 +1691,7 @@ public class Info {
      *                   (skipWs=true)
      */
     public void subscribe(Subscription subscription, WebsocketManager.MessageCallback callback) {
-        if (skipWs)
-            throw new HypeError("WebSocket disabled by skipWs");
+        requireWs();
         remapCoinInSubscription(subscription);
         wsManager.subscribe(subscription, callback);
     }
@@ -1855,8 +1710,7 @@ public class Info {
      * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
      */
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
-        if (skipWs)
-            throw new HypeError("WebSocket disabled by skipWs");
+        requireWs();
         remapCoinInSubscription(subscription);
         return wsManager.subscribeWithHandle(subscription, callback);
     }
@@ -1872,8 +1726,7 @@ public class Info {
      * @param callback     Message callback
      */
     public void subscribe(JsonNode subscription, WebsocketManager.MessageCallback callback) {
-        if (skipWs)
-            throw new HypeError("WebSocket disabled by skipWs");
+        requireWs();
         remapCoinInSubscription(subscription);
         wsManager.subscribe(subscription, callback);
     }
@@ -1887,8 +1740,7 @@ public class Info {
      * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
      */
     public WebsocketManager.SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
-        if (skipWs)
-            throw new HypeError("WebSocket disabled by skipWs");
+        requireWs();
         remapCoinInSubscription(subscription);
         return wsManager.subscribeWithHandle(subscription, callback);
     }
@@ -1905,8 +1757,7 @@ public class Info {
      *                   (skipWs=true)
      */
     public Map<String, List<WebsocketManager.ActiveSubscription>> getSubscriptions() {
-        if (skipWs)
-            throw new HypeError("WebSocket disabled by skipWs");
+        requireWs();
         return wsManager.getSubscriptions();
     }
 
@@ -1916,8 +1767,7 @@ public class Info {
      * @param subscription Subscription object (Subscription entity class)
      */
     public void unsubscribe(Subscription subscription) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         remapCoinInSubscription(subscription);
         wsManager.unsubscribe(subscription);
     }
@@ -1928,8 +1778,7 @@ public class Info {
      * @param subscription Subscription object
      */
     public void unsubscribe(JsonNode subscription) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         remapCoinInSubscription(subscription);
         wsManager.unsubscribe(subscription);
     }
@@ -1942,8 +1791,7 @@ public class Info {
      * @return {@code true} if a subscription entry was removed; {@code false} if WebSocket is disabled or handle not found
      */
     public boolean unsubscribe(WebsocketManager.SubscriptionHandle handle) {
-        if (skipWs)
-            return false;
+        if (isWsDisabled()) return false;
         return wsManager.unsubscribe(handle);
     }
 
@@ -1954,8 +1802,7 @@ public class Info {
      * @return {@code true} if an entry was removed; {@code false} if not found, id invalid, or WebSocket disabled
      */
     public boolean unsubscribe(long subscriptionId) {
-        if (skipWs)
-            return false;
+        if (isWsDisabled()) return false;
         return wsManager.unsubscribe(subscriptionId);
     }
 
@@ -2013,7 +1860,7 @@ public class Info {
     /**
      * Resolve subscription coin name to canonical form.
      * <p>
-     * Looks up coin in nameToCoinCache and throws if not found.
+     * Looks up coin in nameToCoinCache. Supports lazy loading for builder-deployed DEX symbols.
      * </p>
      *
      * @param coin Raw coin name from subscription
@@ -2023,13 +1870,48 @@ public class Info {
     private String resolveSubscriptionCoin(String coin) {
         ensureNameToCoinLoaded();
 
-        String mapped = nameToCoinCache.get(coin.toUpperCase());
+        String upperCoin = coin.toUpperCase();
+        String mapped = nameToCoinCache.get(upperCoin);
         if (mapped != null) {
             return mapped;
         }
 
+        // Try lazy loading for builder-deployed DEX symbols (format: "dex:coin")
+        DexQualifiedSymbol dexSymbol = parseDexQualifiedSymbol(coin.trim());
+        if (dexSymbol != null) {
+            try {
+                // Load meta for the specified DEX (this populates nameToCoinCache)
+                loadMetaCache(dexSymbol.dex());
+                mapped = nameToCoinCache.get(upperCoin);
+                if (mapped != null) {
+                    return mapped;
+                }
+            } catch (Exception e) {
+                throw new HypeError("Failed to load meta for DEX '" + dexSymbol.dex() +
+                        "': " + e.getMessage() + ". Cannot resolve subscription coin '" + coin + "'.", e);
+            }
+        }
+
         throw new HypeError("Coin '" + coin + "' not found in name_to_coin mapping. " +
-                "Please use a valid coin name (e.g., 'ETH', 'BTC').");
+                "Please use a valid coin name (e.g., 'ETH', 'BTC') or ensure the DEX is loaded.");
+    }
+
+    /**
+     * Throw if WebSocket is disabled.
+     *
+     * @throws HypeError if skipWs is true
+     */
+    private void requireWs() {
+        if (skipWs) throw new HypeError("WebSocket disabled by skipWs");
+    }
+
+    /**
+     * Check if WebSocket is disabled.
+     *
+     * @return true if skipWs is true
+     */
+    private boolean isWsDisabled() {
+        return skipWs;
     }
 
     /**
@@ -2068,8 +1950,7 @@ public class Info {
      * @param listener Listener implementation
      */
     public void addConnectionListener(WebsocketManager.ConnectionListener listener) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.addConnectionListener(listener);
     }
@@ -2080,8 +1961,7 @@ public class Info {
      * @param listener Listener implementation
      */
     public void removeConnectionListener(WebsocketManager.ConnectionListener listener) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.removeConnectionListener(listener);
     }
@@ -2092,8 +1972,7 @@ public class Info {
      * @param seconds Interval seconds (default 5, recommended 3~10)
      */
     public void setNetworkCheckIntervalSeconds(int seconds) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.setNetworkCheckIntervalSeconds(seconds);
     }
@@ -2107,8 +1986,7 @@ public class Info {
      *                  exceed 5000~30000)
      */
     public void setReconnectBackoffMs(long initialMs, long maxMs) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.setReconnectBackoffMs(initialMs, maxMs);
     }
@@ -2125,8 +2003,7 @@ public class Info {
      * @param url Custom network probe URL (e.g., "https://www.google.com")
      */
     public void setNetworkProbeUrl(String url) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.setNetworkProbeUrl(url);
     }
@@ -2145,8 +2022,7 @@ public class Info {
      *                 (default enabled)
      */
     public void setNetworkProbeDisabled(boolean disabled) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.setNetworkProbeDisabled(disabled);
     }
@@ -2157,8 +2033,7 @@ public class Info {
      * @param listener Listener implementation
      */
     public void addCallbackErrorListener(WebsocketManager.CallbackErrorListener listener) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.addCallbackErrorListener(listener);
     }
@@ -2169,8 +2044,7 @@ public class Info {
      * @param listener Listener implementation
      */
     public void removeCallbackErrorListener(WebsocketManager.CallbackErrorListener listener) {
-        if (skipWs)
-            return;
+        if (isWsDisabled()) return;
         if (wsManager != null)
             wsManager.removeCallbackErrorListener(listener);
     }
@@ -2201,10 +2075,7 @@ public class Info {
      * </ul>
      */
     public JsonNode userStakingSummary(String address) {
-        Map<String, Object> payload = Map.of(
-                "type", "delegatorSummary",
-                "user", address);
-        return postInfo(payload);
+        return postInfo(payload("delegatorSummary", "user", address));
     }
 
     /**
@@ -2222,10 +2093,7 @@ public class Info {
      * </ul>
      */
     public JsonNode userStakingDelegations(String address) {
-        Map<String, Object> payload = Map.of(
-                "type", "delegations",
-                "user", address);
-        return postInfo(payload);
+        return postInfo(payload("delegations", "user", address));
     }
 
     /**
@@ -2245,10 +2113,7 @@ public class Info {
      *                   hexadecimal format
      */
     public JsonNode userStakingRewards(String address) {
-        Map<String, Object> payload = Map.of(
-                "type", "delegatorRewards",
-                "user", address);
-        return postInfo(payload);
+        return postInfo(payload("delegatorRewards", "user", address));
     }
 
     /**
@@ -2263,10 +2128,7 @@ public class Info {
      * detailed delta information
      */
     public JsonNode delegatorHistory(String user) {
-        Map<String, Object> payload = Map.of(
-                "type", "delegatorHistory",
-                "user", user);
-        return postInfo(payload);
+        return postInfo(payload("delegatorHistory", "user", user));
     }
 
     /**
@@ -2276,18 +2138,14 @@ public class Info {
      * @return List of approved builders (strings)
      */
     public List<String> approvedBuilders(String user) {
-        Map<String, Object> payload = Map.of(
-                "type", "approvedBuilders",
-                "user", user);
-        JsonNode jsonNode = postInfo(payload);
-        return JSONUtil.convertValue(jsonNode, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
+        return JSONUtil.convertValue(postInfo(payload("approvedBuilders", "user", user)), 
+                TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
     }
 
     /**
      * Check builder fee approval
      */
     public Long maxBuilderFee(String user, String builder) {
-        Map<String, String> payload = Map.of("type", "maxBuilderFee", "user", user, "builder", builder);
-        return Long.parseLong(postInfo(payload).asText());
+        return Long.parseLong(postInfo(payload("maxBuilderFee", "user", user, "builder", builder)).asText());
     }
 }
