@@ -981,9 +981,11 @@ public class WebsocketManager {
         switch (type) {
             case "pong":
             case "allMids":
-            case "userEvents":
             case "orderUpdates":
                 return type;
+            case "user":
+                // Server sends "user" channel for userEvents subscriptions
+                return "userEvents";
             case "l2Book": {
                 JsonNode coinNode = msg.path("data").path("coin");
                 String coinKey = extractCoinIdentifier(coinNode);
