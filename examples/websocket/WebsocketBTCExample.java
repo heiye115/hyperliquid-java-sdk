@@ -1,10 +1,9 @@
-package io.github.hyperliquid.sdk.examples.websocket;
+package io.github.hyperliquid.sdk.websocket;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.HyperliquidClient;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
-import io.github.hyperliquid.sdk.websocket.WebsocketManager;
 
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;

@@ -5,11 +5,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.apis.Info;
 import io.github.hyperliquid.sdk.model.info.Candle;
 import io.github.hyperliquid.sdk.model.info.CandleInterval;
+import io.github.hyperliquid.sdk.model.subscription.ActiveSubscription;
 import io.github.hyperliquid.sdk.model.subscription.CandleSubscription;
 import io.github.hyperliquid.sdk.model.subscription.OrderUpdatesSubscription;
 import io.github.hyperliquid.sdk.model.subscription.TradesSubscription;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
-import io.github.hyperliquid.sdk.websocket.WebsocketManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -39,11 +39,11 @@ public class ExampleWebsocketBTC {
         // ====================
         // Subscribe to BTC individual trades====================
         TradesSubscription btcTrades = TradesSubscription.of("BTC");
-        info.subscribe(btcTrades, msg -> System.out.println("BTC 成交: " + msg));
+        info.subscribe(btcTrades, msg -> System.out.println("BTC Transaction data: " + msg));
 
         // Subscribe to ETH individual trades
         TradesSubscription ethTrades = TradesSubscription.of("ETH");
-        info.subscribe(ethTrades, msg -> System.out.println("ETH 成交: " + msg));
+        info.subscribe(ethTrades, msg -> System.out.println("ETH Transaction data: " + msg));
     }
 
     @Test
@@ -72,18 +72,18 @@ public class ExampleWebsocketBTC {
          * Subscription identifier: orderUpdates
          * Subscription payload example: {"user":"0x....","type":"orderUpdates"}
          */
-        Map<String, List<WebsocketManager.ActiveSubscription>> subscriptions = client.getInfo().getWsManager()
+        Map<String, List<ActiveSubscription>> subscriptions = client.getInfo().getWsManager()
                 .getSubscriptions();
         subscriptions.forEach((k, v) -> {
             System.out.println("Subscription identifier: " + k);
-            for (WebsocketManager.ActiveSubscription activeSubscription : v) {
+            for (ActiveSubscription activeSubscription : v) {
                 System.out.println("Subscription payload: " + activeSubscription.getSubscription());
             }
         });
 
         // Alternative lookup: identifier "orderUpdates" with payloads like
         // {"type":"orderUpdates","user":"0x...."}
-        List<WebsocketManager.ActiveSubscription> orderUpdates = client.getInfo().getWsManager()
+        List<ActiveSubscription> orderUpdates = client.getInfo().getWsManager()
                 .getSubscriptionsByIdentifier("orderUpdates");
         orderUpdates.forEach(activeSubscription -> {
             System.out.println("Subscription payload: " + activeSubscription.getSubscription());

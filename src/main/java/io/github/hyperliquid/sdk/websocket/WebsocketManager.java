@@ -1,7 +1,9 @@
 package io.github.hyperliquid.sdk.websocket;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.github.hyperliquid.sdk.model.subscription.ActiveSubscription;
 import io.github.hyperliquid.sdk.model.subscription.Subscription;
+import io.github.hyperliquid.sdk.model.subscription.SubscriptionHandle;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import okhttp3.*;
 import okio.ByteString;
@@ -11,6 +13,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -115,10 +118,75 @@ public class WebsocketManager {
      */
     private final Map<String, String> identifierCache = new ConcurrentHashMap<>();
     /**
-     * Scheduled task scheduler (used for heartbeats, reconnection, and network monitoring)
+     * Scheduled task scheduler (used for heartbeats, reconnection, network monitoring, and dedicated-close).
+     * <p>
+     * Design principle: scheduler owns "time" (delays, periods), NOT execution throughput.
+     * A single platform thread is sufficient because all scheduled tasks are non-blocking
+     * (reconnect triggers, ping sends, dedicated-close checks). Heavy I/O and user callbacks
+     * are dispatched to virtual threads via {@link #callbackExecutor}, so the scheduler
+     * thread is never held up by blocking work.
+     * </p>
      */
-    private final ScheduledThreadPoolExecutor scheduler = new ScheduledThreadPoolExecutor(1);
-    private final AtomicLong subscriptionIdGenerator = new AtomicLong(0L);
+    private final ScheduledThreadPoolExecutor scheduler = createScheduler();
+
+    private static ScheduledThreadPoolExecutor createScheduler() {
+        ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(
+                1,
+                Thread.ofPlatform().name("ws-scheduler").factory()
+        );
+        exec.setRemoveOnCancelPolicy(true); // Prevent memory leaks from cancelled tasks
+        return exec;
+    }
+
+    /**
+     * Virtual-thread-per-task executor for dispatching user callbacks.
+     * <p>
+     * Design principle: virtual threads own "execution" — they are lightweight, cheap to create,
+     * and ideal for I/O-bound user callbacks that may block. This keeps the OkHttp WS reader thread
+     * free to continue processing inbound frames while callbacks run concurrently.
+     * </p>
+     * <p>
+     * Note: {@code newVirtualThreadPerTaskExecutor()} does NOT support scheduling;
+     * that is why the scheduler remains a {@link ScheduledThreadPoolExecutor}.
+     * </p>
+     */
+    private final ExecutorService callbackExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    /**
+     * Global subscription-id generator — shared across ALL WebsocketManager instances
+     * (main + dedicated) so that every subscriptionId is JVM-unique.
+     * This prevents routing collisions when subscriptionRouting maps ids from
+     * different connections.
+     */
+    private static final AtomicLong GLOBAL_SUB_ID = new AtomicLong(0L);
+
+    // ======================== Dedicated connection support ========================
+    // For subscriptions whose server messages lack a user field (orderUpdates, userEvents),
+    // each user gets a dedicated WebSocket connection so messages are naturally isolated.
+    // Key strategy: per-user ("user:0x..."), not per-subscription-type — both orderUpdates
+    // and userEvents for the same wallet share one WebSocket, reducing connection count.
+
+    /**
+     * Whether this manager is a dedicated (per-user) connection.
+     * Dedicated managers never create sub-dedicated connections, preventing recursion.
+     */
+    private final boolean isDedicated;
+
+    /**
+     * Dedicated connection pool. Key = "user:0x..." — one WebSocket per wallet address.
+     */
+    private final Map<String, WebsocketManager> dedicatedConnections = new ConcurrentHashMap<>();
+
+    /**
+     * Reference count per dedicated key (number of active subscriptions on that connection),
+     * used for idle-close decisions.
+     */
+    private final Map<String, AtomicInteger> dedicatedRefCount = new ConcurrentHashMap<>();
+
+    /**
+     * Maps a globally-unique subscriptionId to the WebsocketManager that owns it
+     * (either this main manager or a dedicated one). Used to route unsubscribe calls.
+     */
+    private final Map<Long, WebsocketManager> subscriptionRouting = new ConcurrentHashMap<>();
 
     /**
      * Connection status listener: used to notify connection, disconnection, reconnection, and network status changes.
@@ -192,79 +260,28 @@ public class WebsocketManager {
     }
 
     /**
-     * One registered subscription: the exact JSON sent to the server, the callback, and a local id for
-     * {@link #unsubscribe(long)} / {@link #unsubscribe(SubscriptionHandle)}.
-     */
-    public static class ActiveSubscription {
-        /** Subscription body as sent in {@code subscribe}. */
-        public final JsonNode subscription;
-        /** User callback for matching channel messages. */
-        public final MessageCallback callback;
-        /** Monotonic id unique within this manager instance. */
-        public final long subscriptionId;
-
-        /**
-         * Legacy constructor: assigns {@link #subscriptionId} {@code 0} (not targetable by {@link #unsubscribe(long)}).
-         */
-        public ActiveSubscription(JsonNode s, MessageCallback c) {
-            this(s, c, 0L);
-        }
-
-        public ActiveSubscription(JsonNode s, MessageCallback c, long subscriptionId) {
-            this.subscription = s;
-            this.callback = c;
-            this.subscriptionId = subscriptionId;
-        }
-
-        public JsonNode getSubscription() {
-            return subscription;
-        }
-
-        public long getSubscriptionId() {
-            return subscriptionId;
-        }
-    }
-
-    /**
-     * Opaque handle returned by {@link #subscribeWithHandle} to remove one callback without affecting
-     * other subscribers to the same channel.
-     */
-    public static class SubscriptionHandle {
-        private final long subscriptionId;
-        private final JsonNode subscription;
-
-        public SubscriptionHandle(long subscriptionId, JsonNode subscription) {
-            this.subscriptionId = subscriptionId;
-            this.subscription = subscription;
-        }
-
-        /**
-         * @return Local id passed to {@link #unsubscribe(long)}
-         */
-        public long getSubscriptionId() {
-            return subscriptionId;
-        }
-
-        /**
-         * @return Subscription JSON registered for this handle
-         */
-        public JsonNode getSubscription() {
-            return subscription;
-        }
-    }
-
-    /**
      * Callback exception listener collection (thread-safe)
      */
     private final List<CallbackErrorListener> callbackErrorListeners = Collections.synchronizedList(new ArrayList<>());
 
     /**
-     * Construct WebSocket manager.
+     * Public constructor — creates a main (non-dedicated) WebSocket manager.
      *
      * @param baseUrl API root URL (http/https), automatically converted to ws/wss
      */
     public WebsocketManager(String baseUrl) {
+        this(baseUrl, false);
+    }
+
+    /**
+     * Internal constructor supporting both main and dedicated instances.
+     *
+     * @param baseUrl     API root URL
+     * @param isDedicated true for dedicated per-user connections (no sub-dedicated routing)
+     */
+    private WebsocketManager(String baseUrl, boolean isDedicated) {
         this.baseUrl = baseUrl;
+        this.isDedicated = isDedicated;
         String scheme = baseUrl.startsWith("https") ? "wss" : "ws";
         String tail = baseUrl.replaceFirst("https?", "");
         this.wsUrl = scheme + tail + "/ws";
@@ -281,6 +298,41 @@ public class WebsocketManager {
                 .build();
         connect();
         startPing();
+    }
+
+    /**
+     * Create a dedicated per-user WebSocket manager that inherits all configuration
+     * (backoff, probe, listeners) from this main manager. Dedicated managers have
+     * {@code isDedicated=true} so they never create sub-dedicated connections.
+     */
+    private WebsocketManager createDedicatedManager() {
+        WebsocketManager ws = new WebsocketManager(baseUrl, true);
+
+        // Inherit backoff configuration
+        ws.setReconnectBackoffMs(initialBackoffMs, configMaxBackoffMs);
+
+        // Inherit network probe configuration
+        ws.setNetworkCheckIntervalSeconds(networkCheckIntervalSeconds);
+        ws.setNetworkProbeDisabled(probeDisabled);
+        if (probeUrl != null) {
+            ws.setNetworkProbeUrl(probeUrl);
+        }
+
+        // Copy connection listeners (thread-safe iteration via synchronized list)
+        synchronized (connectionListeners) {
+            for (ConnectionListener l : connectionListeners) {
+                ws.addConnectionListener(l);
+            }
+        }
+
+        // Copy callback error listeners
+        synchronized (callbackErrorListeners) {
+            for (CallbackErrorListener l : callbackErrorListeners) {
+                ws.addCallbackErrorListener(l);
+            }
+        }
+
+        return ws;
     }
 
     /**
@@ -313,17 +365,21 @@ public class WebsocketManager {
                     String identifier = wsMsgToIdentifier(msg);
                     if (identifier != null && subscriptions.containsKey(identifier)) {
                         for (ActiveSubscription sub : subscriptions.get(identifier)) {
-                            try {
-                                sub.callback.onMessage(msg);
-                            } catch (Exception cbEx) {
-                                // Log and trigger exception listener, does not affect other subscription callbacks
-                                LOG.log(Level.WARNING, "WebSocket callback exception, identifier=" + identifier, cbEx);
-                                notifyCallbackError(identifier, msg, cbEx);
-                            }
+                            // Dispatch each callback to a virtual thread so that slow/blocking
+                            // user code cannot stall the OkHttp WS reader thread.
+                            // Virtual threads are cheap (JDK 21+) and avoid platform-thread exhaustion.
+                            callbackExecutor.execute(() -> {
+                                try {
+                                    sub.callback.onMessage(msg);
+                                } catch (Exception cbEx) {
+                                    LOG.log(Level.WARNING, "WebSocket callback exception, identifier=" + identifier, cbEx);
+                                    notifyCallbackError(identifier, msg, cbEx);
+                                }
+                            });
                         }
                     }
                 } catch (IOException e) {
-                    // ignore parsing error
+                    LOG.log(Level.FINE, "Failed to parse WS message: " + text, e);
                 }
             }
 
@@ -334,10 +390,15 @@ public class WebsocketManager {
 
             @Override
             public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, Response response) {
-                connected = false;
-                notifyDisconnected(-1, String.valueOf(t), t);
-                if (!stopped) {
-                    scheduleReconnect(t, null, null);
+                // Guard: only schedule reconnect if we were previously connected.
+                // OkHttp may call both onFailure and onClosed for the same disconnect event;
+                // the connected flag ensures we don't double-reconnect.
+                if (connected) {
+                    connected = false;
+                    notifyDisconnected(-1, String.valueOf(t), t);
+                    if (!stopped) {
+                        scheduleReconnect(t, null, null);
+                    }
                 }
             }
 
@@ -348,10 +409,14 @@ public class WebsocketManager {
 
             @Override
             public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-                connected = false;
-                notifyDisconnected(code, reason, null);
-                if (!stopped) {
-                    scheduleReconnect(null, code, reason);
+                // Guard: only schedule reconnect if we were previously connected.
+                // Prevents double-reconnect when onFailure has already handled the disconnect.
+                if (connected) {
+                    connected = false;
+                    notifyDisconnected(code, reason, null);
+                    if (!stopped) {
+                        scheduleReconnect(null, code, reason);
+                    }
                 }
             }
         });
@@ -376,10 +441,18 @@ public class WebsocketManager {
     }
 
     /**
-     * Stop and close connection
+     * Stop and close connection, including all dedicated connections.
      */
     public void stop() {
         stopped = true;
+
+        // Stop all dedicated connections first
+        for (Map.Entry<String, WebsocketManager> entry : dedicatedConnections.entrySet()) {
+            entry.getValue().stop();
+        }
+        dedicatedConnections.clear();
+        subscriptionRouting.clear();
+        dedicatedRefCount.clear();
 
         // Cancel all scheduled tasks first
         cancelTask(reconnectFuture);
@@ -393,6 +466,17 @@ public class WebsocketManager {
                 LOG.log(Level.FINE, "Error while closing WebSocket on stop", e);
             }
             webSocket = null;
+        }
+
+        // Gracefully shut down callback executor (virtual threads)
+        try {
+            callbackExecutor.shutdown();
+            if (!callbackExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+                callbackExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            callbackExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
 
         // Gracefully shut down scheduler
@@ -427,7 +511,7 @@ public class WebsocketManager {
      * Initial 1s, maximum 30s, unlimited retries; also starts network monitoring, triggers immediate reconnection when network recovers.
      */
     private synchronized void scheduleReconnect(Throwable cause, Integer code, String reason) {
-        if (stopped)
+        if (stopped || scheduler.isShutdown())
             return;
         // Conservatively close old connection resources
         if (webSocket != null) {
@@ -471,12 +555,16 @@ public class WebsocketManager {
                 }
                 // Network available and currently not connected: attempt quick reconnection (reset backoff and count)
                 if (!connected && !stopped) {
-                    backoffMs = initialBackoffMs;
-                    // Reset counter after network recovery, allowing reconnection attempts to restart
-                    reconnectAttempts = 0;
-                    cancelTask(reconnectFuture);
-                    notifyReconnecting(1, 0);
-                    reconnectFuture = scheduler.schedule(this::connect, 0, TimeUnit.MILLISECONDS);
+                    // Synchronize to avoid race with scheduleReconnect() on reconnectFuture
+                    synchronized (WebsocketManager.this) {
+                        if (!stopped && !scheduler.isShutdown()) {
+                            backoffMs = initialBackoffMs;
+                            reconnectAttempts = 0;
+                            cancelTask(reconnectFuture);
+                            notifyReconnecting(1, 0);
+                            reconnectFuture = scheduler.schedule(this::connect, 0, TimeUnit.MILLISECONDS);
+                        }
+                    }
                 }
             } else {
                 if (networkAvailable) {
@@ -711,6 +799,36 @@ public class WebsocketManager {
     }
 
     /**
+     * Determine whether a subscription requires a dedicated connection.
+     * <p>
+     * Server messages for orderUpdates and userEvents do not include a user field,
+     * so they cannot be multiplexed on a shared connection. Each user gets its own
+     * dedicated WebSocket connection instead.
+     * </p>
+     */
+    private boolean requiresDedicatedConnection(JsonNode subscription) {
+        if (!subscription.has("type")) return false;
+        String type = subscription.get("type").asText();
+        return "orderUpdates".equals(type) || "userEvents".equals(type);
+    }
+
+    /**
+     * Build the per-user dedicated connection key from a subscription JSON.
+     * Format: "user:0x..." — both orderUpdates and userEvents for the same wallet
+     * share one dedicated connection.
+     *
+     * @throws IllegalArgumentException if the subscription lacks a user field
+     */
+    private String buildDedicatedKey(JsonNode subscription) {
+        JsonNode userNode = subscription.get("user");
+        if (userNode == null || !userNode.isTextual()) {
+            String type = subscription.has("type") ? subscription.get("type").asText() : "unknown";
+            throw new IllegalArgumentException(type + " subscription requires a user field");
+        }
+        return "user:" + userNode.asText().toLowerCase(Locale.ROOT);
+    }
+
+    /**
      * Subscribe with a raw JSON subscription object and return a handle for targeted unsubscribe.
      *
      * @param subscription Subscription JSON (e.g. {@code {"type":"l2Book","coin":"BTC"}})
@@ -730,6 +848,22 @@ public class WebsocketManager {
             throw new IllegalArgumentException("callback cannot be null");
         }
 
+        // Dedicated connection routing for subscriptions whose server messages lack user field.
+        // Only the main (non-dedicated) manager creates dedicated connections; dedicated managers
+        // handle subscriptions directly, preventing recursion.
+        if (!isDedicated && requiresDedicatedConnection(subscription)) {
+            String dedicatedKey = buildDedicatedKey(subscription);
+            WebsocketManager dedicated = dedicatedConnections.computeIfAbsent(dedicatedKey, k -> {
+                LOG.info("Creating dedicated WebSocket connection for: " + k);
+                return createDedicatedManager();
+            });
+            // Atomic init + increment via single computeIfAbsent
+            dedicatedRefCount.computeIfAbsent(dedicatedKey, key -> new AtomicInteger(0)).incrementAndGet();
+            SubscriptionHandle handle = dedicated.subscribeWithHandle(subscription, callback);
+            subscriptionRouting.put(handle.getSubscriptionId(), dedicated);
+            return handle;
+        }
+
         String identifier = subscriptionToIdentifier(subscription);
         List<ActiveSubscription> list = subscriptions.computeIfAbsent(identifier, k -> new CopyOnWriteArrayList<>());
         boolean hasSameSubscription = false;
@@ -741,7 +875,7 @@ public class WebsocketManager {
                 }
             }
         }
-        long subscriptionId = subscriptionIdGenerator.incrementAndGet();
+        long subscriptionId = GLOBAL_SUB_ID.incrementAndGet();
         list.add(new ActiveSubscription(subscription, callback, subscriptionId));
         if (!hasSameSubscription) {
             sendSubscribe(subscription);
@@ -751,6 +885,7 @@ public class WebsocketManager {
 
     private void sendSubscribe(JsonNode subscription) {
         if (webSocket == null || !connected) {
+            LOG.log(Level.FINE, "Skipped subscribe (not connected): " + subscription);
             return;
         }
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -788,6 +923,21 @@ public class WebsocketManager {
             throw new IllegalArgumentException("subscription cannot be null");
         }
 
+        // Try dedicated connection first (only on main manager, never on dedicated)
+        if (!isDedicated && requiresDedicatedConnection(subscription)) {
+            String dedicatedKey = buildDedicatedKey(subscription);
+            WebsocketManager dedicated = dedicatedConnections.get(dedicatedKey);
+            if (dedicated != null) {
+                dedicated.unsubscribe(subscription);
+                AtomicInteger ref = dedicatedRefCount.get(dedicatedKey);
+                if (ref != null && ref.decrementAndGet() <= 0) {
+                    scheduleDedicatedClose(dedicatedKey, dedicated);
+                }
+                return;
+            }
+        }
+
+        // Main connection
         String identifier = subscriptionToIdentifier(subscription);
         List<ActiveSubscription> list = subscriptions.get(identifier);
         boolean removed = false;
@@ -812,6 +962,27 @@ public class WebsocketManager {
         if (subscriptionId <= 0) {
             return false;
         }
+
+        // Check if this subscription belongs to a dedicated connection (only on main manager)
+        WebsocketManager dedicated = subscriptionRouting.remove(subscriptionId);
+        if (dedicated != null && dedicated != this) {
+            boolean removed = dedicated.unsubscribe(subscriptionId);
+            if (removed) {
+                // Find the dedicatedKey for ref-count management
+                for (Map.Entry<String, WebsocketManager> entry : dedicatedConnections.entrySet()) {
+                    if (entry.getValue() == dedicated) {
+                        AtomicInteger ref = dedicatedRefCount.get(entry.getKey());
+                        if (ref != null && ref.decrementAndGet() <= 0) {
+                            scheduleDedicatedClose(entry.getKey(), dedicated);
+                        }
+                        break;
+                    }
+                }
+            }
+            return removed;
+        }
+
+        // Main connection: remove target subscription and defensive-clean routing
         for (Map.Entry<String, List<ActiveSubscription>> entry : subscriptions.entrySet()) {
             List<ActiveSubscription> list = entry.getValue();
             ActiveSubscription target = null;
@@ -839,6 +1010,9 @@ public class WebsocketManager {
             if (list.isEmpty()) {
                 subscriptions.remove(entry.getKey());
             }
+            // Defensive: ensure no stale routing entry remains (main-connection IDs
+            // should never be in subscriptionRouting, but guard against future changes)
+            subscriptionRouting.remove(subscriptionId);
             if (!stillSubscribed) {
                 sendUnsubscribe(targetSubscription);
             }
@@ -857,11 +1031,12 @@ public class WebsocketManager {
         if (handle == null) {
             return false;
         }
-        return unsubscribe(handle.subscriptionId);
+        return unsubscribe(handle.getSubscriptionId());
     }
 
     private void sendUnsubscribe(JsonNode subscription) {
         if (webSocket == null || !connected) {
+            LOG.log(Level.FINE, "Skipped unsubscribe (not connected): " + subscription);
             return;
         }
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -887,7 +1062,7 @@ public class WebsocketManager {
      * - coin can be string or integer; strings are uniformly converted to lowercase.
      * </p>
      */
-    String subscriptionToIdentifier(JsonNode subscription) {
+    private String subscriptionToIdentifier(JsonNode subscription) {
         if (subscription == null || !subscription.has("type"))
             return "unknown";
         String type = subscription.get("type").asText();
@@ -966,7 +1141,7 @@ public class WebsocketManager {
      * Compatible with two message formats: channel as string or object ({type: ..., ...}).
      * </p>
      */
-    String wsMsgToIdentifier(JsonNode msg) {
+    private String wsMsgToIdentifier(JsonNode msg) {
         if (msg == null || !msg.has("channel"))
             return null;
         JsonNode channelNode = msg.get("channel");
@@ -1055,7 +1230,36 @@ public class WebsocketManager {
     }
 
     /**
-     * Get a copy of all current subscriptions.
+     * Schedule delayed close of an idle dedicated connection.
+     * If a new subscription arrives before the delay expires, the ref-count will
+     * go back above zero and the close will be aborted.
+     */
+    private void scheduleDedicatedClose(String key, WebsocketManager dedicated) {
+        if (scheduler.isShutdown()) {
+            // Scheduler already shut down — close immediately instead of scheduling
+            LOG.info("Closing dedicated WebSocket connection immediately (scheduler shut down): " + key);
+            subscriptionRouting.entrySet().removeIf(e -> e.getValue() == dedicated);
+            dedicated.stop();
+            dedicatedConnections.remove(key);
+            dedicatedRefCount.remove(key);
+            return;
+        }
+        scheduler.schedule(() -> {
+            AtomicInteger ref = dedicatedRefCount.get(key);
+            if (ref != null && ref.get() <= 0) {
+                LOG.info("Closing idle dedicated WebSocket connection for: " + key);
+                // Clean up subscriptionRouting — remove all entries pointing to this dedicated manager
+                // to prevent memory leaks and stale routing after the connection is closed.
+                subscriptionRouting.entrySet().removeIf(e -> e.getValue() == dedicated);
+                dedicated.stop();
+                dedicatedConnections.remove(key);
+                dedicatedRefCount.remove(key);
+            }
+        }, 30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Get a copy of all current subscriptions, including those on dedicated connections.
      *
      * @return A map of subscription identifiers to lists of active subscriptions
      */
@@ -1063,6 +1267,17 @@ public class WebsocketManager {
         Map<String, List<ActiveSubscription>> copy = new HashMap<>();
         for (Map.Entry<String, List<ActiveSubscription>> entry : subscriptions.entrySet()) {
             copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        // Merge subscriptions from dedicated connections
+        for (Map.Entry<String, WebsocketManager> entry : dedicatedConnections.entrySet()) {
+            Map<String, List<ActiveSubscription>> dedicatedSubs = entry.getValue().getSubscriptions();
+            for (Map.Entry<String, List<ActiveSubscription>> sub : dedicatedSubs.entrySet()) {
+                copy.merge(sub.getKey(), sub.getValue(), (existing, newList) -> {
+                    List<ActiveSubscription> merged = new ArrayList<>(existing);
+                    merged.addAll(newList);
+                    return merged;
+                });
+            }
         }
         return copy;
     }

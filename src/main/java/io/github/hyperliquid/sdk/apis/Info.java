@@ -168,11 +168,11 @@ public class Info {
     /**
      * Build a Caffeine cache with common configuration.
      *
-     * @param maxSize         Maximum cache size
-     * @param expireMinutes   Expiration time in minutes (0 means 1 second)
-     * @param recordStats     Whether to record statistics
-     * @param <K>             Key type
-     * @param <V>             Value type
+     * @param maxSize       Maximum cache size
+     * @param expireMinutes Expiration time in minutes (0 means 1 second)
+     * @param recordStats   Whether to record statistics
+     * @param <K>           Key type
+     * @param <V>           Value type
      * @return Configured cache
      */
     private <K, V> Cache<K, V> buildCache(int maxSize, long expireMinutes, boolean recordStats) {
@@ -709,11 +709,11 @@ public class Info {
     public Meta.Universe getMetaUniverse(String coinName) {
         // Get asset ID via nameToAsset (automatically handles dex prefix)
         Integer assetId = nameToAsset(coinName);
-        
+
         // Determine which DEX to load based on assetId range
         String dex = null;
         int localAssetId = assetId;
-        
+
         // Builder-deployed DEX (assetId >= 110000)
         if (assetId >= 110000) {
             DexQualifiedSymbol dexQualifiedSymbol = parseDexQualifiedSymbol(coinName.trim());
@@ -722,7 +722,7 @@ public class Info {
                 localAssetId = assetId - resolvePerpDexOffset(dex);
             }
         }
-        
+
         List<Meta.Universe> universe = loadMetaCache(dex).getUniverse();
         if (localAssetId >= 0 && localAssetId < universe.size()) {
             return universe.get(localAssetId);
@@ -752,7 +752,7 @@ public class Info {
         if (szDecimals != null) {
             return szDecimals;
         }
-        
+
         // Builder-deployed DEX perp contracts (assetId >= 110000)
         if (assetId >= 110000) {
             DexQualifiedSymbol dexQualifiedSymbol = parseDexQualifiedSymbol(coinName.trim());
@@ -773,7 +773,7 @@ public class Info {
             }
             throw new HypeError("szDecimals not defined for builder-deployed DEX coin: " + coinName);
         }
-        
+
         // Spot assets (10000 <= assetId < 110000)
         if (assetId >= 10000) {
             // Only build spot mapping cache if not already built
@@ -1193,21 +1193,21 @@ public class Info {
     public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime, Boolean aggregateByTime) {
         return JSONUtil.toList(postInfo(payload("userFillsByTime", "user", address, "startTime", startTime, "endTime", endTime, "aggregateByTime", aggregateByTime)), UserFill.class);
     }
-    
+
     /**
      * Query user fills by time range (convenience overload without endTime and aggregateByTime).
      */
     public List<UserFill> userFillsByTime(String address, Long startTime) {
         return userFillsByTime(address, startTime, null, null);
     }
-    
+
     /**
      * Query user fills by time range (convenience overload without aggregateByTime).
      */
     public List<UserFill> userFillsByTime(String address, Long startTime, Long endTime) {
         return userFillsByTime(address, startTime, endTime, null);
     }
-    
+
     /**
      * Query user fills by time range (convenience overload without endTime).
      */
@@ -1715,7 +1715,7 @@ public class Info {
      * Subscribe to WebSocket (type-safe) and return a handle for targeted unsubscribe.
      * <p>
      * Equivalent to {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} but returns
-     * a {@link WebsocketManager.SubscriptionHandle} so you can cancel this subscription by id
+     * a {@link SubscriptionHandle} so you can cancel this subscription by id
      * without removing other callbacks for the same channel.
      * </p>
      *
@@ -1724,7 +1724,7 @@ public class Info {
      * @return Handle carrying the server subscription payload and a unique local id
      * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
      */
-    public WebsocketManager.SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
+    public SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
         requireWs();
         remapCoinInSubscription(subscription);
         return wsManager.subscribeWithHandle(subscription, callback);
@@ -1751,10 +1751,10 @@ public class Info {
      *
      * @param subscription Subscription JSON (must include {@code type}, and {@code coin} or {@code user} as required)
      * @param callback     Message callback
-     * @return Handle for {@link #unsubscribe(WebsocketManager.SubscriptionHandle)} or {@link #unsubscribe(long)}
+     * @return Handle for {@link WebsocketManager#unsubscribe(SubscriptionHandle)} or {@link #unsubscribe(long)}
      * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
      */
-    public WebsocketManager.SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
+    public SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         requireWs();
         remapCoinInSubscription(subscription);
         return wsManager.subscribeWithHandle(subscription, callback);
@@ -1771,7 +1771,7 @@ public class Info {
      * @throws HypeError Thrown when WebSocket functionality is disabled
      *                   (skipWs=true)
      */
-    public Map<String, List<WebsocketManager.ActiveSubscription>> getSubscriptions() {
+    public Map<String, List<ActiveSubscription>> getSubscriptions() {
         requireWs();
         return wsManager.getSubscriptions();
     }
@@ -1805,13 +1805,13 @@ public class Info {
      * @param handle Non-null handle from a prior {@code subscribeWithHandle} call
      * @return {@code true} if a subscription entry was removed; {@code false} if WebSocket is disabled or handle not found
      */
-    public boolean unsubscribe(WebsocketManager.SubscriptionHandle handle) {
+    public boolean unsubscribe(SubscriptionHandle handle) {
         if (isWsDisabled()) return false;
         return wsManager.unsubscribe(handle);
     }
 
     /**
-     * Unsubscribe by the numeric id from {@link WebsocketManager.SubscriptionHandle#getSubscriptionId()}.
+     * Unsubscribe by the numeric id from {@link  SubscriptionHandle#getSubscriptionId()}.
      *
      * @param subscriptionId Positive id assigned when the subscription was registered
      * @return {@code true} if an entry was removed; {@code false} if not found, id invalid, or WebSocket disabled
@@ -2153,7 +2153,7 @@ public class Info {
      * @return List of approved builders (strings)
      */
     public List<String> approvedBuilders(String user) {
-        return JSONUtil.convertValue(postInfo(payload("approvedBuilders", "user", user)), 
+        return JSONUtil.convertValue(postInfo(payload("approvedBuilders", "user", user)),
                 TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
     }
 
