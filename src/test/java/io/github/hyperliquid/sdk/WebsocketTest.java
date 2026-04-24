@@ -26,7 +26,7 @@ import java.util.Map;
  * 5. Gracefully close WebSocket connection
  * </p>
  */
-public class ExampleWebsocketBTC {
+public class WebsocketTest {
 
     public static void main(String[] args) {
         // Note: WebSocket subscription does not require private key, only subscribes to

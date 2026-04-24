@@ -70,27 +70,27 @@ User-signed actions (`signKnownUserSignedAction`) use internal `postActionWithSi
 
 ## Transfers, approvals, account structure
 
-| Method | Description |
-|--------|-------------|
-| `JsonNode usdTransfer(String amount, String destination)` | USDC send (user-signed) |
-| `JsonNode spotTransfer(String amount, String destination, String token)` | Spot token send (user-signed) |
-| `JsonNode withdrawFromBridge(String amount, String destination)` | `withdraw3` bridge withdraw (user-signed) |
-| `JsonNode usdClassTransfer(boolean toPerp, String amount)` | Spot ↔ perp USDC; if `vaultAddress` set, amount string may append ` subaccount:0x...` |
+| Method                                                                                                                                | Description |
+|---------------------------------------------------------------------------------------------------------------------------------------|-------------|
+| `JsonNode usdTransfer(String amount, String destination)`                                                                             | USDC send (user-signed) |
+| `JsonNode spotTransfer(String amount, String destination, String token)`                                                              | Spot token send (user-signed) |
+| `JsonNode withdrawFromBridge(String amount, String destination)`                                                                      | `withdraw3` bridge withdraw (user-signed) |
+| `JsonNode usdClassTransfer(boolean toPerp, String amount)`                                                                            | Spot ↔ perp USDC; if `vaultAddress` set, amount string may append ` subaccount:0x...` |
 | `JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount, String fromSubAccount)` | Cross-DEX send; `fromSubAccount` null or vault |
-| `ApproveBuilderFee approveBuilderFee(String builder, String maxFeeRate)` | Approve builder fee cap; returns `io.github.hyperliquid.sdk.model.approve.ApproveBuilderFee` |
-| `JsonNode setReferrer(String code)` | Referral bind; uses `signL1Action` payload with `expiresAfter` |
-| `JsonNode createSubAccount(String name)` | Create subaccount |
-| `JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd)` | Main ↔ sub USDC; **micro USDC** (e.g. 1_000_000 = 1 USDC) |
-| `JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount)` | Spot subaccount transfer |
-| `JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd)` | Vault deposit/withdraw; micro units |
-| `JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate)` | HYPE stake / unstake |
-| `JsonNode convertToMultiSigUser(String signersJson)` | Convert to multisig |
-| `ApproveAgentResult approveAgent(String name)` | Random agent key + `approveAgent`; returns new agent key/address |
-| `JsonNode agentEnableDexAbstraction()` | Enable agent-side DEX abstraction |
-| `JsonNode agentSetAbstraction(String abstraction)` | Agent abstraction mode (`"u"`/`"p"`/`"i"` etc., Python-aligned) |
-| `JsonNode userDexAbstraction(String user, boolean enabled)` | User-side DEX abstraction (user-signed) |
-| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode)` | User abstraction (`signUserSetAbstractionAction`) |
-| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode, String signatureChainId)` | Optional EIP-712 `signatureChainId` hex string |
+| `ApproveBuilderFee approveBuilderFee(String builder, String maxFeeRate)`                                                              | Approve builder fee cap; returns `io.github.hyperliquid.sdk.model.approve.ApproveBuilderFee` |
+| `JsonNode setReferrer(String code)`                                                                                                   | Referral bind; uses `signL1Action` payload with `expiresAfter` |
+| `JsonNode createSubAccount(String name)`                                                                                              | Create subaccount |
+| `JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd)`                                                     | Main ↔ sub USDC; **micro USDC** (e.g. 1_000_000 = 1 USDC) |
+| `JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount)`                              | Spot subaccount transfer |
+| `JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd)`                                                            | Vault deposit/withdraw; micro units |
+| `JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate)`                                                            | HYPE stake / unstake |
+| `JsonNode convertToMultiSigUser(String signersJson)`                                                                                  | Convert to multisig |
+| `ApproveAgent approveAgent(String name)`                                                                                              | Random agent key + `approveAgent`; returns new agent key/address |
+| `JsonNode agentEnableDexAbstraction()`                                                                                                | Enable agent-side DEX abstraction |
+| `JsonNode agentSetAbstraction(String abstraction)`                                                                                    | Agent abstraction mode (`"u"`/`"p"`/`"i"` etc., Python-aligned) |
+| `JsonNode userDexAbstraction(String user, boolean enabled)`                                                                           | User-side DEX abstraction (user-signed) |
+| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode)`                                                        | User abstraction (`signUserSetAbstractionAction`) |
+| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode, String signatureChainId)`                               | Optional EIP-712 `signatureChainId` hex string |
 
 ## Spot deploy (`spotDeploy`)
 

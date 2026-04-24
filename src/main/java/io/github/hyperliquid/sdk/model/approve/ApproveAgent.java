@@ -3,22 +3,25 @@ package io.github.hyperliquid.sdk.model.approve;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * ApproveAgentResult wraps the return value of approveAgent:
+ * ApproveAgent wraps the return value of approveAgent:
  * - response: server /exchange JSON response;
  * - agentPrivateKey: newly generated Agent private key (0x prefix hexadecimal string);
  * - agentAddress: newly generated Agent address (0x prefix hexadecimal string).
  */
-public class ApproveAgentResult {
+public class ApproveAgent {
 
-    /** Server response JSON
+    /**
+     * Server response JSON
      */
     private final JsonNode response;
 
-    /** Newly generated Agent private key (0x prefix)
+    /**
+     * Newly generated Agent private key (0x prefix)
      */
     private final String agentPrivateKey;
 
-    /** Newly generated Agent address (0x prefix)
+    /**
+     * Newly generated Agent address (0x prefix)
      */
     private final String agentAddress;
 
@@ -29,7 +32,7 @@ public class ApproveAgentResult {
      * @param agentPrivateKey newly generated Agent private key (0x prefix)
      * @param agentAddress    newly generated Agent address (0x prefix)
      */
-    public ApproveAgentResult(JsonNode response, String agentPrivateKey, String agentAddress) {
+    public ApproveAgent(JsonNode response, String agentPrivateKey, String agentAddress) {
         this.response = response;
         this.agentPrivateKey = agentPrivateKey;
         this.agentAddress = agentAddress;

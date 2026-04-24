@@ -1,7 +1,7 @@
 package io.github.hyperliquid.sdk.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.github.hyperliquid.sdk.model.approve.ApproveAgentResult;
+import io.github.hyperliquid.sdk.model.approve.ApproveAgent;
 import io.github.hyperliquid.sdk.model.approve.ApproveBuilderFee;
 import io.github.hyperliquid.sdk.model.info.ClearinghouseState;
 import io.github.hyperliquid.sdk.model.info.SpotMeta;
@@ -1536,7 +1536,7 @@ public class Exchange {
      * @param name Optional Agent name (for display purposes), can be null
      * @return Server response and generated Agent private key/address
      */
-    public ApproveAgentResult approveAgent(String name) {
+    public ApproveAgent approveAgent(String name) {
         // Generate a 32-byte random private key (0x prefix)
         byte[] bytes = new byte[32];
         new java.security.SecureRandom().nextBytes(bytes);
@@ -1559,7 +1559,7 @@ public class Exchange {
                 isMainnet());
 
         JsonNode resp = postActionWithSignature(action, signature, nonce);
-        return new ApproveAgentResult(resp, agentPrivateKey, agentAddress);
+        return new ApproveAgent(resp, agentPrivateKey, agentAddress);
     }
 
     /**

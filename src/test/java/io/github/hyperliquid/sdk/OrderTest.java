@@ -421,7 +421,7 @@ public class OrderTest {
     }
 
     @Test
-    public void test2() throws JsonProcessingException {
+    public void testCandleSnapshotLatest() throws JsonProcessingException {
         Candle candle = client.getInfo().candleSnapshotLatest("@1270", CandleInterval.MINUTE_1);
         System.out.println(JSONUtil.writeValueAsString(candle));
     }

@@ -70,27 +70,27 @@
 
 ## 转账、授权与账户结构
 
-| 方法 | 说明 |
-|------|------|
-| `JsonNode usdTransfer(String amount, String destination)` | USDC 转账（用户签名） |
-| `JsonNode spotTransfer(String amount, String destination, String token)` | 现货代币转账（用户签名） |
-| `JsonNode withdrawFromBridge(String amount, String destination)` | `withdraw3` 跨链提款（用户签名） |
-| `JsonNode usdClassTransfer(boolean toPerp, String amount)` | Spot ↔ Perp USDC；若设置了 `vaultAddress`，金额字符串会附加 ` subaccount:0x...`（与 Python 一致） |
+| 方法                                                                                                                                    | 说明 |
+|---------------------------------------------------------------------------------------------------------------------------------------|------|
+| `JsonNode usdTransfer(String amount, String destination)`                                                                             | USDC 转账（用户签名） |
+| `JsonNode spotTransfer(String amount, String destination, String token)`                                                              | 现货代币转账（用户签名） |
+| `JsonNode withdrawFromBridge(String amount, String destination)`                                                                      | `withdraw3` 跨链提款（用户签名） |
+| `JsonNode usdClassTransfer(boolean toPerp, String amount)`                                                                            | Spot ↔ Perp USDC；若设置了 `vaultAddress`，金额字符串会附加 ` subaccount:0x...`（与 Python 一致） |
 | `JsonNode sendAsset(String destination, String sourceDex, String destinationDex, String token, String amount, String fromSubAccount)` | 跨 DEX 转资产；`fromSubAccount` 可 null，否则可用当前 `vaultAddress` |
-| `ApproveBuilderFee approveBuilderFee(String builder, String maxFeeRate)` | 授权 builder 费率上限；返回类型为 `io.github.hyperliquid.sdk.model.approve.ApproveBuilderFee` |
-| `JsonNode setReferrer(String code)` | 绑定推荐码；使用 `signL1Action` 路径，载荷含 `expiresAfter` |
-| `JsonNode createSubAccount(String name)` | 创建子账户 |
-| `JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd)` | 主子账户 USDC；`usd` 为 **micro USDC**（如 1_000_000 = 1 USDC） |
-| `JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount)` | 子账户现货划转 |
-| `JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd)` | 金库存取；`usd` 为 micro 单位 |
-| `JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate)` | HYPE 质押/解质押 |
-| `JsonNode convertToMultiSigUser(String signersJson)` | 转为多签账户 |
-| `ApproveAgentResult approveAgent(String name)` | 随机生成 agent 私钥，用户签名 `approveAgent`；返回 `ApproveAgentResult`（含新 agent 私钥与地址） |
-| `JsonNode agentEnableDexAbstraction()` | 启用 Agent 侧 Dex 抽象 |
-| `JsonNode agentSetAbstraction(String abstraction)` | 设置 Agent 抽象模式（如与 Python 一致的 `"u"`/`"p"`/`"i"`） |
-| `JsonNode userDexAbstraction(String user, boolean enabled)` | 用户侧 Dex 抽象开关（用户签名） |
-| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode)` | 用户抽象（`signUserSetAbstractionAction`） |
-| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode, String signatureChainId)` | 可选 EIP-712 `signatureChainId`（十六进制链 ID 字符串） |
+| `ApproveBuilderFee approveBuilderFee(String builder, String maxFeeRate)`                                                              | 授权 builder 费率上限；返回类型为 `io.github.hyperliquid.sdk.model.approve.ApproveBuilderFee` |
+| `JsonNode setReferrer(String code)`                                                                                                   | 绑定推荐码；使用 `signL1Action` 路径，载荷含 `expiresAfter` |
+| `JsonNode createSubAccount(String name)`                                                                                              | 创建子账户 |
+| `JsonNode subAccountTransfer(String subAccountUser, boolean isDeposit, long usd)`                                                     | 主子账户 USDC；`usd` 为 **micro USDC**（如 1_000_000 = 1 USDC） |
+| `JsonNode subAccountSpotTransfer(String subAccountUser, boolean isDeposit, String token, String amount)`                              | 子账户现货划转 |
+| `JsonNode vaultTransfer(String vaultAddress, boolean isDeposit, long usd)`                                                            | 金库存取；`usd` 为 micro 单位 |
+| `JsonNode tokenDelegate(String validator, long wei, boolean isUndelegate)`                                                            | HYPE 质押/解质押 |
+| `JsonNode convertToMultiSigUser(String signersJson)`                                                                                  | 转为多签账户 |
+| `ApproveAgent approveAgent(String name)`                                                                                              | 随机生成 agent 私钥，用户签名 `approveAgent`；返回 `ApproveAgent`（含新 agent 私钥与地址） |
+| `JsonNode agentEnableDexAbstraction()`                                                                                                | 启用 Agent 侧 Dex 抽象 |
+| `JsonNode agentSetAbstraction(String abstraction)`                                                                                    | 设置 Agent 抽象模式（如与 Python 一致的 `"u"`/`"p"`/`"i"`） |
+| `JsonNode userDexAbstraction(String user, boolean enabled)`                                                                           | 用户侧 Dex 抽象开关（用户签名） |
+| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode)`                                                        | 用户抽象（`signUserSetAbstractionAction`） |
+| `UserSetAbstraction userSetAbstraction(String user, UserAbstractionMode mode, String signatureChainId)`                               | 可选 EIP-712 `signatureChainId`（十六进制链 ID 字符串） |
 
 ## Spot 部署（spotDeploy）
 
