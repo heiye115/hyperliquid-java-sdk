@@ -275,10 +275,6 @@ try {
 ```
 
 
-## 🤝 Contributing
-
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started. You can help by reporting issues, suggesting features, or submitting pull requests.
-
 ## 📄 License
 
 This project is licensed under the **Apache 2.0 License**. See the [LICENSE](LICENSE) file for details.

@@ -54,15 +54,12 @@
         <okio.version>3.17.0</okio.version>
         <web3j.version>5.0.2</web3j.version>
         <junit.version>5.11.4</junit.version>
-        <mockito.version>5.21.0</mockito.version>
         <msgpack.version>0.9.11</msgpack.version>
         <project.build.outputTimestamp>2025-01-01T00:00:00Z</project.build.outputTimestamp>
         <!-- Central Portal Auto-publish settings -->
         <central.autoPublish>false</central.autoPublish>
         <slf4j.version>2.0.17</slf4j.version>
         <caffeine.version>3.2.3</caffeine.version>
-        <netty.version>4.2.12.Final</netty.version>
-        <vertx-core.version>5.0.10</vertx-core.version>
         <lombok.version>1.18.44</lombok.version>
     </properties>
 
@@ -74,22 +71,11 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-
         <!-- HTTP & WebSocket -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-jvm</artifactId>
             <version>${okhttp.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.squareup.okio</groupId>
-            <artifactId>okio</artifactId>
-            <version>${okio.version}</version>
         </dependency>
 
         <!-- Ethereum crypto & EIP-712 -->
@@ -109,24 +95,6 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>org.web3j</groupId>
-            <artifactId>utils</artifactId>
-            <version>${web3j.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-core</artifactId>
-            <version>${vertx-core.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>jackson-core</artifactId>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- MsgPack for action hashing -->
         <dependency>
             <groupId>org.msgpack</groupId>
@@ -139,12 +107,6 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -164,32 +126,6 @@
             <artifactId>slf4j-simple</artifactId>
             <version>${slf4j.version}</version>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-handler-proxy</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec-http</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec-http2</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-handler</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-codec</artifactId>
-            <version>${netty.version}</version>
         </dependency>
 
         <!-- Lombok (compile-time only) -->

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * User events subscription.
  * <p>
  * Subscribe to all trading events of the current user, including order status changes, trade notifications, etc.
- * This subscription does not require specifying a user address, automatically uses the currently logged-in user.
  * </p>
  */
 public class UserEventsSubscription extends Subscription {
