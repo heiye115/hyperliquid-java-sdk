@@ -7,8 +7,8 @@ import io.github.hyperliquid.sdk.model.info.Candle;
 import io.github.hyperliquid.sdk.model.info.CandleInterval;
 import io.github.hyperliquid.sdk.model.subscription.ActiveSubscription;
 import io.github.hyperliquid.sdk.model.subscription.CandleSubscription;
+import io.github.hyperliquid.sdk.model.subscription.L2BookSubscription;
 import io.github.hyperliquid.sdk.model.subscription.OrderUpdatesSubscription;
-import io.github.hyperliquid.sdk.model.subscription.TradesSubscription;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import org.junit.jupiter.api.Test;
 
@@ -28,22 +28,19 @@ import java.util.Map;
  */
 public class WebsocketTest {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws JsonProcessingException {
         // Note: WebSocket subscription does not require private key, only subscribes to
         // public market data
         HyperliquidClient client = HyperliquidClient.builder()
-                // .testNetUrl() // Use testnet
+                .testNetUrl() // Use testnet
                 .build();
         Info info = client.getInfo();
         // ==================== 4. Subscribe to BTC real-time trades
         // ====================
         // Subscribe to BTC individual trades====================
-        TradesSubscription btcTrades = TradesSubscription.of("BTC");
-        info.subscribe(btcTrades, msg -> System.out.println("BTC Transaction data: " + msg));
+        info.subscribe(CandleSubscription.of("BTC", "1m"), msg -> System.out.println("CandleSubscription BTC 1m data: " + msg));
+        info.subscribe(L2BookSubscription.of("BTC"), msg -> System.out.println("L2BookSubscription BTC data: " + msg));
 
-        // Subscribe to ETH individual trades
-        TradesSubscription ethTrades = TradesSubscription.of("ETH");
-        info.subscribe(ethTrades, msg -> System.out.println("ETH Transaction data: " + msg));
     }
 
     @Test
@@ -72,22 +69,17 @@ public class WebsocketTest {
          * Subscription identifier: orderUpdates
          * Subscription payload example: {"user":"0x....","type":"orderUpdates"}
          */
-        Map<String, List<ActiveSubscription>> subscriptions = client.getInfo().getWsManager()
+        Map<String, ActiveSubscription> subscriptions = client.getInfo().getWsManager()
                 .getSubscriptions();
         subscriptions.forEach((k, v) -> {
-            System.out.println("Subscription identifier: " + k);
-            for (ActiveSubscription activeSubscription : v) {
-                System.out.println("Subscription payload: " + activeSubscription.getSubscription());
-            }
+            System.out.println("Subscription identifier: " + k + " - " + v.getSubscription());
         });
 
         // Alternative lookup: identifier "orderUpdates" with payloads like
         // {"type":"orderUpdates","user":"0x...."}
-        List<ActiveSubscription> orderUpdates = client.getInfo().getWsManager()
+        ActiveSubscription orderUpdates = client.getInfo().getWsManager()
                 .getSubscriptionsByIdentifier("orderUpdates");
-        orderUpdates.forEach(activeSubscription -> {
-            System.out.println("Subscription payload: " + activeSubscription.getSubscription());
-        });
+        System.out.println("Subscription payload: " + orderUpdates.getSubscription());
 
         // Wait for messages to arrive on the WebSocket stream
         try {

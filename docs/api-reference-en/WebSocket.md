@@ -29,25 +29,25 @@ Prefer **`Info.subscribe(...)`** so **`coin` is remapped** consistently with `me
 | Method | Description |
 |--------|-------------|
 | `void subscribe(Subscription subscription, MessageCallback callback)` | Same as `subscribeWithHandle`, discards handle |
-| `SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback)` | Type-safe; converted to JSON internally |
+| `ActiveSubscription subscribeWithHandle(Subscription subscription, MessageCallback callback)` | Type-safe; converted to JSON internally |
 | `void subscribe(JsonNode subscription, MessageCallback callback)` | Raw JSON |
-| `SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | Returns handle for targeted unsubscribe |
+| `ActiveSubscription subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | Returns ActiveSubscription for targeted unsubscribe |
 
-Multiple callbacks may share the same subscription JSON (bucketed by identifier). Duplicate subscription + same callback returns the existing handle.
+Duplicate subscription + same callback returns the existing ActiveSubscription.
 
-**Note:** `SubscriptionHandle` and `ActiveSubscription` are in package `io.github.hyperliquid.sdk.model.subscription`.
+**Note:** `ActiveSubscription` is in package `io.github.hyperliquid.sdk.model.subscription`.
 
 | Method | Description |
 |--------|-------------|
 | `void unsubscribe(Subscription subscription)` | Removes one matching subscription by equality; sends server `unsubscribe` if no identical body remains |
 | `void unsubscribe(JsonNode subscription)` | Same |
-| `boolean unsubscribe(SubscriptionHandle handle)` | Removes one entry by id; server `unsubscribe` only if no duplicate subscription JSON remains |
+| `boolean unsubscribe(ActiveSubscription activeSub)` | Removes one entry by id |
 | `boolean unsubscribe(long subscriptionId)` | Same |
 
 | Method | Description |
 |--------|-------------|
-| `Map<String, List<ActiveSubscription>> getSubscriptions()` | Copy of active subscriptions (includes dedicated connections) |
-| `List<ActiveSubscription> getSubscriptionsByIdentifier(String identifier)` | By routing id |
+| `Map<String, ActiveSubscription> getSubscriptions()` | Copy of active subscriptions (includes dedicated connections) |
+| `ActiveSubscription getSubscriptionsByIdentifier(String identifier)` | By routing id |
 | `boolean hasSubscriptions()` | |
 | `int getSubscriptionCount()` | Number of distinct identifiers |
 
@@ -72,7 +72,7 @@ Subscriptions for `orderUpdates` and `userEvents` receive server messages **with
 
 - On disconnect: **exponential backoff** reconnect (~1s initial + jitter, capped by `setReconnectBackoffMs` and an internal cap), **retries until** `stop()`.
 - While disconnected, optional **HEAD** probe to `baseUrl` or `setNetworkProbeUrl`; on success, reconnect ASAP.
-- `onFailure` / `onClosed` are guarded by the `connected` flag to prevent double-reconnect.
+- `onFailure` / `onClosed` are guarded by `disconnectClaimed` to prevent double-reconnect and handle first-connection failures.
 
 | Method | Description |
 |--------|-------------|
@@ -87,8 +87,8 @@ Matches `subscriptionToIdentifier` for routing pushes to callbacks:
 
 - `l2Book:{coin}`, `trades:{coin}`, `bbo:{coin}`, `candle:{coin},{interval}`
 - `allMids`, `userEvents`, `orderUpdates`
-- `userFills:{user}`, `userFundings:{user}`, `userNonFundingLedgerUpdates:{user}`, `webData2:{user}`
-- `activeAssetCtx:{coin}`, `activeAssetData:{coin},{user}`
+- `userFills:{user}`, `userFundings:{user}`, `userNonFundingLedgerUpdates:{user}`, `webData2`
+- `activeAssetCtx:{coin}`, `activeAssetData:{coin},{user}`, `openOrders:{user}`, `clearinghouseState:{user}`, `spotState:{user}`
 
 **Channel mapping note:** The server sends channel `"user"` for `userEvents` subscriptions. The SDK maps this automatically — no user action required.
 

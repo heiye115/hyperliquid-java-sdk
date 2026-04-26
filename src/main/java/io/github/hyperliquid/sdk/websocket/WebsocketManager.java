@@ -3,7 +3,6 @@ package io.github.hyperliquid.sdk.websocket;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.hyperliquid.sdk.model.subscription.ActiveSubscription;
 import io.github.hyperliquid.sdk.model.subscription.Subscription;
-import io.github.hyperliquid.sdk.model.subscription.SubscriptionHandle;
 import io.github.hyperliquid.sdk.utils.JSONUtil;
 import okhttp3.*;
 import okio.ByteString;
@@ -67,17 +66,24 @@ public class WebsocketManager {
     private volatile boolean connected = false;
 
     /**
+     * Guard flag to ensure disconnect is handled exactly once per connection attempt.
+     * Reset in connect(), claimed in onFailure/onClosed. Prevents both double-reconnect
+     * (OkHttp may call both callbacks) and missed reconnect on first connection failure.
+     */
+    private volatile boolean disconnectClaimed = false;
+
+    /**
      * Number of reconnection attempts made
      */
-    private int reconnectAttempts = 0;
+    private volatile int reconnectAttempts = 0;
     /**
      * Current reconnection delay in milliseconds (exponential backoff), initial 1s (configurable)
      */
-    private long backoffMs = 1_000L;
+    private volatile long backoffMs = 1_000L;
     /**
      * Initial reconnection delay in milliseconds (reset to this value after successful connection)
      */
-    private long initialBackoffMs = backoffMs;
+    private volatile long initialBackoffMs = backoffMs;
     /**
      * Internal maximum backoff limit in milliseconds (fixed at 30s)
      */
@@ -85,7 +91,7 @@ public class WebsocketManager {
     /**
      * Externally configured maximum backoff limit in milliseconds (does not exceed internal limit)
      */
-    private long configMaxBackoffMs = maxBackoffMs;
+    private volatile long configMaxBackoffMs = maxBackoffMs;
     /**
      * Reference to scheduled reconnection task
      */
@@ -112,11 +118,7 @@ public class WebsocketManager {
     /**
      * Active subscription collection, stored and deduplicated by identifier
      */
-    private final Map<String, List<ActiveSubscription>> subscriptions = new ConcurrentHashMap<>();
-    /**
-     * Identifier cache (optimizes string concatenation performance)
-     */
-    private final Map<String, String> identifierCache = new ConcurrentHashMap<>();
+    private final Map<String, ActiveSubscription> subscriptions = new ConcurrentHashMap<>();
     /**
      * Scheduled task scheduler (used for heartbeats, reconnection, network monitoring, and dedicated-close).
      * <p>
@@ -340,6 +342,7 @@ public class WebsocketManager {
      * Will automatically resend all subscriptions in onOpen.
      */
     private void connect() {
+        disconnectClaimed = false;
         notifyConnecting();
         Request request = new Request.Builder().url(wsUrl).build();
         this.webSocket = client.newWebSocket(request, new WebSocketListener() {
@@ -351,10 +354,8 @@ public class WebsocketManager {
                 stopNetworkMonitor();
                 notifyConnected();
                 // Re-subscribe
-                for (List<ActiveSubscription> list : subscriptions.values()) {
-                    for (ActiveSubscription sub : list) {
-                        sendSubscribe(sub.subscription);
-                    }
+                for (ActiveSubscription activeSubscription : subscriptions.values()) {
+                    sendSubscribe(activeSubscription.subscription);
                 }
             }
 
@@ -362,22 +363,17 @@ public class WebsocketManager {
             public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
                 try {
                     JsonNode msg = JSONUtil.readTree(text);
-                    String identifier = wsMsgToIdentifier(msg);
-                    if (identifier != null && subscriptions.containsKey(identifier)) {
-                        for (ActiveSubscription sub : subscriptions.get(identifier)) {
-                            // Dispatch each callback to a virtual thread so that slow/blocking
-                            // user code cannot stall the OkHttp WS reader thread.
-                            // Virtual threads are cheap (JDK 21+) and avoid platform-thread exhaustion.
-                            callbackExecutor.execute(() -> {
-                                try {
-                                    sub.callback.onMessage(msg);
-                                } catch (Exception cbEx) {
-                                    LOG.log(Level.WARNING, "WebSocket callback exception, identifier=" + identifier, cbEx);
-                                    notifyCallbackError(identifier, msg, cbEx);
-                                }
-                            });
+                    String identifier = toIdentifier(msg);
+                    if (identifier == null || !subscriptions.containsKey(identifier)) return;
+                    ActiveSubscription activeSubscription = subscriptions.get(identifier);
+                    callbackExecutor.execute(() -> {
+                        try {
+                            activeSubscription.callback.onMessage(msg);
+                        } catch (Exception cbEx) {
+                            LOG.log(Level.WARNING, "WebSocket callback exception, identifier=" + identifier, cbEx);
+                            notifyCallbackError(identifier, msg, cbEx);
                         }
-                    }
+                    });
                 } catch (IOException e) {
                     LOG.log(Level.FINE, "Failed to parse WS message: " + text, e);
                 }
@@ -390,10 +386,12 @@ public class WebsocketManager {
 
             @Override
             public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, Response response) {
-                // Guard: only schedule reconnect if we were previously connected.
+                // Guard: claim disconnect exactly once per connection attempt.
                 // OkHttp may call both onFailure and onClosed for the same disconnect event;
-                // the connected flag ensures we don't double-reconnect.
-                if (connected) {
+                // disconnectClaimed ensures we don't double-reconnect, and also handles the
+                // case where the first connection attempt fails (connected is still false).
+                if (!disconnectClaimed) {
+                    disconnectClaimed = true;
                     connected = false;
                     notifyDisconnected(-1, String.valueOf(t), t);
                     if (!stopped) {
@@ -409,9 +407,10 @@ public class WebsocketManager {
 
             @Override
             public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-                // Guard: only schedule reconnect if we were previously connected.
+                // Guard: claim disconnect exactly once per connection attempt.
                 // Prevents double-reconnect when onFailure has already handled the disconnect.
-                if (connected) {
+                if (!disconnectClaimed) {
+                    disconnectClaimed = true;
                     connected = false;
                     notifyDisconnected(code, reason, null);
                     if (!stopped) {
@@ -735,10 +734,6 @@ public class WebsocketManager {
         notifyListeners(connectionListeners, l -> l.onReconnecting(wsUrl, attempt, nextDelayMs));
     }
 
-    private void notifyReconnectFailed(int attempted, Throwable lastError) {
-        notifyListeners(connectionListeners, l -> l.onReconnectFailed(wsUrl, attempted, lastError));
-    }
-
     private void notifyNetworkUnavailable() {
         notifyListeners(connectionListeners, l -> l.onNetworkUnavailable(wsUrl));
     }
@@ -765,15 +760,15 @@ public class WebsocketManager {
     }
 
     /**
-     * Type-safe subscribe that returns a {@link SubscriptionHandle} for later {@link #unsubscribe(SubscriptionHandle)}.
+     * Type-safe subscribe that returns an {@link ActiveSubscription} for later {@link #unsubscribe(ActiveSubscription)}.
      *
      * @param subscription Typed subscription model
      * @param callback     Message callback
-     * @return Handle identifying this registration
+     * @return ActiveSubscription identifying this registration
      * @throws IllegalStateException    If {@link #stop()} was called
      * @throws IllegalArgumentException If {@code subscription} or {@code callback} is null
      */
-    public SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback) {
+    public ActiveSubscription subscribeWithHandle(Subscription subscription, MessageCallback callback) {
         if (stopped) {
             throw new IllegalStateException("WebsocketManager has been stopped, cannot subscribe");
         }
@@ -783,7 +778,6 @@ public class WebsocketManager {
         if (callback == null) {
             throw new IllegalArgumentException("callback cannot be null");
         }
-
         JsonNode jsonNode = JSONUtil.convertValue(subscription, JsonNode.class);
         return subscribeWithHandle(jsonNode, callback);
     }
@@ -829,15 +823,15 @@ public class WebsocketManager {
     }
 
     /**
-     * Subscribe with a raw JSON subscription object and return a handle for targeted unsubscribe.
+     * Subscribe with a raw JSON subscription object and return an ActiveSubscription for targeted unsubscribe.
      *
      * @param subscription Subscription JSON (e.g. {@code {"type":"l2Book","coin":"BTC"}})
      * @param callback     Message callback
-     * @return Handle with unique {@link SubscriptionHandle#getSubscriptionId()}
+     * @return ActiveSubscription with unique {@link ActiveSubscription#getSubscriptionId()}
      * @throws IllegalStateException    If {@link #stop()} was called
      * @throws IllegalArgumentException If {@code subscription} or {@code callback} is null
      */
-    public SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback) {
+    public ActiveSubscription subscribeWithHandle(JsonNode subscription, MessageCallback callback) {
         if (stopped) {
             throw new IllegalStateException("WebsocketManager has been stopped, cannot subscribe");
         }
@@ -859,28 +853,22 @@ public class WebsocketManager {
             });
             // Atomic init + increment via single computeIfAbsent
             dedicatedRefCount.computeIfAbsent(dedicatedKey, key -> new AtomicInteger(0)).incrementAndGet();
-            SubscriptionHandle handle = dedicated.subscribeWithHandle(subscription, callback);
-            subscriptionRouting.put(handle.getSubscriptionId(), dedicated);
-            return handle;
+            ActiveSubscription activeSub = dedicated.subscribeWithHandle(subscription, callback);
+            subscriptionRouting.put(activeSub.subscriptionId, dedicated);
+            return activeSub;
         }
 
-        String identifier = subscriptionToIdentifier(subscription);
-        List<ActiveSubscription> list = subscriptions.computeIfAbsent(identifier, k -> new CopyOnWriteArrayList<>());
-        boolean hasSameSubscription = false;
-        for (ActiveSubscription s : list) {
-            if (s.subscription.equals(subscription)) {
-                hasSameSubscription = true;
-                if (s.callback == callback) {
-                    return new SubscriptionHandle(s.subscriptionId, s.subscription);
-                }
-            }
+        String identifier = toIdentifier(subscription);
+        if (subscriptions.containsKey(identifier)) {
+            return subscriptions.get(identifier);
         }
         long subscriptionId = GLOBAL_SUB_ID.incrementAndGet();
-        list.add(new ActiveSubscription(subscription, callback, subscriptionId));
-        if (!hasSameSubscription) {
-            sendSubscribe(subscription);
-        }
-        return new SubscriptionHandle(subscriptionId, subscription);
+        ActiveSubscription activeSub = new ActiveSubscription(subscription, callback, subscriptionId);
+        // Put before sendSubscribe: ensures the entry is visible to onOpen's resubscribe loop
+        // and closes the dedup window for concurrent subscribeWithHandle calls.
+        subscriptions.put(identifier, activeSub);
+        sendSubscribe(subscription);
+        return activeSub;
     }
 
     private void sendSubscribe(JsonNode subscription) {
@@ -938,24 +926,15 @@ public class WebsocketManager {
         }
 
         // Main connection
-        String identifier = subscriptionToIdentifier(subscription);
-        List<ActiveSubscription> list = subscriptions.get(identifier);
-        boolean removed = false;
-        if (list != null) {
-            removed = list.removeIf(s -> s.subscription.equals(subscription));
-            if (list.isEmpty())
-                subscriptions.remove(identifier);
-        }
-        if (removed) {
-            sendUnsubscribe(subscription);
-        }
+        String identifier = toIdentifier(subscription);
+        subscriptions.remove(identifier);
+        sendUnsubscribe(subscription);
     }
 
     /**
-     * Removes the subscription entry with the given locally generated id. If no other identical
-     * subscription JSON remains for that channel, sends a server {@code unsubscribe} message.
+     * Removes the subscription entry with the given locally generated id.
      *
-     * @param subscriptionId Value from {@link SubscriptionHandle#getSubscriptionId()} (must be {@code > 0})
+     * @param subscriptionId Value from {@link ActiveSubscription#getSubscriptionId()} (must be {@code > 0})
      * @return {@code true} if an entry was removed
      */
     public boolean unsubscribe(long subscriptionId) {
@@ -982,56 +961,36 @@ public class WebsocketManager {
             return removed;
         }
 
-        // Main connection: remove target subscription and defensive-clean routing
-        for (Map.Entry<String, List<ActiveSubscription>> entry : subscriptions.entrySet()) {
-            List<ActiveSubscription> list = entry.getValue();
-            ActiveSubscription target = null;
-            for (ActiveSubscription subscription : list) {
-                if (subscription.subscriptionId == subscriptionId) {
-                    target = subscription;
-                    break;
-                }
+        // Main connection: find and remove the subscription by id
+        String matchedKey = null;
+        ActiveSubscription matched = null;
+        for (Map.Entry<String, ActiveSubscription> entry : subscriptions.entrySet()) {
+            if (entry.getValue().subscriptionId == subscriptionId) {
+                matchedKey = entry.getKey();
+                matched = entry.getValue();
+                break;
             }
-            if (target == null) {
-                continue;
-            }
-            JsonNode targetSubscription = target.subscription;
-            boolean removed = list.removeIf(s -> s.subscriptionId == subscriptionId);
-            if (!removed) {
-                return false;
-            }
-            boolean stillSubscribed = false;
-            for (ActiveSubscription remaining : list) {
-                if (remaining.subscription.equals(targetSubscription)) {
-                    stillSubscribed = true;
-                    break;
-                }
-            }
-            if (list.isEmpty()) {
-                subscriptions.remove(entry.getKey());
-            }
-            // Defensive: ensure no stale routing entry remains (main-connection IDs
-            // should never be in subscriptionRouting, but guard against future changes)
-            subscriptionRouting.remove(subscriptionId);
-            if (!stillSubscribed) {
-                sendUnsubscribe(targetSubscription);
-            }
-            return true;
         }
-        return false;
+        if (matched == null) {
+            return false;
+        }
+        subscriptions.remove(matchedKey);
+        subscriptionRouting.remove(subscriptionId);
+        sendUnsubscribe(matched.subscription);
+        return true;
     }
 
     /**
-     * Convenience for {@link #unsubscribe(long)} using {@link SubscriptionHandle#getSubscriptionId()}.
+     * Convenience for {@link #unsubscribe(long)} using {@link ActiveSubscription#getSubscriptionId()}.
      *
-     * @param handle Non-null handle from {@link #subscribeWithHandle}
-     * @return {@code false} if {@code handle} is null or no matching entry exists
+     * @param activeSub Non-null ActiveSubscription from {@link #subscribeWithHandle}
+     * @return {@code false} if {@code activeSub} is null or no matching entry exists
      */
-    public boolean unsubscribe(SubscriptionHandle handle) {
-        if (handle == null) {
+    public boolean unsubscribe(ActiveSubscription activeSub) {
+        if (activeSub == null) {
             return false;
         }
-        return unsubscribe(handle.getSubscriptionId());
+        return unsubscribe(activeSub.subscriptionId);
     }
 
     private void sendUnsubscribe(JsonNode subscription) {
@@ -1050,68 +1009,162 @@ public class WebsocketManager {
     }
 
     /**
-     * Convert subscription object to identifier (used for subscription deduplication and routing).
+     * Unified identifier extraction for both subscription objects (have "type" field)
+     * and server messages (have "channel" field).
      * <p>
-     * This method is package-visible, mainly for internal use and unit testing.
      * Channel identifier conventions:
      * - l2Book:{coin}, trades:{coin}, bbo:{coin}, candle:{coin},{interval}
      * - userEvents, orderUpdates, allMids
-     * -
-     * userFills:{user}, userFundings:{user}, userNonFundingLedgerUpdates:{user}, webData2:{user}
-     * - activeAssetCtx:{coin}, activeAssetData:{coin},{user}
+     * - userFills:{user}, userFundings:{user}, userNonFundingLedgerUpdates:{user}, webData2:{user}
+     * - activeAssetCtx:{coin}, activeAssetData:{coin},{user}, openOrders:{user}
      * - coin can be string or integer; strings are uniformly converted to lowercase.
      * </p>
+     *
+     * @param jsonNode A subscription JSON (has "type") or a server message (has "channel")
+     * @return Identifier string for subscription deduplication and message routing
      */
-    private String subscriptionToIdentifier(JsonNode subscription) {
-        if (subscription == null || !subscription.has("type"))
-            return "unknown";
-        String type = subscription.get("type").asText();
-        switch (type) {
-            case "allMids":
-            case "userEvents":
-            case "orderUpdates":
-                return type;
-            case "l2Book": {
-                JsonNode coinNode = subscription.get("coin");
-                String coinKey = extractCoinIdentifier(coinNode);
-                return buildCachedIdentifier(type, coinKey);
+    private String toIdentifier(JsonNode jsonNode) {
+        if (jsonNode == null) return "unknown";
+        boolean isSubscription = jsonNode.has("type");
+        boolean isChannel = jsonNode.has("channel");
+
+        String type = null;
+        if (isSubscription) {
+            type = jsonNode.get("type").asText();
+        } else if (isChannel) {
+            JsonNode channelNode = jsonNode.get("channel");
+            if (channelNode.isTextual()) {
+                type = channelNode.asText();
+            } else if (channelNode.isObject() && channelNode.has("type")) {
+                type = channelNode.get("type").asText();
             }
-            case "trades":
+            // Skip non-subscription messages
+            if ("pong".equals(type)) return null;
+        }
+        if (type == null) return "unknown";
+
+        // Server sends "user" channel for userEvents subscriptions
+        if (!isSubscription && "user".equals(type)) {
+            return "userEvents";
+        }
+
+        switch (type) {
+            case "orderUpdates":
+            case "userEvents":
+                return type;
+            case "allMids": {
+                if (isSubscription) {
+                    if (!jsonNode.has("dex")) return type;
+                    String dex = jsonNode.get("dex").asText();
+                    if (dex == null || dex.isEmpty()) return type;
+                    return buildIdentifier(type, dex.toLowerCase(Locale.ROOT));
+                }
+                JsonNode data = jsonNode.get("data");
+                if (data != null && data.has("dex")) {
+                    String dex = data.get("dex").asText();
+                    if (dex != null && !dex.isEmpty()) {
+                        return buildIdentifier(type, dex.toLowerCase(Locale.ROOT));
+                    }
+                }
+                return type;
+            }
+            case "l2Book":
             case "bbo":
-            case "activeAssetCtx": {
-                JsonNode coinNode = subscription.get("coin");
-                String coinKey = extractCoinIdentifier(coinNode);
-                return buildCachedIdentifier(type, coinKey);
+                return buildIdentifier(type, extractCoinIdentifier(coinField(jsonNode, isSubscription)));
+            case "trades": {
+                JsonNode coinNode;
+                if (isSubscription) {
+                    coinNode = jsonNode.get("coin");
+                } else {
+                    JsonNode trades = jsonNode.get("data");
+                    coinNode = null;
+                    if (trades != null && trades.isArray() && !trades.isEmpty()) {
+                        coinNode = trades.get(0).get("coin");
+                    }
+                }
+                return buildIdentifier(type, extractCoinIdentifier(coinNode));
             }
             case "candle": {
-                JsonNode coinNode = subscription.get("coin");
-                JsonNode iNode = subscription.get("interval");
-                String coinKey = extractCoinIdentifier(coinNode);
-                String interval = iNode == null ? null : iNode.asText();
-                if (coinKey != null && interval != null)
-                    return buildCachedIdentifier(type, coinKey + "," + interval);
+                if (isSubscription) {
+                    String coinKey = extractCoinIdentifier(jsonNode.get("coin"));
+                    String interval = jsonNode.has("interval") ? jsonNode.get("interval").asText() : null;
+                    if (coinKey != null && interval != null)
+                        return buildIdentifier(type, coinKey + "," + interval);
+                } else {
+                    JsonNode data = jsonNode.get("data");
+                    if (data != null) {
+                        String s = data.path("s").asText(null);
+                        String i = data.path("i").asText(null);
+                        if (s != null && i != null)
+                            return buildIdentifier(type, s.toLowerCase(Locale.ROOT) + "," + i);
+                    }
+                }
                 return type;
             }
-            case "userFills":
-            case "userFundings":
+            case "userFills": {
+                if (isSubscription) {
+                    return buildIdentifier(type, extractUserString(jsonNode.get("user")));
+                }
+                // Message side: data structure differs from standard userField pattern
+                JsonNode data = jsonNode.get("data");
+                String user = (data != null && data.isObject() && data.has("user"))
+                        ? data.get("user").asText().toLowerCase(Locale.ROOT) : null;
+                return buildIdentifier(type, user);
+            }
+            case "webData2":
+            case "openOrders":
+            case "clearinghouseState":
+            case "spotState":
             case "userNonFundingLedgerUpdates":
-            case "webData2": {
-                JsonNode userNode = subscription.get("user");
-                String user = userNode == null ? null : userNode.asText().toLowerCase(Locale.ROOT);
-                return buildCachedIdentifier(type, user);
+            case "userFundings":
+                return buildIdentifier(type, extractUserString(userField(jsonNode, isSubscription)));
+            case "activeAssetCtx":
+            case "activeSpotAssetCtx": {
+                String normalizedType = "activeSpotAssetCtx".equals(type) ? "activeAssetCtx" : type;
+                String coinKey = extractCoinIdentifier(coinField(jsonNode, isSubscription));
+                return buildIdentifier(normalizedType, coinKey != null ? coinKey : "unknown");
             }
             case "activeAssetData": {
-                JsonNode coinNode = subscription.get("coin");
-                JsonNode userNode = subscription.get("user");
+                // Message side uses get() not path() — null vs MissingNode affects branching
+                JsonNode coinNode, userNode;
+                if (isSubscription) {
+                    coinNode = jsonNode.get("coin");
+                    userNode = jsonNode.get("user");
+                } else {
+                    JsonNode data = jsonNode.get("data");
+                    coinNode = data != null ? data.get("coin") : null;
+                    userNode = data != null ? data.get("user") : null;
+                }
                 String coinKey = extractCoinIdentifier(coinNode);
-                String user = userNode == null ? null : userNode.asText().toLowerCase(Locale.ROOT);
+                String user = extractUserString(userNode);
                 if (coinKey != null && user != null)
-                    return buildCachedIdentifier(type, coinKey + "," + user);
+                    return buildIdentifier(type, coinKey + "," + user);
                 return type;
             }
             default:
                 return type;
         }
+    }
+
+    /**
+     * Extract coin field: subscription reads top-level "coin", message reads data.coin.
+     */
+    private JsonNode coinField(JsonNode jsonNode, boolean isSubscription) {
+        return isSubscription ? jsonNode.get("coin") : jsonNode.path("data").path("coin");
+    }
+
+    /**
+     * Extract user field: subscription reads top-level "user", message reads data.user.
+     */
+    private JsonNode userField(JsonNode jsonNode, boolean isSubscription) {
+        return isSubscription ? jsonNode.get("user") : jsonNode.path("data").path("user");
+    }
+
+    /**
+     * Extract lowercase user string from a user JsonNode, returns null if absent or non-textual.
+     */
+    private String extractUserString(JsonNode userNode) {
+        return (userNode != null && userNode.isTextual()) ? userNode.asText().toLowerCase(Locale.ROOT) : null;
     }
 
     /**
@@ -1125,108 +1178,11 @@ public class WebsocketManager {
     }
 
     /**
-     * Build cached identifier (optimizes string concatenation performance)
+     * Build identifier string from type and suffix.
      */
-    private String buildCachedIdentifier(String type, String suffix) {
+    private String buildIdentifier(String type, String suffix) {
         if (suffix == null) return type;
-
-        String cacheKey = type + "|" + suffix;
-        return identifierCache.computeIfAbsent(cacheKey, k -> type + ":" + suffix);
-    }
-
-    /**
-     * Extract identifier from message, corresponding to subscriptionToIdentifier.
-     * <p>
-     * This method is package-visible, mainly for internal use and unit testing.
-     * Compatible with two message formats: channel as string or object ({type: ..., ...}).
-     * </p>
-     */
-    private String wsMsgToIdentifier(JsonNode msg) {
-        if (msg == null || !msg.has("channel"))
-            return null;
-        JsonNode channelNode = msg.get("channel");
-        String type = null;
-        if (channelNode.isTextual()) {
-            type = channelNode.asText();
-        } else if (channelNode.isObject() && channelNode.has("type")) {
-            type = channelNode.get("type").asText();
-        }
-        if (type == null)
-            return null;
-        switch (type) {
-            case "pong":
-            case "allMids":
-            case "orderUpdates":
-                return type;
-            case "user":
-                // Server sends "user" channel for userEvents subscriptions
-                return "userEvents";
-            case "l2Book": {
-                JsonNode coinNode = msg.path("data").path("coin");
-                String coinKey = extractCoinIdentifier(coinNode);
-                return buildCachedIdentifier(type, coinKey);
-            }
-            case "trades": {
-                JsonNode trades = msg.get("data");
-                String coinKey = null;
-                if (trades != null && trades.isArray() && !trades.isEmpty()) {
-                    JsonNode first = trades.get(0);
-                    JsonNode coinNode = first.get("coin");
-                    if (coinNode != null) {
-                        coinKey = extractCoinIdentifier(coinNode);
-                    }
-                }
-                return buildCachedIdentifier(type, coinKey);
-            }
-            case "candle": {
-                JsonNode data = msg.get("data");
-                if (data != null) {
-                    String s = data.path("s").asText(null);
-                    String i = data.path("i").asText(null);
-                    if (s != null && i != null)
-                        return buildCachedIdentifier(type, s.toLowerCase(Locale.ROOT) + "," + i);
-                }
-                return type;
-            }
-            case "bbo": {
-                JsonNode coinNode = msg.path("data").path("coin");
-                String coinKey = extractCoinIdentifier(coinNode);
-                return buildCachedIdentifier(type, coinKey);
-            }
-            case "userFills":
-            case "userFundings":
-            case "userNonFundingLedgerUpdates":
-            case "webData2": {
-                JsonNode userNode = msg.path("data").path("user");
-                String user = (userNode != null && userNode.isTextual()) ? userNode.asText().toLowerCase(Locale.ROOT)
-                        : null;
-                return buildCachedIdentifier(type, user);
-            }
-            case "activeAssetCtx":
-            case "activeSpotAssetCtx": {
-                JsonNode coinNode = msg.path("data").path("coin");
-                String coinKey = extractCoinIdentifier(coinNode);
-                return type.equals("activeSpotAssetCtx")
-                        ? buildCachedIdentifier("activeAssetCtx", coinKey != null ? coinKey : "unknown")
-                        : buildCachedIdentifier(type, coinKey);
-            }
-            case "activeAssetData": {
-                JsonNode data = msg.get("data");
-                if (data != null) {
-                    JsonNode coinNode = data.get("coin");
-                    JsonNode userNode = data.get("user");
-                    String coinKey = extractCoinIdentifier(coinNode);
-                    String user = (userNode != null && userNode.isTextual())
-                            ? userNode.asText().toLowerCase(Locale.ROOT)
-                            : null;
-                    if (coinKey != null && user != null)
-                        return buildCachedIdentifier(type, coinKey + "," + user);
-                }
-                return type;
-            }
-            default:
-                return type;
-        }
+        return type + ":" + suffix;
     }
 
     /**
@@ -1261,22 +1217,15 @@ public class WebsocketManager {
     /**
      * Get a copy of all current subscriptions, including those on dedicated connections.
      *
-     * @return A map of subscription identifiers to lists of active subscriptions
+     * @return A map of subscription identifiers to active subscriptions
      */
-    public Map<String, List<ActiveSubscription>> getSubscriptions() {
-        Map<String, List<ActiveSubscription>> copy = new HashMap<>();
-        for (Map.Entry<String, List<ActiveSubscription>> entry : subscriptions.entrySet()) {
-            copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
-        }
+    public Map<String, ActiveSubscription> getSubscriptions() {
+        Map<String, ActiveSubscription> copy = new HashMap<>(subscriptions);
         // Merge subscriptions from dedicated connections
         for (Map.Entry<String, WebsocketManager> entry : dedicatedConnections.entrySet()) {
-            Map<String, List<ActiveSubscription>> dedicatedSubs = entry.getValue().getSubscriptions();
-            for (Map.Entry<String, List<ActiveSubscription>> sub : dedicatedSubs.entrySet()) {
-                copy.merge(sub.getKey(), sub.getValue(), (existing, newList) -> {
-                    List<ActiveSubscription> merged = new ArrayList<>(existing);
-                    merged.addAll(newList);
-                    return merged;
-                });
+            Map<String, ActiveSubscription> dedicatedSubs = entry.getValue().getSubscriptions();
+            for (Map.Entry<String, ActiveSubscription> sub : dedicatedSubs.entrySet()) {
+                copy.merge(sub.getKey(), sub.getValue(), (existing, newSub) -> newSub);
             }
         }
         return copy;
@@ -1288,9 +1237,8 @@ public class WebsocketManager {
      * @param identifier The subscription identifier
      * @return A list of active subscriptions for the given identifier, or empty list if none
      */
-    public List<ActiveSubscription> getSubscriptionsByIdentifier(String identifier) {
-        List<ActiveSubscription> list = subscriptions.get(identifier);
-        return list != null ? new ArrayList<>(list) : Collections.emptyList();
+    public ActiveSubscription getSubscriptionsByIdentifier(String identifier) {
+        return subscriptions.get(identifier);
     }
 
     /**

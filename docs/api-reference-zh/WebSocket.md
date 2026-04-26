@@ -29,25 +29,25 @@
 | 方法 | 说明 |
 |------|------|
 | `void subscribe(Subscription subscription, MessageCallback callback)` | 等价于 `subscribeWithHandle` 但忽略返回值 |
-| `SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback)` | 类型安全；转为 JSON 后走 JsonNode 流程 |
+| `ActiveSubscription subscribeWithHandle(Subscription subscription, MessageCallback callback)` | 类型安全；转为 JSON 后走 JsonNode 流程 |
 | `void subscribe(JsonNode subscription, MessageCallback callback)` | 原始 JSON |
-| `SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | 返回句柄用于定向取消订阅 |
+| `ActiveSubscription subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | 返回 ActiveSubscription 用于定向取消订阅 |
 
-同一订阅 JSON 可对应**多个**不同 callback（内部按 identifier 分桶）。完全相同订阅 + 相同 callback 会返回已有句柄。
+完全相同订阅 + 相同 callback 会返回已有 ActiveSubscription。
 
-**注意：** `SubscriptionHandle` 和 `ActiveSubscription` 位于包 `io.github.hyperliquid.sdk.model.subscription`。
+**注意：** `ActiveSubscription` 位于包 `io.github.hyperliquid.sdk.model.subscription`。
 
 | 方法 | 说明 |
 |------|------|
 | `void unsubscribe(Subscription subscription)` | 按**内容相等**移除一条；若该 identifier 下无完全相同订阅体则发 `unsubscribe` |
 | `void unsubscribe(JsonNode subscription)` | 同上 |
-| `boolean unsubscribe(SubscriptionHandle handle)` | 按句柄 id 移除**一条**；若同 identifier 下仍有相同 subscription 副本则**不发**服务端 unsubscribe |
+| `boolean unsubscribe(ActiveSubscription activeSub)` | 按 id 移除一条 |
 | `boolean unsubscribe(long subscriptionId)` | 同上 |
 
 | 方法 | 说明 |
 |------|------|
-| `Map<String, List<ActiveSubscription>> getSubscriptions()` | 当前活跃订阅副本（含专属连接） |
-| `List<ActiveSubscription> getSubscriptionsByIdentifier(String identifier)` | 按路由 identifier |
+| `Map<String, ActiveSubscription> getSubscriptions()` | 当前活跃订阅副本（含专属连接） |
+| `ActiveSubscription getSubscriptionsByIdentifier(String identifier)` | 按路由 identifier |
 | `boolean hasSubscriptions()` | |
 | `int getSubscriptionCount()` | 不同 identifier 个数 |
 
@@ -72,7 +72,7 @@
 
 - 断线后：**指数退避**重连（初始约 1s + 抖动，上限受 `setReconnectBackoffMs` 与内部上限约束），**无限重试**直至 `stop()`。
 - 断线期间可启动**网络探测**：对 `baseUrl` 或 `setNetworkProbeUrl` 发 **HEAD**，成功则尽快重连。
-- `onFailure` / `onClosed` 由 `connected` 标志守卫，防止双重重连。
+- `onFailure` / `onClosed` 由 `disconnectClaimed` 守卫，防止双重重连并覆盖首次连接失败场景。
 
 | 方法 | 说明 |
 |------|------|
@@ -87,8 +87,8 @@
 
 - `l2Book:{coin}`、`trades:{coin}`、`bbo:{coin}`、`candle:{coin},{interval}`
 - `allMids`、`userEvents`、`orderUpdates`
-- `userFills:{user}`、`userFundings:{user}`、`userNonFundingLedgerUpdates:{user}`、`webData2:{user}`
-- `activeAssetCtx:{coin}`、`activeAssetData:{coin},{user}`
+- `userFills:{user}`、`userFundings:{user}`、`userNonFundingLedgerUpdates:{user}`、`webData2`
+- `activeAssetCtx:{coin}`、`activeAssetData:{coin},{user}`、`openOrders:{user}`、`clearinghouseState:{user}`、`spotState:{user}`
 
 **channel 映射说明：** 服务端对 `userEvents` 订阅发送 channel `"user"`，SDK 自动完成映射，用户无需额外操作。
 

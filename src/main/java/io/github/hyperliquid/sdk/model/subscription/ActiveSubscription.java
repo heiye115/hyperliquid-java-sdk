@@ -16,16 +16,16 @@ public class ActiveSubscription {
     /**
      * User callback for matching channel messages.
      */
-    public final io.github.hyperliquid.sdk.websocket.WebsocketManager.MessageCallback callback;
+    public final WebsocketManager.MessageCallback callback;
     /**
      * JVM-unique monotonic id assigned by the global {@code GLOBAL_SUB_ID} generator.
-     * Used for targeted unsubscribe via {@link io.github.hyperliquid.sdk.websocket.WebsocketManager#unsubscribe(long)}.
+     * Used for targeted unsubscribe via {@link WebsocketManager#unsubscribe(long)}.
      */
     public final long subscriptionId;
 
     /**
      * Legacy constructor: assigns {@link #subscriptionId} {@code 0} (not targetable by
-     * {@link io.github.hyperliquid.sdk.websocket.WebsocketManager#unsubscribe(long)}).
+     * {@link  WebsocketManager#unsubscribe(long)}).
      */
     public ActiveSubscription(JsonNode s, WebsocketManager.MessageCallback c) {
         this(s, c, 0L);

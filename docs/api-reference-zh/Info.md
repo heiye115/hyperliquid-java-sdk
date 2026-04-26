@@ -145,13 +145,13 @@
 | 方法 | 说明 |
 |------|------|
 | `void subscribe(Subscription subscription, MessageCallback callback)` | 类型安全订阅；内部会 **remap** `coin`（现货别名、`dex:COIN` 等） |
-| `SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback)` | 同上，返回可单独取消的句柄 |
+| `ActiveSubscription subscribeWithHandle(Subscription subscription, MessageCallback callback)` | 同上，返回可单独取消的 ActiveSubscription |
 | `void subscribe(JsonNode subscription, MessageCallback callback)` | 原始 JSON 订阅 |
-| `SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | |
-| `Map<String, List<ActiveSubscription>> getSubscriptions()` | 当前订阅快照 |
+| `ActiveSubscription subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | |
+| `Map<String, ActiveSubscription> getSubscriptions()` | 当前订阅快照 |
 | `void unsubscribe(Subscription subscription)` | 取消订阅 |
 | `void unsubscribe(JsonNode subscription)` | |
-| `boolean unsubscribe(SubscriptionHandle handle)` | 按句柄取消 |
+| `boolean unsubscribe(ActiveSubscription activeSub)` | 按 ActiveSubscription 取消 |
 | `boolean unsubscribe(long subscriptionId)` | 按句柄内 id 取消 |
 | `void closeWs()` | 关闭 WS |
 | `WebsocketManager getWsManager()` | 底层管理器；`skipWs` 时可能为 `null` |

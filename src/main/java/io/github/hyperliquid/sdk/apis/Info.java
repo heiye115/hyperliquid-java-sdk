@@ -1712,19 +1712,19 @@ public class Info {
     }
 
     /**
-     * Subscribe to WebSocket (type-safe) and return a handle for targeted unsubscribe.
+     * Subscribe to WebSocket (type-safe) and return an ActiveSubscription for targeted unsubscribe.
      * <p>
      * Equivalent to {@link #subscribe(Subscription, WebsocketManager.MessageCallback)} but returns
-     * a {@link SubscriptionHandle} so you can cancel this subscription by id
+     * an {@link ActiveSubscription} so you can cancel this subscription by id
      * without removing other callbacks for the same channel.
      * </p>
      *
      * @param subscription Subscription object (typed model)
      * @param callback     Message callback
-     * @return Handle carrying the server subscription payload and a unique local id
+     * @return ActiveSubscription carrying the server subscription payload and a unique local id
      * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
      */
-    public SubscriptionHandle subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
+    public ActiveSubscription subscribeWithHandle(Subscription subscription, WebsocketManager.MessageCallback callback) {
         requireWs();
         remapCoinInSubscription(subscription);
         return wsManager.subscribeWithHandle(subscription, callback);
@@ -1751,10 +1751,10 @@ public class Info {
      *
      * @param subscription Subscription JSON (must include {@code type}, and {@code coin} or {@code user} as required)
      * @param callback     Message callback
-     * @return Handle for {@link WebsocketManager#unsubscribe(SubscriptionHandle)} or {@link #unsubscribe(long)}
+     * @return ActiveSubscription for {@link WebsocketManager#unsubscribe(ActiveSubscription)} or {@link #unsubscribe(long)}
      * @throws HypeError When WebSocket is disabled ({@code skipWs=true})
      */
-    public SubscriptionHandle subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
+    public ActiveSubscription subscribeWithHandle(JsonNode subscription, WebsocketManager.MessageCallback callback) {
         requireWs();
         remapCoinInSubscription(subscription);
         return wsManager.subscribeWithHandle(subscription, callback);
@@ -1771,7 +1771,7 @@ public class Info {
      * @throws HypeError Thrown when WebSocket functionality is disabled
      *                   (skipWs=true)
      */
-    public Map<String, List<ActiveSubscription>> getSubscriptions() {
+    public Map<String, ActiveSubscription> getSubscriptions() {
         requireWs();
         return wsManager.getSubscriptions();
     }
@@ -1799,19 +1799,19 @@ public class Info {
     }
 
     /**
-     * Unsubscribe a single callback registration using the handle returned from
+     * Unsubscribe a single callback registration using the ActiveSubscription returned from
      * {@link #subscribeWithHandle(Subscription, WebsocketManager.MessageCallback)}.
      *
-     * @param handle Non-null handle from a prior {@code subscribeWithHandle} call
-     * @return {@code true} if a subscription entry was removed; {@code false} if WebSocket is disabled or handle not found
+     * @param activeSub Non-null ActiveSubscription from a prior {@code subscribeWithHandle} call
+     * @return {@code true} if a subscription entry was removed; {@code false} if WebSocket is disabled or not found
      */
-    public boolean unsubscribe(SubscriptionHandle handle) {
+    public boolean unsubscribe(ActiveSubscription activeSub) {
         if (isWsDisabled()) return false;
-        return wsManager.unsubscribe(handle);
+        return wsManager.unsubscribe(activeSub);
     }
 
     /**
-     * Unsubscribe by the numeric id from {@link  SubscriptionHandle#getSubscriptionId()}.
+     * Unsubscribe by the numeric id from {@link ActiveSubscription#getSubscriptionId()}.
      *
      * @param subscriptionId Positive id assigned when the subscription was registered
      * @return {@code true} if an entry was removed; {@code false} if not found, id invalid, or WebSocket disabled

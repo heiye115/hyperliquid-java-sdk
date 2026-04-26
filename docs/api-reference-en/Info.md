@@ -145,13 +145,13 @@ If the client was built with `skipWs(true)`, these throw `HypeError("WebSocket d
 | Method | Description |
 |--------|-------------|
 | `void subscribe(Subscription subscription, MessageCallback callback)` | Type-safe; **remaps** `coin` (spot aliases, `dex:COIN`, …) |
-| `SubscriptionHandle subscribeWithHandle(Subscription subscription, MessageCallback callback)` | Returns cancellable handle |
+| `ActiveSubscription subscribeWithHandle(Subscription subscription, MessageCallback callback)` | Returns cancellable ActiveSubscription |
 | `void subscribe(JsonNode subscription, MessageCallback callback)` | Raw JSON subscription |
-| `SubscriptionHandle subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | |
-| `Map<String, List<ActiveSubscription>> getSubscriptions()` | Snapshot of active subs |
+| `ActiveSubscription subscribeWithHandle(JsonNode subscription, MessageCallback callback)` | |
+| `Map<String, ActiveSubscription> getSubscriptions()` | Snapshot of active subs |
 | `void unsubscribe(Subscription subscription)` | Unsubscribe |
 | `void unsubscribe(JsonNode subscription)` | |
-| `boolean unsubscribe(SubscriptionHandle handle)` | By handle |
+| `boolean unsubscribe(ActiveSubscription activeSub)` | By ActiveSubscription |
 | `boolean unsubscribe(long subscriptionId)` | By id |
 | `void closeWs()` | Closes WS |
 | `WebsocketManager getWsManager()` | Underlying manager; null if `skipWs` |
