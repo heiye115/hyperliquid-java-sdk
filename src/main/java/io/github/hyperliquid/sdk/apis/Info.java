@@ -436,14 +436,6 @@ public class Info {
         return new DexQualifiedSymbol(dex, coin);
     }
 
-    /**
-     * Parsed representation of a dex-qualified symbol.
-     *
-     * @param dex  Perp dex name
-     * @param coin Symbol name inside the dex
-     */
-    private record DexQualifiedSymbol(String dex, String coin) {
-    }
 
     /**
      * Internal wrapper for sending /info requests.
